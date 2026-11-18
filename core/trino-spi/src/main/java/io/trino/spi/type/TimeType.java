@@ -70,11 +70,15 @@ public final class TimeType
     public static final TimeType TIME_PICOS = createTimeType(12);
 
     private final int precision;
+    private final long step;
+    private final Range range;
 
     private TimeType(int precision)
     {
         super(new TypeDescriptor(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
+        this.step = rescale(PICOSECONDS_PER_SECOND, precision, 0);
+        this.range = new Range(0L, PICOSECONDS_PER_DAY - step);
     }
 
     public static TimeType createTimeType(int precision)
@@ -115,7 +119,7 @@ public final class TimeType
     @Override
     public Optional<Range> getRange()
     {
-        return Optional.of(new Range(0L, PICOSECONDS_PER_DAY));
+        return Optional.of(range);
     }
 
     @Override
@@ -125,17 +129,17 @@ public final class TimeType
         if (0 == value) {
             return Optional.empty();
         }
-        return Optional.of(value - rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
+        return Optional.of(value - step);
     }
 
     @Override
     public Optional<Object> getNextValue(Object object)
     {
         long value = (long) object;
-        if (PICOSECONDS_PER_DAY == value) {
+        if ((long) range.getMax() == value) {
             return Optional.empty();
         }
-        return Optional.of(value + rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
+        return Optional.of(value + step);
     }
 
     @ScalarOperator(READ_VALUE)

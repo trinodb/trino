@@ -17,17 +17,24 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.Type;
-import org.junit.jupiter.api.Test;
+import io.trino.spi.type.Type.Range;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeType
         extends AbstractTestType
 {
+    private static final long NOON = 43_200_000_000_000_000L;
+
     public TestTimeType()
     {
         super(TIME_MILLIS, SqlTime.class, createTestBlock());
@@ -56,51 +63,45 @@ public class TestTimeType
         return ((Long) value) + 1;
     }
 
-    @Test
-    public void testRange()
+    @ParameterizedTest
+    @MethodSource("everyPrecisionDataProvider")
+    public void testRangeEveryPrecision(int precision, long maxValue, long step)
     {
-        Type.Range range = type.getRange().orElseThrow();
+        Range range = createTimeType(precision).getRange().orElseThrow();
         assertThat(range.getMin()).isEqualTo(0L);
-        assertThat(range.getMax()).isEqualTo(PICOSECONDS_PER_DAY);
+        assertThat(range.getMax()).isEqualTo(maxValue);
+        assertThat(maxValue + step).isEqualTo(PICOSECONDS_PER_DAY);
     }
 
-    @Test
-    public void testPreviousValue()
+    @ParameterizedTest
+    @MethodSource("everyPrecisionDataProvider")
+    public void testPreviousValueEveryPrecision(int precision, long maxValue, long step)
     {
-        long minValue = 0;
-        long maxValue = PICOSECONDS_PER_DAY;
-
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + 1_000_000_000))
-                .isEqualTo(Optional.of(minValue));
-
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEqualTo(Optional.of(1110_000_000_000L));
-
-        assertThat(type.getPreviousValue(maxValue - 1_000_000_000))
-                .isEqualTo(Optional.of(maxValue - 2_000_000_000));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - 1_000_000_000));
+        Type timeType = createTimeType(precision);
+        assertThat(timeType.getPreviousValue(0L)).isEqualTo(Optional.empty());
+        assertThat(timeType.getPreviousValue(step)).isEqualTo(Optional.of(0L));
+        assertThat(timeType.getPreviousValue(NOON)).isEqualTo(Optional.of(NOON - step));
+        assertThat(timeType.getPreviousValue(maxValue)).isEqualTo(Optional.of(maxValue - step));
     }
 
-    @Test
-    public void testNextValue()
+    @ParameterizedTest
+    @MethodSource("everyPrecisionDataProvider")
+    public void testNextValueEveryPrecision(int precision, long maxValue, long step)
     {
-        long minValue = 0;
-        long maxValue = PICOSECONDS_PER_DAY;
+        Type timeType = createTimeType(precision);
+        assertThat(timeType.getNextValue(0L)).isEqualTo(Optional.of(step));
+        assertThat(timeType.getNextValue(NOON)).isEqualTo(Optional.of(NOON + step));
+        assertThat(timeType.getNextValue(maxValue - step)).isEqualTo(Optional.of(maxValue));
+        assertThat(timeType.getNextValue(maxValue)).isEqualTo(Optional.empty());
+    }
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + 1_000_000_000));
-        assertThat(type.getNextValue(minValue + 1_000_000_000))
-                .isEqualTo(Optional.of(minValue + 2_000_000_000));
-
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEqualTo(Optional.of(1112_000_000_000L));
-
-        assertThat(type.getNextValue(maxValue - 1_000_000_000))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+    public static Stream<Arguments> everyPrecisionDataProvider()
+    {
+        return Stream.of(
+                Arguments.of(0, 86_399_000_000_000_000L, 1_000_000_000_000L),
+                Arguments.of(3, 86_399_999_000_000_000L, 1_000_000_000L),
+                Arguments.of(6, 86_399_999_999_000_000L, 1_000_000L),
+                Arguments.of(9, 86_399_999_999_999_000L, 1_000L),
+                Arguments.of(12, 86_399_999_999_999_999L, 1L));
     }
 }
