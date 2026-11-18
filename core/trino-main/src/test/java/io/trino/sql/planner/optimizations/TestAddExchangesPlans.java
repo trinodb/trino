@@ -135,26 +135,22 @@ public class TestAddExchangesPlans
                 anyTree(
                         aggregation(ImmutableMap.of(),
                                 anyTree(
-                                        anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("nation")))),
-                                        anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region"))))))));
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation"))),
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(
+                                                        tableScan("region")))))));
         assertDistributedPlan("SELECT nationkey FROM nation UNION select 1",
                 anyTree(
                         aggregation(ImmutableMap.of(),
                                 anyTree(
-                                        anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("nation")))),
-                                        anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))))));
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation"))),
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L))))))))));
     }
 
     @Test
@@ -1257,16 +1253,14 @@ public class TestAddExchangesPlans
                         exchange(LOCAL,
                                 REPARTITION,
                                 FIXED_HASH_DISTRIBUTION,
-                                project(
-                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
-                                                        PARTIAL,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))),
-                                project(
-                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
-                                                        PARTIAL,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))))));
+                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        aggregation(ImmutableMap.of("partial_sum_1", aggregationFunction("sum", ImmutableList.of("nationkey_1"))),
+                                                PARTIAL,
+                                                tableScan("nation", ImmutableMap.of("nationkey_1", "nationkey")))),
+                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        aggregation(ImmutableMap.of("partial_sum_2", aggregationFunction("sum", ImmutableList.of("nationkey_2"))),
+                                                PARTIAL,
+                                                tableScan("nation", ImmutableMap.of("nationkey_2", "nationkey")))))));
     }
 
     @Test
