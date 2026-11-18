@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
+import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -1678,5 +1679,110 @@ public abstract class AbstractTestAggregations
                 .matches("VALUES DECIMAL '-9000000000000000000000000000.0000000000'");
         assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '-4500000000000000000000000000.0000000000' FROM (VALUES 1, 2, 3, 4) t(x)) t(v)"))
                 .failure().hasMessageContaining("Decimal overflow");
+    }
+
+    @Test
+    public void testAggregationsSharingPartialAggregation()
+    {
+        String aggregations =
+                """
+                variance(extendedprice), var_samp(extendedprice), var_pop(extendedprice),
+                stddev(extendedprice), stddev_samp(extendedprice), stddev_pop(extendedprice),
+                variance(partkey), stddev_pop(partkey),
+                skewness(extendedprice), kurtosis(extendedprice), skewness(partkey), kurtosis(partkey),
+                covar_samp(extendedprice, discount), covar_pop(extendedprice, discount), covar_pop(discount, extendedprice),
+                covar_samp(CAST(extendedprice AS real), CAST(discount AS real)), covar_pop(CAST(extendedprice AS real), CAST(discount AS real)),
+                regr_slope(extendedprice, discount), regr_intercept(extendedprice, discount), regr_intercept(discount, extendedprice),
+                regr_slope(CAST(extendedprice AS real), CAST(discount AS real)), regr_intercept(CAST(extendedprice AS real), CAST(discount AS real))
+                """;
+
+        assertMatchesWithoutPartialAggregation("SELECT " + aggregations + " FROM lineitem");
+        assertMatchesWithoutPartialAggregation("SELECT returnflag, " + aggregations + " FROM lineitem GROUP BY returnflag");
+        assertMatchesWithoutPartialAggregation("SELECT " + aggregations + " FROM lineitem WHERE false");
+        assertMatchesWithoutPartialAggregation("SELECT returnflag, " + aggregations + " FROM lineitem WHERE false GROUP BY returnflag");
+        assertMatchesWithoutPartialAggregation(
+                "SELECT returnflag, linestatus, " + aggregations + " FROM lineitem GROUP BY GROUPING SETS ((returnflag), (linestatus), ())",
+                """
+                SELECT returnflag, NULL, %1$s FROM lineitem GROUP BY returnflag
+                UNION ALL
+                SELECT NULL, linestatus, %1$s FROM lineitem GROUP BY linestatus
+                UNION ALL
+                SELECT NULL, NULL, %1$s FROM lineitem
+                """.formatted(aggregations));
+    }
+
+    @Test
+    public void testAggregationsSharingPartialAggregationWithFilter()
+    {
+        assertMatchesWithoutPartialAggregation(
+                """
+                SELECT
+                    returnflag,
+                    stddev(extendedprice) FILTER (WHERE shipmode = 'AIR'),
+                    variance(extendedprice) FILTER (WHERE shipmode = 'AIR'),
+                    var_pop(extendedprice) FILTER (WHERE shipmode = 'RAIL'),
+                    stddev_pop(extendedprice),
+                    skewness(extendedprice) FILTER (WHERE shipmode = 'AIR'),
+                    kurtosis(extendedprice) FILTER (WHERE shipmode = 'RAIL'),
+                    covar_samp(extendedprice, discount) FILTER (WHERE shipmode = 'AIR'),
+                    covar_pop(extendedprice, discount) FILTER (WHERE shipmode = 'AIR'),
+                    regr_slope(extendedprice, discount) FILTER (WHERE shipmode = 'AIR'),
+                    regr_intercept(extendedprice, discount)
+                FROM lineitem
+                GROUP BY returnflag
+                """);
+        assertMatchesWithoutPartialAggregation(
+                """
+                SELECT
+                    stddev(extendedprice) FILTER (WHERE shipmode = 'AIR'),
+                    variance(extendedprice) FILTER (WHERE shipmode = 'AIR'),
+                    var_pop(extendedprice),
+                    covar_samp(extendedprice, discount) FILTER (WHERE shipmode = 'AIR'),
+                    covar_pop(extendedprice, discount)
+                FROM lineitem
+                """);
+    }
+
+    @Test
+    public void testAggregationsSharingPartialAggregationWithDistinct()
+    {
+        assertMatchesWithoutPartialAggregation(
+                """
+                SELECT
+                    returnflag,
+                    stddev(DISTINCT quantity),
+                    variance(DISTINCT quantity),
+                    var_pop(quantity),
+                    stddev_pop(quantity),
+                    kurtosis(DISTINCT quantity),
+                    kurtosis(quantity),
+                    count(DISTINCT partkey)
+                FROM lineitem
+                GROUP BY returnflag
+                """);
+        assertMatchesWithoutPartialAggregation(
+                """
+                SELECT
+                    stddev(DISTINCT quantity),
+                    variance(DISTINCT quantity),
+                    var_pop(quantity),
+                    stddev_pop(quantity),
+                    covar_samp(DISTINCT quantity, extendedprice),
+                    covar_pop(quantity, extendedprice)
+                FROM lineitem
+                """);
+    }
+
+    private void assertMatchesWithoutPartialAggregation(@Language("SQL") String query)
+    {
+        assertMatchesWithoutPartialAggregation(query, query);
+    }
+
+    private void assertMatchesWithoutPartialAggregation(@Language("SQL") String query, @Language("SQL") String expected)
+    {
+        Session withoutPartialAggregation = Session.builder(getSession())
+                .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                .build();
+        assertThat(query(query)).matches(withoutPartialAggregation, expected);
     }
 }

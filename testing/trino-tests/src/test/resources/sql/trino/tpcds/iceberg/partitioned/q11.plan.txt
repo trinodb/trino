@@ -10,7 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     intermediate aggregation over (c_customer_id_72, c_first_name_79, c_last_name_80, c_preferred_cust_flag_81, c_birth_country_85, c_login_86, c_email_address_87, d_year_123)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ss_customer_sk_93])
-                                                intermediate aggregation over (d_year_599, ss_customer_sk_93)
+                                                intermediate aggregation over (d_year_123, ss_customer_sk_93)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_customer_sk_93, ss_sold_date_sk_113)
                                                             dynamic filter (ss_customer_sk_93::EQUAL, ss_sold_date_sk_113::EQUAL)
@@ -28,7 +28,7 @@ local exchange (GATHER, SINGLE, [])
                                     intermediate aggregation over (c_customer_id_330, c_first_name_337, c_last_name_338, c_preferred_cust_flag_339, c_birth_country_343, c_login_344, c_email_address_345, d_year_392)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk_352])
-                                                intermediate aggregation over (d_year_602, ws_bill_customer_sk_352)
+                                                intermediate aggregation over (d_year_392, ws_bill_customer_sk_352)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_bill_customer_sk_352, ws_sold_date_sk_382)
                                                             dynamic filter (ws_bill_customer_sk_352::EQUAL, ws_sold_date_sk_382::EQUAL)
@@ -47,7 +47,7 @@ local exchange (GATHER, SINGLE, [])
                                     intermediate aggregation over (c_customer_id, c_first_name, c_last_name, c_preferred_cust_flag, c_birth_country, c_login, c_email_address, d_year)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ss_customer_sk])
-                                                intermediate aggregation over (d_year_605, ss_customer_sk)
+                                                intermediate aggregation over (d_year, ss_customer_sk)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_customer_sk, ss_sold_date_sk)
                                                             dynamic filter (ss_customer_sk::EQUAL, ss_sold_date_sk::EQUAL)
@@ -65,7 +65,7 @@ local exchange (GATHER, SINGLE, [])
                                     intermediate aggregation over (c_customer_id_509, c_first_name_516, c_last_name_517, c_preferred_cust_flag_518, c_birth_country_522, c_login_523, c_email_address_524, d_year_571)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk_531])
-                                                intermediate aggregation over (d_year_608, ws_bill_customer_sk_531)
+                                                intermediate aggregation over (d_year_571, ws_bill_customer_sk_531)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_bill_customer_sk_531, ws_sold_date_sk_561)
                                                             dynamic filter (ws_bill_customer_sk_531::EQUAL, ws_sold_date_sk_561::EQUAL)

@@ -197,12 +197,13 @@ public class AddIntermediateAggregations
      */
     private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
     {
+        // Aggregations reading the same intermediate state combine it the same way
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
             builder.put(input, entry.getValue());
         }
-        return builder.buildOrThrow();
+        return builder.buildKeepingLast();
     }
 }
