@@ -68,6 +68,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate
@@ -183,24 +184,37 @@ public class TupleDomainOrcPredicate
         }
 
         // Bloom filters for timestamps are truncated to millis
-        if (sqlType.equals(TIMESTAMP_MILLIS)) {
-            return bloomFilter.testLong(((Number) predicateValue).longValue());
-        }
-        if (sqlType.equals(TIMESTAMP_MICROS)) {
-            return bloomFilter.testLong(floorDiv(((Number) predicateValue).longValue(), MICROSECONDS_PER_MILLISECOND));
+        if (sqlType.equals(TIMESTAMP_MILLIS) || sqlType.equals(TIMESTAMP_MICROS)) {
+            long epochMicros = ((Number) predicateValue).longValue();
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            boolean onMillisecondBoundary = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) == 0;
+            return testMillisOrPreviousOnBoundary(bloomFilter, epochMillis, onMillisecondBoundary);
         }
         if (sqlType.equals(TIMESTAMP_NANOS)) {
             return bloomFilter.testLong(floorDiv(((LongTimestamp) predicateValue).getEpochMicros(), MICROSECONDS_PER_MILLISECOND));
         }
         if (sqlType.equals(TIMESTAMP_TZ_MILLIS)) {
-            return bloomFilter.testLong(unpackMillisUtc(((Number) predicateValue).longValue()));
+            return testMillisOrPreviousOnBoundary(bloomFilter, unpackMillisUtc(((Number) predicateValue).longValue()), true);
         }
-        if (sqlType.equals(TIMESTAMP_TZ_MICROS) || sqlType.equals(TIMESTAMP_TZ_NANOS)) {
+        if (sqlType.equals(TIMESTAMP_TZ_MICROS)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) predicateValue;
+            return testMillisOrPreviousOnBoundary(bloomFilter, timestamp.getEpochMillis(), timestamp.getPicosOfMilli() == 0);
+        }
+        if (sqlType.equals(TIMESTAMP_TZ_NANOS)) {
             return bloomFilter.testLong(((LongTimestampWithTimeZone) predicateValue).getEpochMillis());
         }
 
         // todo support DECIMAL, and CHAR
         return true;
+    }
+
+    // Reads below nanosecond precision round half up, so a value on a millisecond boundary may be stored under the previous millisecond
+    private static boolean testMillisOrPreviousOnBoundary(BloomFilter bloomFilter, long epochMillis, boolean onMillisecondBoundary)
+    {
+        if (bloomFilter.testLong(epochMillis)) {
+            return true;
+        }
+        return onMillisecondBoundary && bloomFilter.testLong(epochMillis - 1);
     }
 
     @VisibleForTesting
