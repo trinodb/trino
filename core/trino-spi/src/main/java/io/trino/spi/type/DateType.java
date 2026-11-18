@@ -16,6 +16,8 @@ package io.trino.spi.type;
 import io.trino.spi.block.Block;
 
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 //
 // A date is stored as days from 1970-01-01.
@@ -79,6 +81,12 @@ public final class DateType
             return Optional.empty();
         }
         return Optional.of(value + 1);
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
     }
 
     @Override

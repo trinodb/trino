@@ -16,6 +16,8 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableList;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
@@ -76,6 +78,47 @@ public class TestReadBloomFilter
                 ImmutableList.of(new SqlVarbinary("a".getBytes(UTF_8)), new SqlVarbinary("o".getBytes(UTF_8)), new SqlVarbinary("z".getBytes(UTF_8))),
                 utf8Slice("o"),
                 utf8Slice("w"));
+    }
+
+    @Test
+    public void testRange()
+            throws Exception
+    {
+        testRange(
+                DATE,
+                ImmutableList.of(new SqlDate(1), new SqlDate(5_000), new SqlDate(10_000)),
+                Range.range(DATE, 4_999L, true, 5_001L, true),
+                Range.range(DATE, 7_776L, true, 7_778L, true));
+        testRange(
+                TIMESTAMP_MILLIS,
+                ImmutableList.of(SqlTimestamp.fromMillis(3, 1), SqlTimestamp.fromMillis(3, 500_000L), SqlTimestamp.fromMillis(3, 1_000_000L)),
+                Range.range(TIMESTAMP_MILLIS, 499_999_000L, true, 500_001_000L, true),
+                Range.range(TIMESTAMP_MILLIS, 777_776_000L, true, 777_778_000L, true));
+    }
+
+    private static <T> void testRange(Type type, List<T> uniqueValues, Range inBloomFilter, Range notInBloomFilter)
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            writeOrcColumnHive(tempFile.getFile(), ORC_12, LZ4, type, newArrayList(limit(cycle(uniqueValues), 30_000)).iterator());
+
+            try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, rangePredicate(notInBloomFilter), type, MAX_BATCH_SIZE)) {
+                assertThat(recordReader.nextPage()).isNull();
+            }
+
+            try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, rangePredicate(inBloomFilter), type, MAX_BATCH_SIZE)) {
+                assertThat(recordReader.nextPage().getPage().getPositionCount()).isEqualTo(MAX_BATCH_SIZE);
+            }
+        }
+    }
+
+    private static TupleDomainOrcPredicate rangePredicate(Range range)
+    {
+        return TupleDomainOrcPredicate.builder()
+                .addColumn(new OrcColumnId(1), Domain.create(ValueSet.ofRanges(range), false))
+                .setBloomFiltersEnabled(true)
+                .setDomainCompactionThreshold(100)
+                .build();
     }
 
     private static <T> void testType(Type type, List<T> uniqueValues, T inBloomFilter, T notInBloomFilter)

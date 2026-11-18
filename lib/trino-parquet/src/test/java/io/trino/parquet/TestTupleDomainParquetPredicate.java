@@ -162,7 +162,7 @@ public class TestTupleDomainParquetPredicate
             ColumnDescriptor nanColumn = new ColumnDescriptor(new String[] {"nan"}, Types.required(type.equals(DOUBLE) ? PrimitiveTypeName.DOUBLE : FLOAT).named("nan"), 0, 0);
             ColumnDescriptor otherColumn = new ColumnDescriptor(new String[] {"other"}, Types.required(INT64).named("other"), 0, 0);
             List<ColumnPath> requested = new ArrayList<>();
-            BloomFilterStore store = recordingBloomFilterStore(requested);
+            BloomFilterStore store = recordingBloomFilterStore(requested, new BlockSplitBloomFilter(1024));
             TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
                     withColumnDomains(ImmutableMap.of(nanColumn, domain)), List.of(nanColumn), UTC);
             assertThat(predicate.matches(store, 256)).isTrue();
@@ -174,6 +174,19 @@ public class TestTupleDomainParquetPredicate
             assertThat(predicate.matches(store, 256)).isFalse();
             assertThat(requested).containsExactly(ColumnPath.get(otherColumn.getPath()));
         }
+    }
+
+    @Test
+    public void testBloomFilterForExpandedDateRange()
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"date"}, Types.required(INT32).named("date"), 0, 0);
+        TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
+                withColumnDomains(ImmutableMap.of(column, create(ValueSet.ofRanges(range(DATE, 10L, true, 12L, true)), false))), ImmutableList.of(column), UTC);
+        List<ColumnPath> requested = new ArrayList<>();
+        assertThat(predicate.matches(recordingBloomFilterStore(requested, intBloomFilter(11)), 256)).isTrue();
+        assertThat(predicate.matches(recordingBloomFilterStore(requested, intBloomFilter(20)), 256)).isFalse();
+        assertThat(requested).hasSize(2);
     }
 
     @Test
@@ -189,12 +202,12 @@ public class TestTupleDomainParquetPredicate
             List<ColumnPath> requested = new ArrayList<>();
             TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
                     withColumnDomains(ImmutableMap.of(column, domain)), ImmutableList.of(column), UTC);
-            assertThat(predicate.matches(recordingBloomFilterStore(requested), 256)).isTrue();
+            assertThat(predicate.matches(recordingBloomFilterStore(requested, new BlockSplitBloomFilter(1024)), 256)).isTrue();
             assertThat(requested).isEmpty();
         }
     }
 
-    private static BloomFilterStore recordingBloomFilterStore(List<ColumnPath> requested)
+    private static BloomFilterStore recordingBloomFilterStore(List<ColumnPath> requested, BloomFilter bloomFilter)
             throws IOException
     {
         return new BloomFilterStore(
@@ -207,9 +220,16 @@ public class TestTupleDomainParquetPredicate
             public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
             {
                 requested.add(columnPath);
-                return Optional.of(new BlockSplitBloomFilter(1024));
+                return Optional.of(bloomFilter);
             }
         };
+    }
+
+    private static BloomFilter intBloomFilter(int value)
+    {
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(1024);
+        bloomFilter.insertHash(bloomFilter.hash(value));
+        return bloomFilter;
     }
 
     @Test
