@@ -412,6 +412,21 @@ final class TestIcebergDefaultValue
     }
 
     @Test
+    void testSetNestedFieldDefault()
+    {
+        try (TestTable table = newTrinoTable("test_set_nested_default", "(id int, info ROW(name varchar, score integer DEFAULT 5)) WITH (format_version = 3)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN info.score SET DEFAULT 7");
+            Types.NestedField score = loadTable(table.getName()).schema().findField("info.score");
+            assertThat(score.initialDefault()).isEqualTo(5);
+            assertThat(score.writeDefault()).isEqualTo(7);
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("score integer DEFAULT 7");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN info.missing SET DEFAULT 1", ".*Field 'missing' does not exist in column 'info'.*");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN id.x SET DEFAULT 1", ".*Cannot resolve field 'x' within integer type.*");
+        }
+    }
+
+    @Test
     void testUnsupportedRowFieldDefaultOnFormatVersion2()
     {
         assertQueryFails(

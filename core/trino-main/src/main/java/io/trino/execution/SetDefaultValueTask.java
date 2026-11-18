@@ -27,6 +27,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
@@ -35,6 +36,7 @@ import io.trino.sql.tree.SetDefaultValue;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -97,9 +99,6 @@ public class SetDefaultValueTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         QualifiedName field = statement.getColumnName();
-        if (field.getOriginalParts().size() != 1) {
-            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
-        }
         String columnName = field.getOriginalParts().getFirst().getValue();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
@@ -116,6 +115,13 @@ public class SetDefaultValueTask
             throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
         }
         Expression defaultValue = statement.getDefaultValue();
+        if (field.getOriginalParts().size() > 1) {
+            List<String> fieldPath = field.getOriginalParts().stream().skip(1).map(Identifier::getValue).collect(toImmutableList());
+            NestedFieldResolver.ResolvedField resolved = NestedFieldResolver.resolve(statement, columnName, columnMetadata.getType(), fieldPath);
+            analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, resolved.type(), defaultValue);
+            metadata.setFieldDefaultValue(session, tableHandle, columnHandle, resolved.path(), defaultValue.toString());
+            return immediateVoidFuture();
+        }
         analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, columnMetadata.getType(), defaultValue);
 
         metadata.setDefaultValue(session, tableHandle, columnHandle, defaultValue.toString());

@@ -1066,6 +1066,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.setFieldDefaultValue(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, fieldPath, defaultValue);
+    }
+
+    @Override
     public void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();

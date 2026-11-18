@@ -731,6 +731,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the default value of the specified field, potentially nested, within a row column.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    default void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting default values for fields");
+    }
+
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)

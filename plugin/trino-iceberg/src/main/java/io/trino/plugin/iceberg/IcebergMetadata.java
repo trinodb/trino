@@ -3098,6 +3098,45 @@ public class IcebergMetadata
     }
 
     @Override
+    public void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        checkDefaultValueCompatibility(formatVersion(icebergTable), true);
+
+        NestedField field = findNestedField(icebergTable, (IcebergColumnHandle) column, fieldPath);
+        io.trino.spi.type.Type trinoType = toTrinoType(field.type(), typeManager);
+        Object parsed = parseDefaultValue(defaultValue, trinoType);
+        Literal<?> defaultLiteral = toIcebergLiteral(parsed, field.type());
+        updateFieldDefault(icebergTable, icebergTable.schema().findColumnName(field.fieldId()), defaultLiteral, "set");
+    }
+
+    private static NestedField findNestedField(Table icebergTable, IcebergColumnHandle column, List<String> fieldPath)
+    {
+        // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
+        String name = String.join(".", ImmutableList.<String>builder().add(column.getName()).addAll(fieldPath).build());
+        NestedField field = icebergTable.schema().caseInsensitiveFindField(name);
+        if (field == null) {
+            throw new TrinoException(COLUMN_NOT_FOUND, "Field '%s' does not exist".formatted(name));
+        }
+        return field;
+    }
+
+    private static void updateFieldDefault(Table icebergTable, String name, Literal<?> defaultLiteral, String action)
+    {
+        try {
+            icebergTable.updateSchema()
+                    .updateColumnDefault(name, defaultLiteral)
+                    .commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, "Failed to %s default value: ".formatted(action) + requireNonNullElse(e.getMessage(), e), e);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to %s default value: ".formatted(action) + requireNonNullElse(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());

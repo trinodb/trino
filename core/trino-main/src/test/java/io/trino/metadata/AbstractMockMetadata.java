@@ -398,6 +398,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue)
     {
         throw new UnsupportedOperationException();

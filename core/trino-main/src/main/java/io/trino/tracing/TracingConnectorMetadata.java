@@ -616,6 +616,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        Span span = startSpan("setFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setFieldDefaultValue(session, tableHandle, column, fieldPath, defaultValue);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Span span = startSpan("getNewTableLayout", tableMetadata.getTable());
