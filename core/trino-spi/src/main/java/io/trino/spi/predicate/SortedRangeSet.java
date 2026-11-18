@@ -692,6 +692,12 @@ public final class SortedRangeSet
         if (that.isNone()) {
             return that;
         }
+        if (this == that || that.isAll()) {
+            return this;
+        }
+        if (this.isAll()) {
+            return that;
+        }
         int thisRangeCount = this.getRangeCount();
         int thatRangeCount = that.getRangeCount();
 
@@ -715,8 +721,9 @@ public final class SortedRangeSet
         int thisRangeCount = this.getRangeCount();
         int thatRangeCount = that.getRangeCount();
 
-        boolean[] inclusive = new boolean[2 * (thisRangeCount + thatRangeCount)];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (thisRangeCount + thatRangeCount));
+        int maxPositions = 2 * min(thisRangeCount, thatRangeCount);
+        boolean[] inclusive = new boolean[maxPositions];
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, maxPositions);
         int resultRangeIndex = 0;
 
         int thisNextRangeIndex = 0;
@@ -760,11 +767,7 @@ public final class SortedRangeSet
             resultRangeIndex += size;
         }
 
-        if (resultRangeIndex * 2 < inclusive.length) {
-            inclusive = Arrays.copyOf(inclusive, resultRangeIndex * 2);
-        }
-
-        return new SortedRangeSet(type, inclusive, blockBuilder.build(), resultRangeIndex > 0 ? DISCRETE : NON_DISCRETE);
+        return buildIntersectionResult(blockBuilder, inclusive, resultRangeIndex > 0 ? DISCRETE : NON_DISCRETE);
     }
 
     // visible for testing
@@ -802,11 +805,7 @@ public final class SortedRangeSet
             }
         }
 
-        if (resultRangeIndex * 2 < inclusive.length) {
-            inclusive = Arrays.copyOf(inclusive, resultRangeIndex * 2);
-        }
-
-        return new SortedRangeSet(type, inclusive, blockBuilder.build(), intersectIsDiscreteSet(that, resultRangeIndex > 0));
+        return buildIntersectionResult(blockBuilder, inclusive, intersectIsDiscreteSet(that, resultRangeIndex > 0));
     }
 
     // visible for testing
@@ -862,9 +861,17 @@ public final class SortedRangeSet
                     return probeRangeSet;
                 }
             }
+            if (insertionStartIndex >= intersectionEndIndex) {
+                continue;
+            }
+            // Size the result for the overlapping candidates, not the entire probe set.
+            int requiredPositions = 2 * (resultIndex + intersectionEndIndex - insertionStartIndex);
             if (blockBuilder == null) {
-                blockBuilder = type.createBlockBuilder(null, 2 * (testEnd + probeEnd));
-                inclusive = new boolean[2 * (testEnd + probeEnd)];
+                blockBuilder = type.createBlockBuilder(null, requiredPositions);
+                inclusive = new boolean[requiredPositions];
+            }
+            else if (requiredPositions > inclusive.length) {
+                inclusive = Arrays.copyOf(inclusive, max(requiredPositions, inclusive.length * 2));
             }
             int probeIndex = insertionStartIndex;
             while (probeIndex < intersectionEndIndex) {
@@ -888,14 +895,25 @@ public final class SortedRangeSet
         }
 
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 0);
-            inclusive = new boolean[0];
-        }
-        if (resultIndex * 2 < inclusive.length) {
-            inclusive = Arrays.copyOf(inclusive, resultIndex * 2);
+            return none(type);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder.build(), intersectIsDiscreteSet(that, resultIndex > 0));
+        return buildIntersectionResult(blockBuilder, inclusive, intersectIsDiscreteSet(that, resultIndex > 0));
+    }
+
+    private SortedRangeSet buildIntersectionResult(BlockBuilder blockBuilder, boolean[] inclusive, DiscreteSetMarker discreteSetMarker)
+    {
+        Block ranges = blockBuilder.build();
+        int positionCount = ranges.getPositionCount();
+        // Builders retain their capacity. Drop oversized backing arrays when the intersection is selective.
+        if (positionCount < inclusive.length / 2) {
+            ranges = ranges.copyRegion(0, positionCount);
+        }
+        if (positionCount < inclusive.length) {
+            inclusive = Arrays.copyOf(inclusive, positionCount);
+        }
+
+        return new SortedRangeSet(type, inclusive, ranges, discreteSetMarker);
     }
 
     private DiscreteSetMarker intersectIsDiscreteSet(SortedRangeSet that, boolean nonEmpty)

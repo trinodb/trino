@@ -644,6 +644,58 @@ public class TestSortedRangeSet
         assertThat(result.isDiscreteSet()).isFalse();
     }
 
+    @Test
+    public void testIntersectionRetainedSize()
+    {
+        for (Type type : List.of(BIGINT, VARCHAR)) {
+            SortedRangeSet large = SortedRangeSet.of(type, LongStream.range(0, 10_000)
+                    .mapToObj(value -> intersectionValue(type, value * 4))
+                    .toList());
+            SortedRangeSet singleton = SortedRangeSet.of(type, intersectionValue(type, 20_000));
+            SortedRangeSet overlapping = SortedRangeSet.of(type, LongStream.range(5_000, 15_000)
+                    .mapToObj(value -> intersectionValue(type, value * 4 + (value == 5_000 ? 0 : 1)))
+                    .toList());
+
+            assertCompactIntersection(large.intersect(singleton), singleton);
+            assertCompactIntersection(singleton.intersect(large), singleton);
+            assertCompactIntersection(large.binarySearchIntersect(singleton), singleton);
+            assertCompactIntersection(large.linearDiscreteSetIntersect(overlapping), singleton);
+            assertCompactIntersection(large.linearSearchIntersect(overlapping), singleton);
+        }
+    }
+
+    @Test
+    public void testBinaryIntersectionGrowingResult()
+    {
+        SortedRangeSet points = SortedRangeSet.of(BIGINT, LongStream.range(0, 10_000).map(value -> value * 4).boxed().toList());
+        SortedRangeSet ranges = SortedRangeSet.of(
+                Range.lessThan(BIGINT, -1L),
+                Range.equal(BIGINT, 4L),
+                Range.range(BIGINT, 100L, false, 20_000L, true),
+                Range.greaterThan(BIGINT, 30_000L));
+        SortedRangeSet expected = SortedRangeSet.of(BIGINT, LongStream.range(0, 10_000)
+                .map(value -> value * 4)
+                .filter(value -> value == 4 || (value > 100 && value <= 20_000) || value > 30_000)
+                .boxed()
+                .toList());
+        assertIntersect(points, ranges, expected);
+    }
+
+    private static Object intersectionValue(Type type, long value)
+    {
+        if (type.equals(BIGINT)) {
+            return value;
+        }
+        return utf8Slice("%08d".formatted(value));
+    }
+
+    private static void assertCompactIntersection(SortedRangeSet actual, SortedRangeSet expected)
+    {
+        assertThat(actual).isEqualTo(expected);
+        // Allow representation overhead, but not backing arrays sized for the input sets.
+        assertThat(actual.getRetainedSizeInBytes()).isLessThan(1024);
+    }
+
     private void assertIntersect(SortedRangeSet first, SortedRangeSet second, SortedRangeSet result)
     {
         assertThat(first.intersect(second)).isEqualTo(result);
