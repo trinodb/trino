@@ -133,6 +133,29 @@ public abstract class AbstractTestAzureBlobFileSystemExchangeStorage
     }
 
     @Test
+    void testRepeatedWritesToExchangeFiles()
+    {
+        URI marker = fileUri("retry/marker");
+        getFutureValue(storage.createEmptyFile(marker));
+        getFutureValue(storage.createEmptyFile(marker));
+
+        int blockSize = storage.getWriteBufferSize();
+        for (int size : List.of(1, blockSize)) {
+            URI file = fileUri("retry/data-" + size);
+            Slice data = Slices.allocate(size);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                ExchangeStorageWriter writer = storage.createExchangeStorageWriter(file);
+                getFutureValue(writer.write(data));
+                getFutureValue(writer.finish());
+            }
+        }
+
+        assertThat(getFutureValue(storage.listFilesRecursively(directoryUri("retry/"))))
+                .extracting(FileStatus::getFileSize)
+                .containsExactlyInAnyOrder(0L, 1L, (long) blockSize);
+    }
+
+    @Test
     void testWriteAndListFiles()
     {
         URI fileUri = fileUri("test-dir/test-file");
