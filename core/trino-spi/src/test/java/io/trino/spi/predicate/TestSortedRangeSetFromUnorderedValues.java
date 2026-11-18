@@ -37,6 +37,7 @@ import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -92,6 +93,7 @@ public class TestSortedRangeSetFromUnorderedValues
                 new TypeCase(TINYINT, random -> (long) random.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE + 1)),
                 new TypeCase(DATE, random -> (long) random.nextInt(-10_000, 30_000)),
                 new TypeCase(BOOLEAN, Random::nextBoolean),
+                new TypeCase(createCharType(20), random -> randomSlice(random, 12)),
                 new TypeCase(VARCHAR, random -> randomSlice(random, 12)),
                 new TypeCase(VARCHAR, random -> randomSlice(random, 2)),
                 new TypeCase(VARBINARY, random -> randomSlice(random, 12)),
@@ -169,6 +171,51 @@ public class TestSortedRangeSetFromUnorderedValues
                 .containsExactly(earlier, warsaw, later);
         assertThat(SortedRangeSet.of(TIMESTAMP_TZ_MILLIS, List.of(utc, warsaw)).getDiscreteSet())
                 .containsExactly(utc);
+
+        List<Long> repeated = new ArrayList<>();
+        repeated.add(warsaw);
+        repeated.addAll(Collections.nCopies(10_000, utc));
+        repeated.add(later);
+        repeated.add(earlier);
+        SortedRangeSet compacted = SortedRangeSet.of(TIMESTAMP_TZ_MILLIS, repeated);
+        assertThat(compacted.getDiscreteSet()).containsExactly(earlier, warsaw, later);
+        assertThat(compacted.getRetainedSizeInBytes()).isLessThan(1024);
+    }
+
+    @Test
+    public void testDuplicateValuesRetainedSize()
+    {
+        List<TypeCase> cases = List.of(
+                new TypeCase(BOOLEAN, Random::nextBoolean),
+                new TypeCase(DOUBLE, TestSortedRangeSetFromUnorderedValues::randomDouble),
+                new TypeCase(REAL, random -> (long) floatToRawIntBits((float) randomDouble(random))),
+                new TypeCase(createCharType(20), random -> randomSlice(random, 12)),
+                new TypeCase(createDecimalType(30, 2), random -> Int128.valueOf(random.nextLong())),
+                new TypeCase(TIMESTAMP_NANOS, random -> new LongTimestamp(random.nextLong(-1_000, 1_000), random.nextInt(1_000) * 1_000)),
+                new TypeCase(TIMESTAMP_TZ_MILLIS, random -> packDateTimeWithZone(random.nextLong(-1_000, 1_000), "UTC")));
+        Random random = new Random(SEED);
+        for (TypeCase typeCase : cases) {
+            for (int distinctCount : List.of(1, 2, 16)) {
+                List<Object> pool = generateValues(typeCase, distinctCount, random);
+                List<Object> values = new ArrayList<>();
+                for (int index = 0; index < 10_000; index++) {
+                    values.add(pool.get(index % pool.size()));
+                }
+                Collections.shuffle(values, random);
+                String description = "type=%s, distinctCount=%s".formatted(typeCase.type(), distinctCount);
+                SortedRangeSet expected = SortedRangeSet.of(typeCase.type(), pool);
+                SortedRangeSet actual = SortedRangeSet.of(typeCase.type(), values);
+                assertSameAsReference(typeCase.type(), actual, values, description);
+                // Repeated inputs must not keep the original values block or oversized dictionary indexes alive.
+                assertThat(actual.getRetainedSizeInBytes()).as(description)
+                        .isLessThanOrEqualTo(expected.getRetainedSizeInBytes() + 1024);
+
+                SortedRangeSet varargs = SortedRangeSet.of(typeCase.type(), values.getFirst(), values.subList(1, values.size()).toArray());
+                assertThat(varargs).as(description).isEqualTo(actual);
+                assertThat(varargs.getRetainedSizeInBytes()).as(description)
+                        .isLessThanOrEqualTo(expected.getRetainedSizeInBytes() + 1024);
+            }
+        }
     }
 
     private static void assertSameAsReference(Type type, SortedRangeSet actual, List<Object> values, String description)
