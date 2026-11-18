@@ -933,8 +933,8 @@ created before the partitioning change.
 (iceberg-column-default-values)=
 #### Column default values
 
-The connector supports default values for top-level columns on tables that use
-format version 3.
+The connector supports default values for columns and for fields of `ROW`
+columns on tables that use format version 3.
 
 Default values are supported in the following statements:
 
@@ -963,6 +963,25 @@ SELECT * FROM example;
   1 | true
   2 | true
 ```
+
+Fields of a `ROW` column can have a default value. Specify `DEFAULT` in the
+field definition, or on the nested field in `ADD COLUMN`:
+
+```sql
+CREATE TABLE example_row (
+  id integer,
+  info ROW(name varchar, active boolean DEFAULT true)
+) WITH (format_version = 3);
+
+ALTER TABLE example_row ADD COLUMN info.score integer DEFAULT 5;
+```
+
+The connector stores the nested default as `initial-default` and
+`write-default` of the field. Reading a data file written before the field was
+added returns the `initial-default` for the field. Rows where the whole `ROW`
+value is `NULL` stay `NULL`. A nested default is not applied by `INSERT`: an
+omitted `ROW` column is `NULL`, and a `ROW` value must always provide all of its
+fields.
 
 (iceberg-alter-table-execute)=
 #### ALTER TABLE EXECUTE
