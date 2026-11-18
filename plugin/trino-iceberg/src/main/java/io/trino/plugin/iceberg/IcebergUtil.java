@@ -140,6 +140,8 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadat
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.applyFieldDefaults;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.collectFieldDefaults;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
@@ -500,6 +502,7 @@ public final class IcebergUtil
                     .setNullable(column.isOptional())
                     .setComment(Optional.ofNullable(column.doc()))
                     .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
+                    .setFieldDefaults(collectFieldDefaults(column.type()))
                     .build());
         }
         partitionColumn.ifPresent(column -> columns.add(partitionColumnMetadata(column)));
@@ -987,7 +990,7 @@ public final class IcebergUtil
         for (ColumnMetadata column : columns) {
             if (!column.isHidden()) {
                 int index = icebergColumns.size() + 1;
-                org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
+                org.apache.iceberg.types.Type type = applyFieldDefaults(toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getType(), column.getFieldDefaults());
                 NestedField.Builder fieldBuilder = NestedField.builder()
                         .withId(index)
                         .isOptional(column.isNullable())
