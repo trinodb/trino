@@ -307,6 +307,7 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_FIELD_DEFAULT_VALUE,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             case SUPPORTS_DEFAULT_COLUMN_VALUE -> formatVersion >= 3;
             default -> super.hasBehavior(connectorBehavior);
