@@ -12,8 +12,6 @@ catalog configuration properties. For more information on catalog configuration
 properties, refer to the {doc}`connector documentation </connector/>`.
 
 ```{toctree}
-:titlesonly: true
-
 General <properties-general>
 Client protocol <properties-client-protocol>
 HTTP server <properties-http-server>
