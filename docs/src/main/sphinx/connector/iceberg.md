@@ -983,6 +983,14 @@ value is `NULL` stay `NULL`. A nested default is not applied by `INSERT`: an
 omitted `ROW` column is `NULL`, and a `ROW` value must always provide all of its
 fields.
 
+Use `SET DEFAULT` and `DROP DEFAULT` with the path to the field to change the
+`write-default` of a nested field:
+
+```sql
+ALTER TABLE example_row ALTER COLUMN info.score SET DEFAULT 7;
+ALTER TABLE example_row ALTER COLUMN info.score DROP DEFAULT;
+```
+
 (iceberg-alter-table-execute)=
 #### ALTER TABLE EXECUTE
 
