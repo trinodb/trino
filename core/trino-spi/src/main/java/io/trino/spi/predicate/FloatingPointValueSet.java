@@ -316,7 +316,8 @@ public final class FloatingPointValueSet
     @Override
     public FloatingPointValueSet subtract(ValueSet other)
     {
-        return intersect(compatible(other).complement());
+        FloatingPointValueSet that = compatible(other);
+        return new FloatingPointValueSet(orderedValues.subtractRanges(that.orderedValues), nanAllowed && !that.nanAllowed);
     }
 
     @Override
