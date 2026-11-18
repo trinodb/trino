@@ -424,6 +424,28 @@ final class TestIcebergDefaultValue
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testNestedFieldInitialDefault(IcebergFileFormat format)
+    {
+        try (TestTable table = newTrinoTable("test_nested_initial_default", "WITH (format = '%s', format_version = 3) AS SELECT 1 id, CAST(ROW('a') AS ROW(name varchar)) info UNION ALL SELECT 2, NULL".formatted(format))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN info.active boolean DEFAULT true");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN info.score integer DEFAULT 5");
+
+            assertThat(query("SELECT id, info FROM " + table.getName()))
+                    .matches("VALUES (1, CAST(ROW('a', true, 5) AS ROW(name varchar, active boolean, score integer))), (2, CAST(NULL AS ROW(name varchar, active boolean, score integer)))");
+            assertThat(query("SELECT id, info.active, info.score FROM " + table.getName()))
+                    .matches("VALUES (1, true, 5), (2, CAST(NULL AS boolean), CAST(NULL AS integer))");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE info.active"))
+                    .matches("VALUES 1");
+
+            // rows written after the field was added carry the explicit value
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, ROW('c', false, 7))", 1);
+            assertThat(query("SELECT id, info.active, info.score FROM " + table.getName() + " WHERE id = 3"))
+                    .matches("VALUES (3, false, 7)");
+        }
+    }
+
     private BaseTable loadTable(String tableName)
     {
         return IcebergTestUtils.loadTable(
