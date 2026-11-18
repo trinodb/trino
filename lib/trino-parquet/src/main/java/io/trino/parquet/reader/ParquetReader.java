@@ -168,6 +168,8 @@ public class ParquetReader
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Map<ChunkKey, ChunkedInputStream> chunkReaders;
+    // Each entry is built while planning the reads and taken when its column chunk is opened, or dropped with its row group
+    private final Map<ChunkKey, FilteredOffsetIndex> filteredOffsetIndexes = new HashMap<>();
     private final Optional<ParquetWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
@@ -290,6 +292,7 @@ public class ParquetReader
                     ranges.put(new ChunkKey(columnId, rowGroup), range);
                 }
                 else {
+                    filteredOffsetIndexes.put(new ChunkKey(columnId, rowGroup), filteredOffsetIndex);
                     List<OffsetRange> offsetRanges = filteredOffsetIndex.calculateOffsetRanges(startingPosition);
                     for (OffsetRange offsetRange : offsetRanges) {
                         DiskRange range = new DiskRange(offsetRange.getOffset(), offsetRange.getLength());
@@ -317,6 +320,8 @@ public class ParquetReader
         // Release memory usage from column readers
         columnReaders.values().forEach(ColumnReader::close);
         columnReaders.clear();
+        // Release the offset indexes of the column chunks which were not opened
+        filteredOffsetIndexes.clear();
 
         for (ChunkedInputStream chunkedInputStream : chunkReaders.values()) {
             chunkedInputStream.close();
@@ -1096,7 +1101,9 @@ public class ParquetReader
         }
 
         for (PrimitiveField field : primitiveFields) {
-            ChunkedInputStream chunkedStream = chunkReaders.get(new ChunkKey(field.getId(), currentRowGroup));
+            ChunkKey chunkKey = new ChunkKey(field.getId(), currentRowGroup);
+            filteredOffsetIndexes.remove(chunkKey);
+            ChunkedInputStream chunkedStream = chunkReaders.get(chunkKey);
             if (chunkedStream != null) {
                 chunkedStream.close();
             }
@@ -1338,11 +1345,9 @@ public class ParquetReader
             validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
             ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(columnDescriptor);
             FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
-            OffsetIndex offsetIndex = null;
-            if (rowRanges != null) {
-                offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
-            }
-            ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
+            ChunkKey chunkKey = new ChunkKey(fieldId, currentRowGroup);
+            OffsetIndex offsetIndex = filteredOffsetIndexes.remove(chunkKey);
+            ChunkedInputStream columnChunkInputStream = chunkReaders.get(chunkKey);
             columnReader.setPageReader(
                     createPageReader(
                             dataSource.getId(),
