@@ -1,9 +1,12 @@
 name: setup
 description: "Verify checked out commits and setup Java"
 inputs:
+  java-distribution:
+    description: "Java distribution to setup"
+    default: corretto
   java-version:
     description: "Java version to setup"
-    default: 25.0.5
+    default: 25.0.5.1.2
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
@@ -58,7 +61,7 @@ runs:
       - uses: actions/setup-java@v6.2.0
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'temurin' # use same JDK distro as in Trino docker images
+          distribution: ${{ inputs.java-distribution }}
           java-version: ${{ inputs.java-version }}
           cache-jdk: true
       - name: Get Bun version from parent pom

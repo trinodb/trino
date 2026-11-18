@@ -35,9 +35,9 @@ Trino requires a 64-bit version of Java 25, with a minimum required version of
 such as Java 8, Java 11, Java 17, Java 21 or Java 24 do not work.
 Newer versions such as Java 26 are not supported -- they may work, but are not tested.
 
-We recommend using the Eclipse Temurin OpenJDK distribution from
-[Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
-against that distribution. Eclipse Temurin is also the JDK used by the [Trino
+We recommend using the [Amazon Corretto](https://aws.amazon.com/corretto/)
+OpenJDK distribution, as Trino is tested against that distribution.
+Amazon Corretto is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
 
 ## Installing Trino
