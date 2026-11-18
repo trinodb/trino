@@ -624,6 +624,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        Span span = startSpan("dropFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropFieldDefaultValue(session, tableHandle, column, fieldPath);
+        }
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
     {
         Span span = startSpan("dropTable", tableName);

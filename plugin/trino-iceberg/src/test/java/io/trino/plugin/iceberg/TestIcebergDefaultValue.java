@@ -427,6 +427,19 @@ final class TestIcebergDefaultValue
     }
 
     @Test
+    void testDropNestedFieldDefault()
+    {
+        try (TestTable table = newTrinoTable("test_drop_nested_default", "(id int, info ROW(name varchar, score integer DEFAULT 5)) WITH (format_version = 3)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN info.score DROP DEFAULT");
+            assertThat(loadTable(table.getName()).schema().findField("info.score").writeDefault()).isNull();
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).doesNotContain("DEFAULT");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN info.score DROP DEFAULT", ".*Field 'info.score' does not have a default value");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN info.missing DROP DEFAULT", ".*Field 'missing' does not exist in column 'info'.*");
+        }
+    }
+
+    @Test
     void testUnsupportedRowFieldDefaultOnFormatVersion2()
     {
         assertQueryFails(

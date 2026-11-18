@@ -3110,6 +3110,16 @@ public class IcebergMetadata
         updateFieldDefault(icebergTable, icebergTable.schema().findColumnName(field.fieldId()), defaultLiteral, "set");
     }
 
+    @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        checkDefaultValueCompatibility(formatVersion(icebergTable), true);
+
+        NestedField field = findNestedField(icebergTable, (IcebergColumnHandle) column, fieldPath);
+        updateFieldDefault(icebergTable, icebergTable.schema().findColumnName(field.fieldId()), null, "drop");
+    }
+
     private static NestedField findNestedField(Table icebergTable, IcebergColumnHandle column, List<String> fieldPath)
     {
         // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)

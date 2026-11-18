@@ -352,6 +352,11 @@ public interface Metadata
     void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue);
 
     /**
+     * Drop the default value of the specified field within the column.
+     */
+    void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid

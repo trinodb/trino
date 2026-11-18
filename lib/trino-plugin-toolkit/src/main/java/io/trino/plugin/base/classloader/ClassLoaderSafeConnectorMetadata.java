@@ -552,6 +552,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropFieldDefaultValue(session, tableHandle, column, fieldPath);
+        }
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

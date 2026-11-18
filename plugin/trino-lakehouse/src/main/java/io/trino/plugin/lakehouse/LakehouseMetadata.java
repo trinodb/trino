@@ -535,6 +535,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        forHandle(tableHandle).dropFieldDefaultValue(session, tableHandle, column, fieldPath);
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return forProperties(tableMetadata.getProperties()).getNewTableLayout(session, unwrapTableMetadata(tableMetadata));
