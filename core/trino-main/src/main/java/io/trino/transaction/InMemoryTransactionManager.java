@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.context.Context;
 import io.trino.NotInTransactionException;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Catalog;
@@ -488,9 +489,10 @@ public class InMemoryTransactionManager
             }
 
             CatalogHandle writeCatalogHandle = this.writtenCatalog.get();
+            Executor commitExecutor = Context.current().wrap(finishingExecutor);
             if (writeCatalogHandle == null) {
                 ListenableFuture<Void> future = asVoid(Futures.allAsList(activeCatalogs.values().stream()
-                        .map(catalog -> Futures.submit(catalog::commit, finishingExecutor))
+                        .map(catalog -> Futures.submit(catalog::commit, commitExecutor))
                         .collect(toList())));
                 addExceptionCallback(future, throwable -> {
                     abortInternal();
@@ -503,7 +505,7 @@ public class InMemoryTransactionManager
                 List<ListenableFuture<Void>> futures = activeCatalogs.entrySet().stream()
                         .filter(entry -> !entry.getKey().equals(writeCatalogHandle))
                         .map(Entry::getValue)
-                        .map(transactionMetadata -> Futures.submit(transactionMetadata::commit, finishingExecutor))
+                        .map(transactionMetadata -> Futures.submit(transactionMetadata::commit, commitExecutor))
                         .collect(toList());
                 ListenableFuture<Void> future = asVoid(Futures.allAsList(futures));
                 addExceptionCallback(future, throwable -> log.error(throwable, "Read-only connector should not throw exception on commit"));
@@ -511,7 +513,7 @@ public class InMemoryTransactionManager
             };
 
             CatalogMetadata writeCatalog = activeCatalogs.get(writeCatalogHandle);
-            ListenableFuture<Void> commitFuture = Futures.submit(writeCatalog::commit, finishingExecutor);
+            ListenableFuture<Void> commitFuture = Futures.submit(writeCatalog::commit, commitExecutor);
             ListenableFuture<Void> readOnlyCommitFuture = Futures.transformAsync(commitFuture, _ -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
             return nonCancellationPropagating(readOnlyCommitFuture);
