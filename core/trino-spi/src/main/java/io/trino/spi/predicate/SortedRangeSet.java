@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.StringJoiner;
@@ -1129,24 +1130,80 @@ public final class SortedRangeSet
         if (toUnion.size() == 1) {
             return toUnion.get(0);
         }
+        if (toUnion.size() == 2) {
+            return toUnion.get(0).union(toUnion.get(1));
+        }
         if (toUnion.stream().allMatch(rangeSet -> rangeSet.discreteSetMarker == DISCRETE)) {
             return kWayDiscreteSetUnion(toUnion);
         }
+        return kWayRangeUnion(toUnion);
+    }
 
-        // Logically this organizes all value sets (this and valueSets) into a binary tree and merges them pairwise, bottom-up.
-        // TODO merge non-discrete sets in one pass like kWayDiscreteSetUnion
-        while (toUnion.size() > 1) {
-            List<SortedRangeSet> unioned = new ArrayList<>((toUnion.size() + 1) / 2);
-            for (int i = 0; i < toUnion.size() - 1; i += 2) {
-                unioned.add(toUnion.get(i).union(toUnion.get(i + 1)));
+    private static SortedRangeSet kWayRangeUnion(List<SortedRangeSet> rangeSets)
+    {
+        PriorityQueue<RangeCursor> cursors = new PriorityQueue<>(rangeSets.size());
+        long totalRangeCount = 0;
+        for (SortedRangeSet rangeSet : rangeSets) {
+            cursors.add(new RangeCursor(rangeSet));
+            totalRangeCount += rangeSet.getRangeCount();
+        }
+        OrderedRangeSetBuilder builder = new OrderedRangeSetBuilder(rangeSets.getFirst().type, totalRangeCount);
+        RangeView current = null;
+        while (!cursors.isEmpty()) {
+            RangeCursor cursor = cursors.remove();
+            RangeView next = cursor.range;
+            if (current == null) {
+                current = next;
             }
-            if (toUnion.size() % 2 != 0) {
-                unioned.add(toUnion.getLast());
+            else {
+                Optional<RangeView> merged = current.tryMergeWithNext(next);
+                if (merged.isPresent()) {
+                    current = merged.get();
+                }
+                else {
+                    builder.add(current);
+                    current = next;
+                }
             }
-            toUnion = unioned;
+            if (current.isHighUnbounded()) {
+                break;
+            }
+            if (cursor.advance()) {
+                cursors.add(cursor);
+            }
+        }
+        builder.add(current);
+        return builder.build(UNKNOWN);
+    }
+
+    private static final class RangeCursor
+            implements Comparable<RangeCursor>
+    {
+        private final SortedRangeSet rangeSet;
+        private int index;
+        private RangeView range;
+
+        public RangeCursor(SortedRangeSet rangeSet)
+        {
+            this.rangeSet = rangeSet;
+            range = rangeSet.getRangeView(0);
         }
 
-        return toUnion.get(0);
+        public boolean advance()
+        {
+            index++;
+            if (index == rangeSet.getRangeCount()) {
+                return false;
+            }
+            range = rangeSet.getRangeView(index);
+            return true;
+        }
+
+        @Override
+        public int compareTo(RangeCursor other)
+        {
+            return range.compareTo(other.range);
+        }
     }
 
     @Override
@@ -1166,10 +1223,71 @@ public final class SortedRangeSet
     public ValueSet subtract(ValueSet other)
     {
         if (typeHasNaN(type) || other instanceof FloatingPointValueSet) {
-            // The complement of a proper subset excludes NaN even when this set includes it
             return FloatingPointValueSet.fromRanges(this).subtract(other);
         }
-        return intersect(other.complement());
+        return subtractRanges(checkCompatibility(other));
+    }
+
+    /// Subtracts ordered ranges without interpreting NaN membership.
+    SortedRangeSet subtractRanges(SortedRangeSet other)
+    {
+        SortedRangeSet that = checkCompatibility(other);
+        if (isNone() || that.isNone()) {
+            return this;
+        }
+        if (this == that || that.isAll()) {
+            return none(type);
+        }
+        if (isAll()) {
+            return that.complement();
+        }
+
+        OrderedRangeSetBuilder builder = new OrderedRangeSetBuilder(type, getRangeCount());
+        int removedIndex = 0;
+        for (int rangeIndex = 0; rangeIndex < getRangeCount(); rangeIndex++) {
+            RangeView remaining = getRangeView(rangeIndex);
+            while (removedIndex < that.getRangeCount()) {
+                RangeView removed = that.getRangeView(removedIndex);
+                if (removed.isFullyBefore(remaining)) {
+                    removedIndex++;
+                    continue;
+                }
+                if (remaining.isFullyBefore(removed)) {
+                    break;
+                }
+                if (remaining.compareLowBound(removed) < 0) {
+                    builder.add(new RangeView(
+                            type,
+                            comparisonOperator,
+                            rangeComparisonOperator,
+                            remaining.lowInclusive,
+                            remaining.lowValueBlock,
+                            remaining.lowValuePosition,
+                            !removed.lowInclusive,
+                            removed.lowValueBlock,
+                            removed.lowValuePosition));
+                }
+                if (remaining.compareHighBound(removed) <= 0) {
+                    remaining = null;
+                    break;
+                }
+                remaining = new RangeView(
+                        type,
+                        comparisonOperator,
+                        rangeComparisonOperator,
+                        !removed.highInclusive,
+                        removed.highValueBlock,
+                        removed.highValuePosition,
+                        remaining.highInclusive,
+                        remaining.highValueBlock,
+                        remaining.highValuePosition);
+                removedIndex++;
+            }
+            if (remaining != null) {
+                builder.add(remaining);
+            }
+        }
+        return builder.build(discreteSetMarker == DISCRETE ? DISCRETE : UNKNOWN);
     }
 
     public SortedRangeSet union(SortedRangeSet other)
@@ -1508,13 +1626,20 @@ public final class SortedRangeSet
 
         int thisRangeCount = this.getRangeCount();
         int thatRangeCount = that.getRangeCount();
+        boolean useBinarySearch = thisRangeCount * 0.02 > thatRangeCount;
         int thisRangeIndex = 0;
         RangeView thisRangeView = this.getRangeView(thisRangeIndex);
         for (int thatRangeIndex = 0; thatRangeIndex < thatRangeCount; thatRangeIndex++) {
             RangeView thatRangeView = that.getRangeView(thatRangeIndex);
             while (thisRangeView.isFullyBefore(thatRangeView)) {
-                thisRangeIndex++;
-                if (thisRangeIndex == thisRangeCount) {
+                if (useBinarySearch) {
+                    int index = findRangeInsertionPoint(this, thisRangeIndex + 1, thisRangeCount, thatRangeView.lowBound());
+                    thisRangeIndex = index >= 0 ? index : ~index;
+                }
+                else {
+                    thisRangeIndex++;
+                }
+                if (thisRangeIndex >= thisRangeCount) {
                     return false;
                 }
                 thisRangeView = this.getRangeView(thisRangeIndex);
@@ -1892,6 +2017,46 @@ public final class SortedRangeSet
     private static void checkNotNaN(Type type, Object value)
     {
         checkArgument(!isFloatingPointNaN(type, value), "cannot use NaN as range bound");
+    }
+
+    // Appends already sorted, disjoint ranges without materializing or sorting Range objects.
+    private static final class OrderedRangeSetBuilder
+    {
+        private final Type type;
+        private final BlockBuilder blockBuilder;
+        private boolean[] inclusive;
+        private int rangeCount;
+
+        public OrderedRangeSetBuilder(Type type, long expectedRanges)
+        {
+            this.type = type;
+            int initialPositions = 2 * (int) min(expectedRanges, 1024);
+            blockBuilder = type.createBlockBuilder(null, initialPositions);
+            inclusive = new boolean[initialPositions];
+        }
+
+        public void add(RangeView range)
+        {
+            int positions = 2 * (rangeCount + 1);
+            if (positions > inclusive.length) {
+                inclusive = Arrays.copyOf(inclusive, max(positions, inclusive.length * 2));
+            }
+            writeRange(blockBuilder, inclusive, rangeCount, range);
+            rangeCount++;
+        }
+
+        public SortedRangeSet build(DiscreteSetMarker marker)
+        {
+            if (rangeCount == 0) {
+                return none(type);
+            }
+            Block block = blockBuilder.build();
+            int positions = 2 * rangeCount;
+            if (positions < inclusive.length / 2) {
+                block = block.copyRegion(0, positions);
+            }
+            return new SortedRangeSet(type, Arrays.copyOf(inclusive, positions), block, marker);
+        }
     }
 
     private static class RangeView
