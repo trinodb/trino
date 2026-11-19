@@ -13,6 +13,7 @@
  */
 package io.trino.matching;
 
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -24,7 +25,7 @@ public final class CapturePattern<T>
 
     public CapturePattern(Capture<T> capture, Pattern<T> previous)
     {
-        super(previous);
+        super(Optional.of(previous), true);
         this.capture = requireNonNull(capture, "capture is null");
     }
 

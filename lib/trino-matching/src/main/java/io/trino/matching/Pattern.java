@@ -18,14 +18,20 @@ import com.google.common.collect.Iterables;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Spliterators;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.Spliterator.NONNULL;
+import static java.util.Spliterator.ORDERED;
 
 public abstract sealed class Pattern<T>
         permits CapturePattern,
@@ -37,6 +43,7 @@ public abstract sealed class Pattern<T>
                 WithPattern
 {
     private final Optional<Pattern<?>> previous;
+    private final boolean singleMatch;
 
     public static Pattern<Object> any()
     {
@@ -55,7 +62,18 @@ public abstract sealed class Pattern<T>
 
     protected Pattern(Optional<Pattern<?>> previous)
     {
+        this(previous, false);
+    }
+
+    Pattern(Optional<Pattern<?>> previous, boolean singleMatch)
+    {
         this.previous = requireNonNull(previous, "previous is null");
+        this.singleMatch = singleMatch && (previous.isEmpty() || previous.orElseThrow().singleMatch);
+    }
+
+    final boolean isSingleMatch()
+    {
+        return singleMatch;
     }
 
     // FIXME make sure there's a proper toString,
@@ -126,11 +144,56 @@ public abstract sealed class Pattern<T>
 
     public final <C> Stream<Match> match(Object object, Captures captures, C context)
     {
+        if (singleMatch) {
+            return StreamSupport.stream(new Spliterators.AbstractSpliterator<Match>(1, ORDERED | NONNULL)
+            {
+                private boolean consumed;
+
+                @Override
+                public boolean tryAdvance(Consumer<? super Match> action)
+                {
+                    requireNonNull(action, "action is null");
+                    if (consumed) {
+                        return false;
+                    }
+                    consumed = true;
+                    Captures result = matchCaptures(object, captures, context);
+                    if (result == null) {
+                        return false;
+                    }
+                    action.accept(Match.of(result));
+                    return true;
+                }
+            }, false);
+        }
         if (previous.isPresent()) {
             return previous.get().match(object, captures, context)
                     .flatMap(match -> accept(object, match.captures(), context));
         }
         return accept(object, captures, context);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <C> Captures matchCaptures(Object object, Captures captures, C context)
+    {
+        if (previous.isPresent()) {
+            captures = previous.orElseThrow().matchCaptures(object, captures, context);
+            if (captures == null) {
+                return null;
+            }
+        }
+        return switch (this) {
+            case TypeOfPattern<?> pattern -> pattern.expectedClass().isInstance(object) ? captures : null;
+            case EqualsPattern<?> pattern -> pattern.expectedValue().equals(object) ? captures : null;
+            case FilterPattern<?> pattern -> ((BiPredicate<Object, C>) pattern.predicate()).test(object, context) ? captures : null;
+            case CapturePattern<?> pattern -> captures.addAll(Captures.ofNullable((Capture<Object>) pattern.capture(), object));
+            case WithPattern<?> pattern -> {
+                BiFunction<Object, C, Optional<?>> property = (BiFunction<Object, C, Optional<?>>) pattern.getProperty().getFunction();
+                Optional<?> value = property.apply(object, context);
+                yield value.isPresent() ? pattern.getPattern().matchCaptures(value.orElseThrow(), captures, context) : null;
+            }
+            case OrPattern<?> _, CustomPattern<?> _ -> throw new IllegalStateException("Pattern can produce multiple matches");
+        };
     }
 
     @Override

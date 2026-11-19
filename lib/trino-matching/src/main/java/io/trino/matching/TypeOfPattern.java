@@ -30,7 +30,7 @@ public final class TypeOfPattern<T>
 
     public TypeOfPattern(Class<T> expectedClass, Optional<Pattern<?>> previous)
     {
-        super(previous);
+        super(previous, true);
         this.expectedClass = requireNonNull(expectedClass, "expectedClass is null");
     }
 

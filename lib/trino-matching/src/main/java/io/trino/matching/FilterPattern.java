@@ -26,7 +26,7 @@ public final class FilterPattern<T>
 
     public FilterPattern(BiPredicate<? super T, ?> predicate, Optional<Pattern<?>> previous)
     {
-        super(previous);
+        super(previous, true);
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 

@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -36,6 +38,7 @@ import static io.trino.matching.example.rel.Patterns.project;
 import static io.trino.matching.example.rel.Patterns.scan;
 import static io.trino.matching.example.rel.Patterns.source;
 import static io.trino.matching.example.rel.Patterns.tableName;
+import static java.util.Spliterator.ORDERED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -211,6 +214,79 @@ public class TestMatcher
         assertThat(pattern.match("object", wasContextUsed)
                 .collect(onlyElement())).isNotNull();
         assertThat(wasContextUsed.get()).isEqualTo(true);
+    }
+
+    @Test
+    public void singleMatchIsLazyAndShortCircuits()
+    {
+        AtomicInteger calls = new AtomicInteger();
+        Pattern<Integer> pattern = typeOf(Integer.class)
+                .matching(value -> {
+                    calls.incrementAndGet();
+                    return value > 0;
+                })
+                .matching(value -> {
+                    calls.incrementAndGet();
+                    return value < 10;
+                });
+        assertThat(pattern.match(5).spliterator().hasCharacteristics(ORDERED)).isTrue();
+        Stream<Match> matches = pattern.match(5);
+        assertThat(calls.get()).isZero();
+        assertThat(matches.findFirst()).isPresent();
+        assertThat(calls.get()).isEqualTo(2);
+
+        calls.set(0);
+        assertThat(pattern.match(-1).toList()).isEmpty();
+        assertThat(calls.get()).isEqualTo(1);
+        calls.set(0);
+        assertThat(pattern.match("wrong type").toList()).isEmpty();
+        assertThat(calls.get()).isZero();
+    }
+
+    @Test
+    public void multipleMatchesPreserveCaptures()
+    {
+        Capture<Integer> capture = newCapture();
+        Pattern<Integer> alternatives = typeOf(Integer.class)
+                .or(pattern -> pattern.matching(value -> value > 0), pattern -> pattern.matching(value -> value % 2 == 0))
+                .capturedAs(capture);
+        assertThat(alternatives.match(2).map(match -> match.capture(capture)).toList()).containsExactly(2, 2);
+        assertThat(alternatives.match(1).map(match -> match.capture(capture)).toList()).containsExactly(1);
+
+        Pattern<String> nested = typeOf(String.class)
+                .with(Property.property("length", String::length).matching(alternatives));
+        assertThat(nested.match("ab").map(match -> match.capture(capture)).toList()).containsExactly(2, 2);
+    }
+
+    @Test
+    public void customMatchesRemainLazyAndOrdered()
+    {
+        Capture<Integer> capture = newCapture();
+        AtomicInteger calls = new AtomicInteger();
+        Pattern<Integer> custom = new CustomPattern<>(typeOf(Integer.class))
+        {
+            @Override
+            public <C> Stream<Match> accept(Object object, Captures captures, C context)
+            {
+                return Stream.of(1, 2).map(value -> {
+                    calls.incrementAndGet();
+                    return Match.of(captures.addAll(Captures.ofNullable(capture, value)));
+                });
+            }
+
+            @Override
+            public String print()
+            {
+                return "two matches";
+            }
+        };
+        Pattern<Integer> pattern = custom.matching(value -> value > 0);
+        Stream<Match> matches = pattern.match(3);
+        assertThat(calls.get()).isZero();
+        assertThat(matches.findFirst().orElseThrow().capture(capture)).isEqualTo(1);
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(pattern.match(3).map(match -> match.capture(capture)).toList()).containsExactly(1, 2);
+        assertThat(pattern.match(3).parallel().map(match -> match.capture(capture)).toList()).containsExactly(1, 2);
     }
 
     private <T> Match assertMatch(Pattern<T> pattern, T object)

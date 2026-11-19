@@ -25,7 +25,7 @@ public final class EqualsPattern<T>
 
     public EqualsPattern(T expectedValue, Optional<Pattern<?>> previous)
     {
-        super(previous);
+        super(previous, true);
         this.expectedValue = requireNonNull(expectedValue, "expectedValue can't be null. Use isNull() pattern instead.");
     }
 

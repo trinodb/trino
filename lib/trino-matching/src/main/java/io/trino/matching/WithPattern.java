@@ -26,7 +26,7 @@ public final class WithPattern<T>
 
     public WithPattern(PropertyPattern<? super T, ?, ?> propertyPattern, Pattern<T> previous)
     {
-        super(previous);
+        super(Optional.of(previous), propertyPattern.getPattern().isSingleMatch());
         this.propertyPattern = requireNonNull(propertyPattern, "propertyPattern is null");
     }
 
