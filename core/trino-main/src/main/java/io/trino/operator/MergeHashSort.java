@@ -102,11 +102,23 @@ public class MergeHashSort
 
     private static PageWithPositionComparator createHashPageWithPositionComparator(HashGenerator hashGenerator)
     {
-        return (Page leftPage, int leftPosition, Page rightPage, int rightPosition) -> {
-            long leftHash = hashGenerator.hashPosition(leftPosition, leftPage);
-            long rightHash = hashGenerator.hashPosition(rightPosition, rightPage);
+        return new PageWithPositionComparator()
+        {
+            @Override
+            public int compareTo(Page leftPage, int leftPosition, Page rightPage, int rightPosition)
+            {
+                long leftHash = hashGenerator.hashPosition(leftPosition, leftPage);
+                long rightHash = hashGenerator.hashPosition(rightPosition, rightPage);
 
-            return Long.compare(leftHash, rightHash);
+                return Long.compare(leftHash, rightHash);
+            }
+
+            @Override
+            public long sortKeyPrefix(Page page, int position)
+            {
+                // rows are ordered by the hash alone
+                return hashGenerator.hashPosition(position, page);
+            }
         };
     }
 }

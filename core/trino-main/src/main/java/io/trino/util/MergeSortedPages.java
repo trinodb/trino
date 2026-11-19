@@ -111,6 +111,8 @@ public final class MergeSortedPages
         private static final int NO_SOURCE = -1;
         // the yield signal is volatile, so it is not read for every row
         private static final int ROWS_PER_YIELD_CHECK = 1024;
+        // makes a finished source lose against every row with a smaller sort key prefix without looking at its page
+        private static final long FINISHED_SOURCE_PREFIX = Long.MAX_VALUE;
 
         private final List<WorkProcessor<Page>> sources;
         private final PageWithPositionComparator comparator;
@@ -124,9 +126,11 @@ public final class MergeSortedPages
         private final LocalMemoryContext outputMemoryContext;
         private final LocalMemoryContext[] sourceMemoryContexts;
 
-        // head row of every source: its page, which is null when the source is finished or between pages, and position
+        // head row of every source: its page, which is null when the source is finished or between pages,
+        // position and sort key prefix
         private final Page[] pages;
         private final int[] positions;
+        private final long[] sortKeyPrefixes;
 
         // source that lost the match played in an internal node, the root is at index 1
         // and the leaf of a source is at index sources.size() + source
@@ -173,6 +177,7 @@ public final class MergeSortedPages
             }
             this.pages = new Page[sources.size()];
             this.positions = new int[sources.size()];
+            this.sortKeyPrefixes = new long[sources.size()];
             this.losers = new int[sources.size()];
         }
 
@@ -247,6 +252,7 @@ public final class MergeSortedPages
                 }
 
                 if (source.isFinished()) {
+                    sortKeyPrefixes[pendingSource] = FINISHED_SOURCE_PREFIX;
                     sourceMemoryContexts[pendingSource].close();
                 }
                 else {
@@ -256,6 +262,7 @@ public final class MergeSortedPages
                     }
                     pages[pendingSource] = page;
                     positions[pendingSource] = 0;
+                    sortKeyPrefixes[pendingSource] = comparator.sortKeyPrefix(page, 0);
                     sourceMemoryContexts[pendingSource].setBytes(page.getRetainedSizeInBytes());
                 }
 
@@ -279,6 +286,7 @@ public final class MergeSortedPages
             int nextPosition = position + 1;
             if (nextPosition < page.getPositionCount()) {
                 positions[source] = nextPosition;
+                sortKeyPrefixes[source] = comparator.sortKeyPrefix(page, nextPosition);
                 replayMatches(source);
                 return;
             }
@@ -379,6 +387,12 @@ public final class MergeSortedPages
 
         private boolean precedes(int first, int second)
         {
+            long firstPrefix = sortKeyPrefixes[first];
+            long secondPrefix = sortKeyPrefixes[second];
+            if (firstPrefix != secondPrefix) {
+                return firstPrefix < secondPrefix;
+            }
+
             Page firstPage = pages[first];
             if (firstPage == null) {
                 return false;
