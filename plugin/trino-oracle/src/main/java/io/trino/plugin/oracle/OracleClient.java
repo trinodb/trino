@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -39,6 +40,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -67,6 +69,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -217,6 +220,13 @@ public class OracleClient
             .add("xdb")
             .add("xs$null")
             .build();
+
+    private static final PredicatePushdownController ORACLE_EMPTY_STRING_AWARE_PUSHDOWN = (session, domain) -> {
+        if (domain.getValues().getRanges().getOrderedRanges().stream().anyMatch(OracleClient::hasEmptyStringBound)) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, domain);
+    };
 
     /**
      * Note the type mappings from trino -> oracle types can cause surprises since they are not invertible
@@ -617,14 +627,14 @@ public class OracleClient
                         charType,
                         charReadFunction(charType),
                         oracleCharWriteFunction(),
-                        FULL_PUSHDOWN));
+                        ORACLE_EMPTY_STRING_AWARE_PUSHDOWN));
             }
 
             case OracleTypes.VARCHAR, OracleTypes.NVARCHAR -> Optional.of(ColumnMapping.sliceMapping(
                     createVarcharType(typeHandle.requiredColumnSize()),
                     (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                     varcharWriteFunction(),
-                    FULL_PUSHDOWN));
+                    ORACLE_EMPTY_STRING_AWARE_PUSHDOWN));
 
             case OracleTypes.CLOB, OracleTypes.NCLOB -> Optional.of(ColumnMapping.sliceMapping(
                     createUnboundedVarcharType(),
@@ -653,6 +663,12 @@ public class OracleClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static boolean hasEmptyStringBound(Range range)
+    {
+        return range.getLowValue().map(Slice.class::cast).filter(value -> value.length() == 0).isPresent() ||
+                range.getHighValue().map(Slice.class::cast).filter(value -> value.length() == 0).isPresent();
     }
 
     private static ColumnMapping oracleTimestampColumnMapping(TimestampType timestampType)
