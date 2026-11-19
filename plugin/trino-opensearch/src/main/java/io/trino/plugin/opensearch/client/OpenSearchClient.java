@@ -581,7 +581,7 @@ public class OpenSearchClient
 
         String body;
         try {
-            body = EntityUtils.toString(response.getEntity());
+            body = EntityUtils.toString(response.getEntity(), Integer.MAX_VALUE);
         }
         catch (Exception e) {
             throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
