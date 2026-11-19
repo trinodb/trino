@@ -47,8 +47,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Header;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.values.bloomfilter.AdaptiveBlockSplitBloomFilter;
-import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -96,7 +94,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 final class ParquetWriters
 {
     private static final int DEFAULT_DICTIONARY_PAGE_SIZE = 1024 * 1024;
-    private static final int BLOOM_FILTER_CANDIDATES_NUMBER = 5;
 
     private ParquetWriters() {}
 
@@ -336,10 +333,10 @@ final class ParquetWriters
             int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
-            Optional<BloomFilter> bloomFilter = createBloomFilter(bloomFilterColumns, maxBloomFilterSize, bloomFilterFpp, columnDescriptor, trinoType);
+            Optional<FoldingBloomFilter> bloomFilter = createBloomFilter(bloomFilterColumns, maxBloomFilterSize, bloomFilterFpp, columnDescriptor, trinoType);
             return new PrimitiveColumnWriter(
                     columnDescriptor,
-                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
+                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter.map(FoldingBloomFilter::filter)), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
                     newDefinitionLevelWriter(columnDescriptor, maxPageSize),
                     newRepetitionLevelWriter(columnDescriptor, maxPageSize),
                     compressionCodec,
@@ -361,14 +358,14 @@ final class ParquetWriters
             return path;
         }
 
-        private static Optional<BloomFilter> createBloomFilter(Set<String> bloomFilterColumns, int maxBloomFilterSize, double bloomFilterFpp, ColumnDescriptor columnDescriptor, Type colummType)
+        private static Optional<FoldingBloomFilter> createBloomFilter(Set<String> bloomFilterColumns, int maxBloomFilterSize, double bloomFilterFpp, ColumnDescriptor columnDescriptor, Type colummType)
         {
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(colummType)) {
                 return Optional.empty();
             }
             String dotPath = String.join(".", columnDescriptor.getPath());
             if (bloomFilterColumns.contains(dotPath)) {
-                return Optional.of(new AdaptiveBlockSplitBloomFilter(maxBloomFilterSize, BLOOM_FILTER_CANDIDATES_NUMBER, bloomFilterFpp, columnDescriptor));
+                return Optional.of(new FoldingBloomFilter(maxBloomFilterSize, bloomFilterFpp));
             }
             return Optional.empty();
         }

@@ -868,7 +868,7 @@ public class TestParquetWriter
         // First bloom filter should start after the data of the last row-group
         assertThat(blocks.getFirst().columns().getFirst().getBloomFilterOffset()).isEqualTo(lastColumnEndOffset);
 
-        ImmutableList.Builder<Long> bloomFilterOffsetsBuilder = ImmutableList.builder();
+        long expectedOffset = lastColumnEndOffset;
         for (BlockMetadata block : blocks) {
             for (int i = 0; i < block.columns().size(); i++) {
                 ColumnChunkMetadata chunkMetaData = block.columns().get(i);
@@ -877,19 +877,11 @@ public class TestParquetWriter
                 assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isFalse();
                 assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
 
-                bloomFilterOffsetsBuilder.add(chunkMetaData.getBloomFilterOffset());
+                assertThat(chunkMetaData.getBloomFilterOffset()).isEqualTo(expectedOffset);
                 // The recorded length covers the Bloom filter header and the bitset
-                assertThat(chunkMetaData.getBloomFilterLength()).isBetween(65536 + 1, 65536 + 17);
+                assertThat(chunkMetaData.getBloomFilterLength()).isBetween(33, 4096 + 17);
+                expectedOffset += chunkMetaData.getBloomFilterLength();
             }
-        }
-        // Check that bloom filters are right after each other
-        List<Long> bloomFilterOffsets = bloomFilterOffsetsBuilder.build();
-        int bloomFilterSize = 65536;
-        for (int i = 1; i < bloomFilterOffsets.size(); i++) {
-            long previousOffset = bloomFilterOffsets.get(i - 1);
-            long currentOffset = bloomFilterOffsets.get(i);
-            assertThat(currentOffset).isGreaterThan(previousOffset);
-            assertThat(currentOffset - previousOffset).isLessThanOrEqualTo(bloomFilterSize + 17); // + 17 bytes for Bloom filter metadata
         }
 
         int rowGroupCount = blocks.size();
