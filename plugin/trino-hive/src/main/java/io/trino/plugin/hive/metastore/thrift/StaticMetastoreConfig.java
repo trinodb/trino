@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -61,5 +62,34 @@ public class StaticMetastoreConfig
     {
         this.metastoreUsername = metastoreUsername;
         return this;
+    }
+
+    public boolean isHttpTransport()
+    {
+        return metastoreUris != null && metastoreUris.stream().anyMatch(StaticMetastoreConfig::isHttpScheme);
+    }
+
+    public boolean isHttpsTransport()
+    {
+        return metastoreUris != null && metastoreUris.stream().anyMatch(uri -> "https".equals(uri.getScheme()));
+    }
+
+    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http and https URI schemes")
+    public boolean isMixedHttpAndHttpsMetastore()
+    {
+        return metastoreUris != null
+                && metastoreUris.stream().anyMatch(uri -> "http".equals(uri.getScheme()))
+                && isHttpsTransport();
+    }
+
+    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes")
+    public boolean isMixedThriftAndHttpMetastore()
+    {
+        return isHttpTransport() && metastoreUris.stream().anyMatch(uri -> "thrift".equals(uri.getScheme()));
+    }
+
+    private static boolean isHttpScheme(URI uri)
+    {
+        return "http".equals(uri.getScheme()) || "https".equals(uri.getScheme());
     }
 }

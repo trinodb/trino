@@ -36,11 +36,14 @@ public class TestHiveConnectorFactory
     {
         assertCreateConnector("thrift://localhost:1234");
         assertCreateConnector("thrift://localhost:1234,thrift://192.0.2.3:5678");
+        assertCreateConnector("http://localhost:9083/metastore");
+        assertCreateConnector("https://localhost/metastore,https://192.0.2.3/metastore");
 
         assertCreateConnectorFails("abc", "metastoreUri scheme is missing: abc");
         assertCreateConnectorFails("thrift://:8090", "metastoreUri host is missing: thrift://:8090");
         assertCreateConnectorFails("thrift://localhost", "metastoreUri port is missing: thrift://localhost");
-        assertCreateConnectorFails("abc::", "metastoreUri scheme must be thrift: abc::");
+        assertCreateConnectorFails("http:///metastore", "metastoreUri host is missing: http:///metastore");
+        assertCreateConnectorFails("abc::", "metastoreUri scheme must be thrift, http or https: abc::");
         assertCreateConnectorFails("", "metastoreUris must specify at least one URI");
         assertCreateConnectorFails("thrift://localhost:1234,thrift://test-1", "metastoreUri port is missing: thrift://test-1");
     }
