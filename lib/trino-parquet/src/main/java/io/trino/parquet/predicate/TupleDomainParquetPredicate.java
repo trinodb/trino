@@ -68,12 +68,14 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.math.LongMath.saturatedMultiply;
 import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.parquet.reader.ColumnReaderFactory.isDecimalRescaled;
+import static io.trino.parquet.reader.ColumnReaderFactory.isIntegerAnnotationAndPrimitive;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -401,6 +403,11 @@ public class TupleDomainParquetPredicate
                 }
             }
             else {
+                // Only a Hive coercion reads a long decimal from an integer column, and scaling these bounds could
+                // overflow the type with no check below to catch it
+                if (decimalType.getScale() > 0 && isIntegerColumn(column)) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
                 for (int i = 0; i < minimums.size(); i++) {
                     Int128 minValue = getLongDecimal(minimums.get(i), decimalType, column);
                     Int128 maxValue = getLongDecimal(maximums.get(i), decimalType, column);
@@ -536,7 +543,18 @@ public class TupleDomainParquetPredicate
                         columnType.getScale());
             }
         }
+        // An integer column holds the number itself rather than an unscaled value, which is how the reader and the Hive
+        // coercions turn it into a decimal. A bound too large for a long saturates, so the caller rejects it as an overflow
+        if (isIntegerColumn(column)) {
+            return saturatedMultiply(asLong(value), longTenToNth(columnType.getScale()));
+        }
         return value instanceof Slice slice ? getShortDecimalValue(slice.getBytes()) : asLong(value);
+    }
+
+    private static boolean isIntegerColumn(ColumnDescriptor column)
+    {
+        PrimitiveType primitiveType = column.getPrimitiveType();
+        return isIntegerAnnotationAndPrimitive(primitiveType.getLogicalTypeAnnotation(), primitiveType.getPrimitiveTypeName());
     }
 
     private static Int128 getLongDecimal(Object value, DecimalType columnType, ColumnDescriptor column)
