@@ -41,8 +41,6 @@ import static java.util.Objects.requireNonNull;
 public class AgentTablePrinter
         implements OutputPrinter
 {
-    static final int HEAD_ROWS = 20;
-    static final int TAIL_ROWS = 20;
     // rows read past the point where the output was cut before the query is stopped
     static final int EARLY_STOP_ROWS = 100_000;
     // results with fewer rows print without a footer
@@ -98,7 +96,8 @@ public class AgentTablePrinter
         requireNonNull(columns, "columns is null");
         this.writer = requireNonNull(writer, "writer is null");
         this.limits = requireNonNull(limits, "limits is null");
-        this.stopEarly = stopEarly;
+        // a query is not stopped when a limit was raised, as the output is expected to be larger
+        this.stopEarly = stopEarly && limits.withinDefaults();
         this.queryCompleted = requireNonNull(queryCompleted, "queryCompleted is null");
         List<String> names = columns.stream()
                 .map(column -> escape(truncate(column.getName()) + ":" + truncate(column.getType())))
@@ -112,14 +111,14 @@ public class AgentTablePrinter
         this.totalBytes = headerBytes;
         this.rowBudget = limits.maxBytes() > 0 ? max(0, limits.maxBytes() - headerBytes) : Long.MAX_VALUE;
         this.headBudget = rowBudget / 2;
-        // a row limit below the rows kept at both ends is split between them, so the output stays within it
+        // a result over the limits keeps the rows at both ends, which share the limits so the output stays within them
         if (limits.maxRows() > 0) {
-            this.headRows = min(HEAD_ROWS, limits.maxRows() - limits.maxRows() / 2);
-            this.tailRows = min(TAIL_ROWS, limits.maxRows() / 2);
+            this.headRows = limits.maxRows() - limits.maxRows() / 2;
+            this.tailRows = limits.maxRows() / 2;
         }
         else {
-            this.headRows = HEAD_ROWS;
-            this.tailRows = TAIL_ROWS;
+            this.headRows = Integer.MAX_VALUE;
+            this.tailRows = Integer.MAX_VALUE;
         }
         // nothing is cut, so the rows do not have to be kept
         this.streaming = limits.maxRows() <= 0 && limits.maxBytes() <= 0;
