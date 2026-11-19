@@ -15,7 +15,6 @@ package io.trino.plugin.pinot.query;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
-import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.spi.connector.ColumnHandle;
@@ -29,7 +28,6 @@ import org.apache.pinot.core.operator.transform.transformer.datetime.EpochToEpoc
 import org.apache.pinot.segment.spi.AggregationFunctionType;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -147,12 +145,8 @@ public class PinotExpressionRewriter
 
     private static <T> Optional<T> applyRule(RewriteRule<T> rule, T object, Context context)
     {
-        Iterator<Match> iterator = rule.getPattern().match(object).iterator();
-        while (iterator.hasNext()) {
-            Match match = iterator.next();
-            return Optional.of(rule.rewrite(object, match.captures(), context));
-        }
-        return Optional.empty();
+        return rule.getPattern().matchCursor(object).findFirst()
+                .map(captures -> rule.rewrite(object, captures, context));
     }
 
     private static class DateTimeConvertRewriteRule

@@ -15,7 +15,6 @@ package io.trino.matching;
 
 import java.util.Optional;
 import java.util.function.BiPredicate;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,14 +32,5 @@ public final class FilterPattern<T>
     public BiPredicate<? super T, ?> predicate()
     {
         return predicate;
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        // TODO remove cast
-        BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;
-        return Stream.of(Match.of(captures))
-                .filter(_ -> predicate.test((T) object, context));
     }
 }

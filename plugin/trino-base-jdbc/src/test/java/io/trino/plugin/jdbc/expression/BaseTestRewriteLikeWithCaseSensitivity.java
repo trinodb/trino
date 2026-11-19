@@ -14,7 +14,8 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -29,7 +30,6 @@ import java.sql.Types;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -41,11 +41,14 @@ public abstract class BaseTestRewriteLikeWithCaseSensitivity
 
     protected Optional<ParameterizedExpression> apply(Call expression)
     {
-        Optional<Match> match = getRewrite().getPattern().match(expression).collect(toOptional());
-        if (match.isEmpty()) {
+        MatchCursor cursor = getRewrite().getPattern().matchCursor(expression);
+        if (!cursor.matches()) {
             return Optional.empty();
         }
-        return getRewrite().rewrite(expression, match.get().captures(), new ConnectorExpressionRule.RewriteContext<>()
+        Captures captures = cursor.current();
+        assertThat(cursor.matches()).isFalse();
+
+        return getRewrite().rewrite(expression, captures, new ConnectorExpressionRule.RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
