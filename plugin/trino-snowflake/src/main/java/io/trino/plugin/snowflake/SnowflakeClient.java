@@ -77,6 +77,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Variant;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -100,6 +101,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
@@ -125,6 +127,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.snowflake.SnowflakeVariantParser.parseVariant;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -143,6 +146,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -233,7 +237,10 @@ public class SnowflakeClient
                 if (jdbcTypeName.equals("varchar")) {
                     yield Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
                 }
-                // Some other Snowflake types (ARRAY, VARIANT, GEOMETRY, etc.) are also mapped to Types.VARCHAR, but they're unsupported.
+                if (jdbcTypeName.equals("variant")) {
+                    yield Optional.of(variantColumnMapping());
+                }
+                // Some other Snowflake types (ARRAY, OBJECT, GEOMETRY, etc.) are also mapped to Types.VARCHAR, but they're unsupported.
                 yield getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
             }
             case Types.BINARY -> {
@@ -325,8 +332,11 @@ public class SnowflakeClient
     @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
+        // Snowflake compares VARIANT values differently than Trino
+        boolean hasVariantColumn = Stream.concat(groupingSets.stream().flatMap(List::stream), assignments.values().stream())
+                .anyMatch(column -> ((JdbcColumnHandle) column).getColumnType() == VARIANT);
         // Remote database can be case insensitive.
-        return preventTextualTypeAggregationPushdown(groupingSets);
+        return !hasVariantColumn && preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)
@@ -411,6 +421,22 @@ public class SnowflakeClient
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    private static ColumnMapping variantColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                VARIANT,
+                ObjectReadFunction.of(Variant.class, (resultSet, columnIndex) -> {
+                    try {
+                        return parseVariant(resultSet.getString(columnIndex));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new TrinoException(JDBC_ERROR, "Failed to read Snowflake VARIANT value: " + e.getMessage(), e);
+                    }
+                }),
+                ObjectWriteFunction.of(Variant.class, (_, _, _) -> { throw new TrinoException(NOT_SUPPORTED, "Writing VARIANT values is not supported"); }),
+                PredicatePushdownController.DISABLE_PUSHDOWN);
     }
 
     private static ColumnMapping timeColumnMapping(int precision)

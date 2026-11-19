@@ -155,6 +155,11 @@ this table:
 * - `TIMESTAMP_TZ`
   - `TIMESTAMP WITH TIME ZONE`
   - TIMESTAMP with time zone.
+* - `VARIANT`
+  - `VARIANT`
+  - Read only. Numbers with an exponent are read as `DOUBLE`, other numbers as
+    `DECIMAL` or integers. Dates, timestamps and binary values are read as
+    strings. Snowflake `undefined` values are read as `null`.
 :::
 
 No other types are supported.
