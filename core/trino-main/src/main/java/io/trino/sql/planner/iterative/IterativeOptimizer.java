@@ -44,6 +44,7 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.planprinter.PlanPrinter;
+import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -213,10 +214,13 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
-        Rule.Context ruleContext = ruleContext(context);
+        Rule.Context ruleContext = null;
         Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
+            if (ruleContext == null) {
+                ruleContext = ruleContext(context);
+            }
             long duration;
             Rule.Result result;
             try {
@@ -279,11 +283,13 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
-
         return new Rule.Context()
         {
+            @Nullable
+            private StatsProvider statsProvider;
+            @Nullable
+            private CostProvider costProvider;
+
             @Override
             public Lookup getLookup()
             {
@@ -311,12 +317,18 @@ public class IterativeOptimizer
             @Override
             public StatsProvider getStatsProvider()
             {
+                if (statsProvider == null) {
+                    statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
+                }
                 return statsProvider;
             }
 
             @Override
             public CostProvider getCostProvider()
             {
+                if (costProvider == null) {
+                    costProvider = new CachingCostProvider(costCalculator, getStatsProvider(), Optional.of(context.memo), context.session);
+                }
                 return costProvider;
             }
 
