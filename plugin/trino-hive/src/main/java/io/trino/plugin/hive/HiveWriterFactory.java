@@ -424,8 +424,14 @@ public class HiveWriterFactory
         Location path = writeInfo.writePath();
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
             String subdir = computeAcidSubdir(transaction);
-            String nameFormat = table != null && isInsertOnlyTable(table.getParameters()) ? "%05d_0" : "bucket_%05d";
-            path = path.appendPath(subdir).appendPath(nameFormat.formatted(bucketToUse));
+            String fileName;
+            if (table != null && isInsertOnlyTable(table.getParameters())) {
+                fileName = "%05d_0".formatted(bucketToUse) + getFileExtension(compressionCodec, outputStorageFormat);
+            }
+            else {
+                fileName = "bucket_%05d".formatted(bucketToUse);
+            }
+            path = path.appendPath(subdir).appendPath(fileName);
         }
         else {
             path = path.appendPath(computeFileName(bucketNumber) + getFileExtension(compressionCodec, outputStorageFormat));
