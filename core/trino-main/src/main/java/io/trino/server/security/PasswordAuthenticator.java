@@ -14,12 +14,15 @@
 package io.trino.server.security;
 
 import com.google.inject.Inject;
+import io.airlift.stats.CounterStat;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.MultivaluedMap;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.security.Principal;
 import java.util.Optional;
@@ -36,6 +39,8 @@ public class PasswordAuthenticator
     private final PasswordAuthenticatorManager authenticatorManager;
     private final UserMapping userMapping;
     private final Optional<String> alternateHeaderName;
+    private final CounterStat authenticationSuccess = new CounterStat();
+    private final CounterStat authenticationFailure = new CounterStat();
 
     @Inject
     public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config, ProtocolConfig protocolConfig)
@@ -62,12 +67,14 @@ public class PasswordAuthenticator
                 Optional<Identity> authenticatedIdentity = authenticator.createAuthenticatedIdentity(user, password);
                 if (authenticatedIdentity.isPresent()) {
                     Identity mappedIdentity = userMapping.mapIdentity(authenticatedIdentity.get());
+                    authenticationSuccess.update(1);
                     return rewriteUserHeaderToMappedUser(mappedIdentity, basicAuthCredentials, request.getHeaders());
                 }
                 Principal principal = authenticator.createAuthenticatedPrincipal(user, password);
                 Identity mappedIdentity = userMapping.mapIdentity(Identity.forUser(principal.toString())
                         .withPrincipal(principal)
                         .build());
+                authenticationSuccess.update(1);
                 return rewriteUserHeaderToMappedUser(mappedIdentity, basicAuthCredentials, request.getHeaders());
             }
             catch (UserMappingException | AccessDeniedException e) {
@@ -84,7 +91,22 @@ public class PasswordAuthenticator
         }
 
         verify(exception != null, "exception not set");
+        authenticationFailure.update(1);
         throw exception;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthenticationSuccess()
+    {
+        return authenticationSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthenticationFailure()
+    {
+        return authenticationFailure;
     }
 
     /**

@@ -44,6 +44,7 @@ import static io.airlift.http.server.HttpServerConfig.ProcessForwardedMode.ACCEP
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.server.security.ResourceSecurityBinder.resourceSecurityBinder;
 import static java.util.Locale.ENGLISH;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule
@@ -73,6 +74,8 @@ public class ServerSecurityModule
         install(authenticatorModule(securityConfig, "password", PasswordAuthenticator.class, _ -> {
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+            binder.bind(PasswordAuthenticator.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(PasswordAuthenticator.class).withGeneratedName();
         }));
         install(authenticatorModule(securityConfig, "header", HeaderAuthenticator.class, headerBinder -> {
             configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
