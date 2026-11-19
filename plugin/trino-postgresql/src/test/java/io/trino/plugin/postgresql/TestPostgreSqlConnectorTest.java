@@ -895,6 +895,25 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testLikeWithBackslashPredicatePushdown()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_like_with_backslash_predicate_pushdown",
+                "(id integer, a_varchar varchar(3))",
+                List.of(
+                        "1, 'x_y'",
+                        "2, 'x\\y'",
+                        "3, 'xy\\'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%\\_%'"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%\\'"))
+                    .matches("VALUES 3")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testLikeWithEscapePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%' ESCAPE '\\'"))
