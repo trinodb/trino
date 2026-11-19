@@ -24,6 +24,7 @@ import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -45,6 +46,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.WorkProcessorAssertion.processorFrom;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -53,6 +55,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static java.lang.Math.max;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergeSortedPages
@@ -488,6 +491,50 @@ public class TestMergeSortedPages
     }
 
     private record KeyAndId<T>(T key, long id) {}
+
+    @Test
+    public void testRunsLongerThanOutputPage()
+    {
+        // every source has the same three keys, so all rows of a source with the same key are selected one after another
+        int sourceCount = 4;
+        int rowsPerKey = 100_000;
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        ImmutableList.Builder<WorkProcessor<Page>> sources = ImmutableList.builder();
+        long largestInputPageSize = 0;
+        for (int source = 0; source < sourceCount; source++) {
+            ImmutableList.Builder<Page> pages = ImmutableList.builder();
+            for (long key = 0; key < 3; key++) {
+                BlockBuilder ids = BIGINT.createBlockBuilder(null, rowsPerKey);
+                for (int row = 0; row < rowsPerKey; row++) {
+                    BIGINT.writeLong(ids, source);
+                }
+                Page page = new Page(RunLengthEncodedBlock.create(BIGINT, key, rowsPerKey), ids.build());
+                largestInputPageSize = max(largestInputPageSize, page.getSizeInBytes());
+                pages.add(page);
+            }
+            sources.add(WorkProcessor.fromIterable(pages.build()));
+        }
+
+        List<Page> pages = drain(MergeSortedPages.mergeSortedPages(
+                sources.build(),
+                ORDERING_COMPILER.compilePageWithPositionComparator(ImmutableList.of(BIGINT), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST)),
+                types,
+                newSimpleAggregatedMemoryContext(),
+                new DriverYieldSignal()));
+
+        assertThat(pages).hasSizeGreaterThan(1);
+        long row = 0;
+        for (Page page : pages) {
+            assertThat(page.getSizeInBytes()).isLessThanOrEqualTo(DEFAULT_MAX_PAGE_SIZE_IN_BYTES + largestInputPageSize);
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                // rows are ordered by the key and then by the source
+                assertThat(BIGINT.getLong(page.getBlock(0), position)).isEqualTo(row / (sourceCount * (long) rowsPerKey));
+                assertThat(BIGINT.getLong(page.getBlock(1), position)).isEqualTo((row / rowsPerKey) % sourceCount);
+                row++;
+            }
+        }
+        assertThat(row).isEqualTo(3L * sourceCount * rowsPerKey);
+    }
 
     @Test
     public void testComparesOncePerTreeLevel()

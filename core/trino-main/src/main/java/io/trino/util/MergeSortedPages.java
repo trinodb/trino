@@ -25,6 +25,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.stream.IntStream;
@@ -56,7 +57,9 @@ public final class MergeSortedPages
     }
 
     /**
-     * Merges sorted pages into pages that are finished when they are full.
+     * Merges sorted pages into pages that are finished when they are full. Rows selected one after another
+     * from the same page are copied together, so an output page can exceed the page size limit by the size
+     * of such a run, which is at most one input page.
      */
     public static WorkProcessor<Page> mergeSortedPages(
             List<WorkProcessor<Page>> pageProducers,
@@ -66,7 +69,7 @@ public final class MergeSortedPages
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
-        return WorkProcessor.create(new MergeProcess(pageProducers, comparator, outputChannels, outputTypes, WHEN_FULL, false, aggregatedMemoryContext, yieldSignal));
+        return WorkProcessor.create(new MergeProcess(pageProducers, comparator, outputChannels, outputTypes, WHEN_FULL, true, false, aggregatedMemoryContext, yieldSignal));
     }
 
     /**
@@ -82,7 +85,7 @@ public final class MergeSortedPages
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
-        return WorkProcessor.create(new MergeProcess(pageProducers, comparator, outputChannels, outputTypes, pageBreakPredicate, updateMemoryAfterEveryPosition, aggregatedMemoryContext, yieldSignal));
+        return WorkProcessor.create(new MergeProcess(pageProducers, comparator, outputChannels, outputTypes, pageBreakPredicate, false, updateMemoryAfterEveryPosition, aggregatedMemoryContext, yieldSignal));
     }
 
     @FunctionalInterface
@@ -113,6 +116,8 @@ public final class MergeSortedPages
         private final PageWithPositionComparator comparator;
         private final int[] outputChannels;
         private final PageBreakPredicate pageBreakPredicate;
+        // a run of rows can be copied at once only when the page break predicate does not have to see every row
+        private final boolean copyRuns;
         private final boolean updateMemoryAfterEveryPosition;
         private final DriverYieldSignal yieldSignal;
         private final PageBuilder pageBuilder;
@@ -131,6 +136,12 @@ public final class MergeSortedPages
         // source that has to load its next page before the next winner is known, at first every source in turn
         private int pendingSource;
 
+        // rows selected one after another from the same page that are not copied to the page builder yet
+        @Nullable
+        private Page runPage;
+        private int runStart;
+        private int runLength;
+
         private boolean lastProcessYielded;
 
         private MergeProcess(
@@ -139,6 +150,7 @@ public final class MergeSortedPages
                 List<Integer> outputChannels,
                 List<Type> outputTypes,
                 PageBreakPredicate pageBreakPredicate,
+                boolean copyRuns,
                 boolean updateMemoryAfterEveryPosition,
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DriverYieldSignal yieldSignal)
@@ -148,6 +160,7 @@ public final class MergeSortedPages
             this.comparator = requireNonNull(comparator, "comparator is null");
             this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
             this.pageBreakPredicate = requireNonNull(pageBreakPredicate, "pageBreakPredicate is null");
+            this.copyRuns = copyRuns;
             this.updateMemoryAfterEveryPosition = updateMemoryAfterEveryPosition;
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
             this.pageBuilder = new PageBuilder(requireNonNull(outputTypes, "outputTypes is null"));
@@ -191,14 +204,23 @@ public final class MergeSortedPages
                 }
                 int position = positions[source];
 
-                Page outputPage = null;
-                if (pageBreakPredicate.test(pageBuilder, page, position)) {
-                    outputPage = buildPage();
+                if (copyRuns && page == runPage) {
+                    runLength++;
+                    advance(source, page, position);
                 }
-                appendRow(page, position);
-                advance(source, page, position);
-                if (outputPage != null) {
-                    return ProcessState.ofResult(outputPage);
+                else {
+                    copyRun();
+                    Page outputPage = null;
+                    if (pageBreakPredicate.test(pageBuilder, page, position)) {
+                        outputPage = buildPage();
+                    }
+                    runPage = page;
+                    runStart = position;
+                    runLength = 1;
+                    advance(source, page, position);
+                    if (outputPage != null) {
+                        return ProcessState.ofResult(outputPage);
+                    }
                 }
 
                 rowsUntilYieldCheck--;
@@ -261,6 +283,8 @@ public final class MergeSortedPages
                 return;
             }
 
+            // rows selected from the page have to be copied before the page is released
+            copyRun();
             pages[source] = null;
             sourceMemoryContexts[source].setBytes(0);
             pendingSource = source;
@@ -268,6 +292,7 @@ public final class MergeSortedPages
 
         private ProcessState<Page> finish()
         {
+            copyRun();
             if (pageBuilder.isEmpty()) {
                 outputMemoryContext.close();
                 return ProcessState.finished();
@@ -275,13 +300,26 @@ public final class MergeSortedPages
             return ProcessState.ofResult(buildPage());
         }
 
-        private void appendRow(Page page, int position)
+        private void copyRun()
         {
-            for (int channel = 0; channel < outputChannels.length; channel++) {
-                Block block = page.getBlock(outputChannels[channel]);
-                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+            if (runLength == 0) {
+                return;
             }
-            pageBuilder.declarePosition();
+
+            if (runLength == 1) {
+                for (int channel = 0; channel < outputChannels.length; channel++) {
+                    Block block = runPage.getBlock(outputChannels[channel]);
+                    pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(runStart));
+                }
+            }
+            else {
+                for (int channel = 0; channel < outputChannels.length; channel++) {
+                    pageBuilder.getBlockBuilder(channel).appendBlockRange(runPage.getBlock(outputChannels[channel]), runStart, runLength);
+                }
+            }
+            pageBuilder.declarePositions(runLength);
+            runPage = null;
+            runLength = 0;
 
             if (updateMemoryAfterEveryPosition) {
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
