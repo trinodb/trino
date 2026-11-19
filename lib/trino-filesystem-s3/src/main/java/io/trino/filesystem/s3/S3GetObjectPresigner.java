@@ -22,7 +22,6 @@ import java.io.IOException;
  * Creates presigned URIs for reading objects. Either the plain AWS SDK presigner, or
  * {@link S3PresignedUriGenerator} when {@code s3.presigned-uri.lifetime-validation.enabled} is set.
  */
-@FunctionalInterface
 interface S3GetObjectPresigner
         extends AutoCloseable
 {
@@ -30,5 +29,5 @@ interface S3GetObjectPresigner
             throws IOException;
 
     @Override
-    default void close() {}
+    void close();
 }

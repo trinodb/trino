@@ -52,22 +52,22 @@ final class S3PresigningCredentials
         this.clock = requireNonNull(clock, "clock is null");
     }
 
-    public synchronized AwsCredentials resolve(Duration ttl)
+    public synchronized AwsCredentials resolve(Duration requiredTtl)
             throws IOException
     {
-        // Credentials without an expiration, such as static keys, can be rotated and revoked at any time without notice, so ask the provider every time
-        if (cached.isPresent() && cached.orElseThrow().expirationTime().isPresent() && covers(cached.orElseThrow(), clock.instant().plus(ttl))) {
+        if (cached.isPresent() && isValidAtLeastUntil(cached.orElseThrow(), clock.instant().plus(requiredTtl))) {
             return cached.orElseThrow();
         }
 
         AwsCredentials credentials = provider.resolveCredentials();
-        if (!covers(credentials, clock.instant().plus(ttl))) {
+        if (!isValidAtLeastUntil(credentials, clock.instant().plus(requiredTtl))) {
             // Temporary credentials without an expiration cannot provide a lifetime guarantee.
             requireKnownExpiration(credentials);
             credentials = refresh();
         }
-        validate(credentials, clock.instant().plus(ttl));
-        cached = Optional.of(credentials);
+        validate(credentials, clock.instant().plus(requiredTtl));
+        // Credentials without expiration, such as static keys, can be revoked at any time without notice, so don't reuse them.
+        cached = credentials.expirationTime().isPresent() ? Optional.of(credentials) : Optional.empty();
         return credentials;
     }
 
@@ -92,7 +92,7 @@ final class S3PresigningCredentials
                 }
             }
             default -> {
-                // Other providers may refresh on resolution. Never use a different credential source.
+                // Other providers may refresh on resolution.
                 return provider.resolveCredentials();
             }
         }
@@ -102,17 +102,18 @@ final class S3PresigningCredentials
             throws IOException
     {
         requireKnownExpiration(credentials);
-        if (!covers(credentials, uriExpiration)) {
+        if (!isValidAtLeastUntil(credentials, uriExpiration)) {
             throw new TrinoFileSystemException("S3 signing credentials do not cover the requested URI lifetime. " +
                     "Use a shorter URI TTL or configure a longer role session duration");
         }
     }
 
-    private static boolean covers(AwsCredentials credentials, Instant uriExpiration)
+    private static boolean isValidAtLeastUntil(AwsCredentials credentials, Instant uriExpiration)
     {
         if (credentials.expirationTime().isPresent()) {
             return !credentials.expirationTime().orElseThrow().isBefore(uriExpiration);
         }
+        // Session credentials without a known expiration may expire before the URI; other types (e.g. static keys) do not expire
         return !(credentials instanceof AwsSessionCredentialsIdentity);
     }
 
