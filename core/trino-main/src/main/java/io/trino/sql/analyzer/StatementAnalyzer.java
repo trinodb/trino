@@ -55,6 +55,7 @@ import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -796,6 +797,8 @@ class StatementAnalyzer
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
+            ViewHandle materializedViewHandle = metadata.getViewHandle(session, name)
+                    .orElseThrow(() -> semanticException(INVALID_VIEW, refreshMaterializedView, "Materialized view '%s' does not exist", name));
 
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
@@ -815,7 +818,13 @@ class StatementAnalyzer
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable));
 
-            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name, false).getFreshness() == FRESH);
+            MaterializedViewFreshness freshness = metadata.getMaterializedViewFreshness(session, name, false);
+            if (freshness.requiresDependencies()) {
+                freshness = statementAnalyzerFactory.createMaterializedViewFreshnessChecker()
+                        .getMaterializedViewFreshnessWithDependencies(session, name, view, false)
+                        .orElse(freshness);
+            }
+            analysis.setSkipMaterializedViewRefresh(freshness.getFreshness() == FRESH);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
             List<String> insertColumns = tableMetadata.columns().stream()
@@ -827,6 +836,7 @@ class StatementAnalyzer
 
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
+                    materializedViewHandle,
                     targetTableHandle,
                     query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
@@ -2225,6 +2235,20 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
+                ViewHandle materializedViewHandle = metadata.getViewHandle(session, name)
+                        .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' does not exist", name));
+                analysis.recordReferencedView(materializedViewHandle);
+                Optional<MaterializedViewDependencyCollector> dependencyCollector = analysis.getMaterializedViewDependencyCollector();
+                if (dependencyCollector.isPresent()) {
+                    // Collecting dependencies: expand the materialized view regardless of its freshness, and record its storage table alongside
+                    Optional<TableHandle> storageTable = getMaterializedViewStorageTableName(materializedViewDefinition)
+                            .map(storageName -> createQualifiedObjectName(session, table, storageName))
+                            .flatMap(storageTableName -> metadata.getTableHandle(session, storageTableName));
+                    return dependencyCollector.get()
+                            .expandMaterializedView(name, materializedViewHandle, storageTable, () -> createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty()))
+                            // The query can no longer be analyzed: rely on the storage table alone
+                            .orElseGet(() -> createScopeForMaterializedView(table, name, scope, materializedViewDefinition, storageTable));
+                }
                 boolean versioned = table.getQueryPeriod().isPresent();
                 // Versioned reads always use the storage table, as freshness relates only to its current snapshot
                 if (versioned || isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
@@ -2259,6 +2283,16 @@ class StatementAnalyzer
 
                 QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
+                ViewHandle viewHandle = metadata.getViewHandle(session, targetViewName)
+                        .orElseThrow(() -> semanticException(INVALID_VIEW, table, "View '%s' does not exist", targetViewName));
+                analysis.recordReferencedView(viewHandle);
+                Optional<MaterializedViewDependencyCollector> dependencyCollector = analysis.getMaterializedViewDependencyCollector();
+                if (dependencyCollector.isPresent()) {
+                    dependencyCollector.get().beginView(targetViewName, viewHandle);
+                    Scope viewScope = createScopeForView(table, targetViewName, scope, optionalView.get());
+                    dependencyCollector.get().endView();
+                    return viewScope;
+                }
                 return createScopeForView(table, targetViewName, scope, optionalView.get());
             }
 
@@ -2284,6 +2318,8 @@ class StatementAnalyzer
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName);
             }
+            analysis.getMaterializedViewDependencyCollector()
+                    .ifPresent(collector -> collector.addTable(targetTableName, tableHandle.get()));
             TableSchema tableSchema = metadata.getTableSchema(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
@@ -2330,6 +2366,22 @@ class StatementAnalyzer
             // so that this special case is handled in the analyzer rather than duplicating the logic across all connectors.
             boolean considerGracePeriod = !gracePeriodZero;
             MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name, considerGracePeriod);
+            boolean sufficientlyFresh = isSufficientlyFresh(session, materializedViewDefinition, materializedViewFreshness);
+            if (sufficientlyFresh || !materializedViewFreshness.requiresDependencies()) {
+                return sufficientlyFresh;
+            }
+            // The connector needs the relations the materialized view query depends on to tell whether it is fresh
+            materializedViewFreshness = statementAnalyzerFactory.createMaterializedViewFreshnessChecker()
+                    .getMaterializedViewFreshnessWithDependencies(session, name, materializedViewDefinition, considerGracePeriod)
+                    .orElse(materializedViewFreshness);
+            return isSufficientlyFresh(session, materializedViewDefinition, materializedViewFreshness);
+        }
+
+        private static boolean isSufficientlyFresh(Session session, MaterializedViewDefinition materializedViewDefinition, MaterializedViewFreshness materializedViewFreshness)
+        {
+            boolean gracePeriodZero = materializedViewDefinition.getGracePeriod()
+                    .map(Duration::isZero)
+                    .orElse(false);
             MaterializedViewFreshness.Freshness freshness = materializedViewFreshness.getFreshness();
 
             if (freshness == FRESH || freshness == FRESH_WITHIN_GRACE_PERIOD) {
@@ -2615,8 +2667,13 @@ class StatementAnalyzer
                 }
 
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
-                analysis.unregisterTableForView();
+                RelationType descriptor;
+                try {
+                    descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                }
+                finally {
+                    analysis.unregisterTableForView();
+                }
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
                         .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });

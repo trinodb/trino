@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
@@ -36,6 +37,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RetryMode;
@@ -247,6 +249,15 @@ public class TestingMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(views.get(viewName));
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (getMaterializedView(session, viewName).isPresent()) {
+            return Optional.of(new BasicViewHandle(viewName));
+        }
+        return getView(session, viewName).map(_ -> new BasicViewHandle(viewName));
     }
 
     @Override

@@ -60,8 +60,7 @@ final class TestIcebergRestCatalogRefsSnapshotLoadingModeConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -133,14 +132,6 @@ final class TestIcebergRestCatalogRefsSnapshotLoadingModeConnectorSmokeTest
     @Test
     @Override // Extended statistics on write is disabled in REFS mode
     public void testShowStatsAfterUpdateAndExpireSnapshots() {}
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
-    }
 
     @Test
     @Override

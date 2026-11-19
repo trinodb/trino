@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.CommitMetricsReporter;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.TrinoException;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenCustomHashMap;
@@ -52,7 +53,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
@@ -67,7 +67,7 @@ public final class OptimizeManifests
 
     private OptimizeManifests() {}
 
-    public static Map<String, Long> optimizeManifests(BaseTable table, ExecutorService icebergScanExecutor)
+    public static Map<String, Long> optimizeManifests(TrinoCatalog catalog, BaseTable table, ExecutorService icebergScanExecutor)
     {
         // org.apache.iceberg.BaseRewriteManifests currently rewrites only data manifests
         Snapshot snapshot = table.currentSnapshot();
@@ -113,7 +113,7 @@ public final class OptimizeManifests
                     return clusteredPartitionValues.get(value);
                 })
                 .scanManifestsWith(icebergScanExecutor);
-        carryForwardMaterializedViewDependencies(rewriteManifests);
+        catalog.carryForwardMaterializedViewDependencies(rewriteManifests);
         try {
             rewriteManifests.commit();
         }
