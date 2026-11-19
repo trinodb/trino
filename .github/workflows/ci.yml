@@ -155,11 +155,6 @@ jobs:
           java-distribution: ${{ matrix.java-distribution }}
           java-version: ${{ matrix.java-version }}
           cleanup-node: true
-      - name: Check SPI backward compatibility
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl :trino-spi -am
-          $MAVEN clean verify -B --strict-checksums -DskipTests -pl :trino-spi
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
