@@ -57,9 +57,9 @@ class TestS3PresigningCredentials
         AwsSessionCredentials second = session("second", NOW.plusSeconds(7200));
         S3PresigningCredentials credentials = new S3PresigningCredentials(() -> calls.incrementAndGet() == 1 ? first : second, CLOCK);
         assertThat(credentials.resolve(Duration.ofMinutes(30))).isSameAs(first);
-        assertThat(credentials.resolve(Duration.ofMinutes(59))).isSameAs(first);
+        assertThat(credentials.resolve(Duration.ofMinutes(60))).isSameAs(first);
         assertThat(calls.get()).isEqualTo(1);
-        assertThat(credentials.resolve(Duration.ofMinutes(59).plusNanos(1))).isSameAs(second);
+        assertThat(credentials.resolve(Duration.ofMinutes(60).plusNanos(1))).isSameAs(second);
         assertThat(credentials.resolve(Duration.ofMinutes(30))).isSameAs(second);
         assertThat(calls.get()).isEqualTo(2);
     }
@@ -70,7 +70,7 @@ class TestS3PresigningCredentials
         AtomicInteger calls = new AtomicInteger();
         S3PresigningCredentials credentials = new S3PresigningCredentials(() -> {
             calls.incrementAndGet();
-            return session("short", NOW.plusSeconds(3600));
+            return session("short", NOW.plusSeconds(3599));
         }, CLOCK);
         assertThatThrownBy(() -> credentials.resolve(Duration.ofHours(1)))
                 .isInstanceOf(TrinoFileSystemException.class)
@@ -116,7 +116,7 @@ class TestS3PresigningCredentials
     void testResolutionTimeCountsAgainstRemainingValidity()
     {
         TestingClock clock = new TestingClock();
-        Instant expiration = clock.instant().plus(Duration.ofMinutes(31));
+        Instant expiration = clock.instant().plus(Duration.ofMinutes(30));
         S3PresigningCredentials credentials = new S3PresigningCredentials(() -> {
             clock.increment(1, SECONDS);
             return session("slow", expiration);

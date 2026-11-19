@@ -36,8 +36,6 @@ import static java.util.Objects.requireNonNull;
  */
 final class S3PresigningCredentials
 {
-    static final Duration EXPIRATION_MARGIN = Duration.ofMinutes(1);
-
     private final AwsCredentialsProvider provider;
     private final Clock clock;
     private Optional<AwsCredentials> cached = Optional.empty();
@@ -105,7 +103,7 @@ final class S3PresigningCredentials
     {
         requireKnownExpiration(credentials);
         if (!covers(credentials, uriExpiration)) {
-            throw new TrinoFileSystemException("S3 signing credentials do not cover the requested URI lifetime plus a one-minute safety margin. " +
+            throw new TrinoFileSystemException("S3 signing credentials do not cover the requested URI lifetime. " +
                     "Use a shorter URI TTL or configure a longer role session duration");
         }
     }
@@ -113,7 +111,7 @@ final class S3PresigningCredentials
     private static boolean covers(AwsCredentials credentials, Instant uriExpiration)
     {
         if (credentials.expirationTime().isPresent()) {
-            return !credentials.expirationTime().orElseThrow().isBefore(uriExpiration.plus(EXPIRATION_MARGIN));
+            return !credentials.expirationTime().orElseThrow().isBefore(uriExpiration);
         }
         return !(credentials instanceof AwsSessionCredentialsIdentity);
     }
