@@ -18,11 +18,10 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.util.MergeSortedPages.PageWithPosition;
+import io.trino.util.MergeSortedPages.PageBreakPredicate;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -82,17 +81,17 @@ public class MergeHashSort
         memoryContext.close();
     }
 
-    private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(HashGenerator hashGenerator)
+    private static PageBreakPredicate keepSameHashValuesWithinSinglePage(HashGenerator hashGenerator)
     {
-        return new BiPredicate<>()
+        return new PageBreakPredicate()
         {
             private long lastHash;
 
             @Override
-            public boolean test(PageBuilder pageBuilder, PageWithPosition pageWithPosition)
+            public boolean test(PageBuilder pageBuilder, Page page, int position)
             {
                 // set the last bit on the hash, so that zero is never produced
-                long hash = hashGenerator.hashPosition(pageWithPosition.getPosition(), pageWithPosition.getPage()) | 1;
+                long hash = hashGenerator.hashPosition(position, page) | 1;
                 boolean sameHash = hash == lastHash;
                 lastHash = hash;
 

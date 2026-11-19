@@ -14,24 +14,37 @@
 package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.SimplePageWithPositionComparator;
 import io.trino.operator.WorkProcessor;
+import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
+import static io.trino.operator.WorkProcessorAssertion.processorFrom;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -45,6 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMergeSortedPages
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
+    private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS_CACHE);
 
     @Test
     public void testSingleStream()
@@ -325,8 +339,6 @@ public class TestMergeSortedPages
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
-                (pageBuilder, _) -> pageBuilder.isFull(),
-                false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
 
@@ -360,8 +372,6 @@ public class TestMergeSortedPages
                 new SimplePageWithPositionComparator(ImmutableList.of(type), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 ImmutableList.of(type),
-                (pageBuilder, _) -> pageBuilder.isFull(),
-                false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
         // yield signal is on
@@ -369,6 +379,264 @@ public class TestMergeSortedPages
         // processor finishes computations (yield signal is still on, but previous process() call yielded)
         assertThat(mergedPages.process()).isTrue();
         assertThat(mergedPages.isFinished()).isTrue();
+    }
+
+    @Test
+    public void testRandomStreams()
+    {
+        Random random = new Random(42);
+        for (int sourceCount : ImmutableList.of(1, 2, 3, 7, 16, 33)) {
+            for (SortOrder sortOrder : SortOrder.values()) {
+                // few distinct keys, so that many rows are equal and rows of one source are selected one after another
+                assertMergesRandomStreams(random, sourceCount, sortOrder, BIGINT, () -> (long) random.nextInt(5));
+                assertMergesRandomStreams(random, sourceCount, sortOrder, BIGINT, random::nextLong);
+                // keys that share more bytes than a sort key prefix holds
+                assertMergesRandomStreams(random, sourceCount, sortOrder, VARCHAR, () -> "ab".repeat(random.nextInt(7)) + (char) ('a' + random.nextInt(3)));
+            }
+        }
+    }
+
+    private static <T extends Comparable<T>> void assertMergesRandomStreams(Random random, int sourceCount, SortOrder sortOrder, Type keyType, Supplier<T> keys)
+    {
+        Comparator<T> valueOrder = Comparator.naturalOrder();
+        if (!sortOrder.isAscending()) {
+            valueOrder = valueOrder.reversed();
+        }
+        Comparator<T> keyOrder = Comparator.nullsLast(valueOrder);
+        if (sortOrder.isNullsFirst()) {
+            keyOrder = Comparator.nullsFirst(valueOrder);
+        }
+        Comparator<KeyAndId<T>> rowOrder = Comparator.comparing(KeyAndId::key, keyOrder);
+
+        List<Type> types = ImmutableList.of(keyType, BIGINT);
+        ImmutableList.Builder<List<Page>> sources = ImmutableList.builder();
+        List<KeyAndId<T>> expected = new ArrayList<>();
+        for (int source = 0; source < sourceCount; source++) {
+            List<KeyAndId<T>> rows = new ArrayList<>();
+            int rowCount = random.nextInt(200);
+            for (int row = 0; row < rowCount; row++) {
+                T key = null;
+                if (random.nextInt(10) != 0) {
+                    key = keys.get();
+                }
+                rows.add(new KeyAndId<>(key, source * 1000L + row));
+            }
+            rows.sort(rowOrder);
+            expected.addAll(rows);
+            sources.add(toPages(random, types, rows));
+        }
+        // sorting is stable, so equal rows stay in the order of their sources
+        expected.sort(rowOrder);
+
+        List<PageWithPositionComparator> comparators = ImmutableList.of(
+                new SimplePageWithPositionComparator(ImmutableList.of(keyType), ImmutableList.of(0), ImmutableList.of(sortOrder), TYPE_OPERATORS_CACHE),
+                ORDERING_COMPILER.compilePageWithPositionComparator(ImmutableList.of(keyType), ImmutableList.of(0), ImmutableList.of(sortOrder)));
+        for (PageWithPositionComparator comparator : comparators) {
+            AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newAggregatedMemoryContext();
+            WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
+                    sources.build().stream()
+                            .map(WorkProcessor::fromIterable)
+                            .collect(toImmutableList()),
+                    comparator,
+                    types,
+                    memoryContext,
+                    new DriverYieldSignal());
+
+            List<KeyAndId<Object>> actual = new ArrayList<>();
+            for (Page page : drain(mergedPages)) {
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    actual.add(new KeyAndId<>(keyType.getObjectValue(page.getBlock(0), position), BIGINT.getLong(page.getBlock(1), position)));
+                }
+            }
+            assertThat(actual)
+                    .as("%s sources of %s sorted %s", sourceCount, keyType, sortOrder)
+                    .isEqualTo(expected);
+            assertThat(memoryContext.getBytes()).isEqualTo(0L);
+        }
+    }
+
+    private static <T> List<Page> toPages(Random random, List<Type> types, List<KeyAndId<T>> rows)
+    {
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        PageBuilder pageBuilder = new PageBuilder(types);
+        int pageSize = 1 + random.nextInt(50);
+        for (KeyAndId<T> row : rows) {
+            pageBuilder.declarePosition();
+            writeKey(types.get(0), pageBuilder.getBlockBuilder(0), row.key());
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(1), row.id());
+            if (pageBuilder.getPositionCount() == pageSize) {
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
+                if (random.nextInt(4) == 0) {
+                    // an empty page between pages with rows
+                    pages.add(pageBuilder.build());
+                }
+            }
+        }
+        pages.add(pageBuilder.build());
+        return pages.build();
+    }
+
+    private static void writeKey(Type type, BlockBuilder blockBuilder, Object key)
+    {
+        switch (key) {
+            case null -> blockBuilder.appendNull();
+            case Long value -> type.writeLong(blockBuilder, value);
+            case String value -> type.writeSlice(blockBuilder, utf8Slice(value));
+            default -> throw new IllegalArgumentException("Unsupported key: " + key);
+        }
+    }
+
+    private record KeyAndId<T>(T key, long id) {}
+
+    @Test
+    public void testComparesOncePerTreeLevel()
+    {
+        int sourceCount = 13;
+        int rowsPerSource = 100;
+        Random random = new Random(42);
+        ImmutableList.Builder<WorkProcessor<Page>> sources = ImmutableList.builder();
+        for (int source = 0; source < sourceCount; source++) {
+            BlockBuilder values = BIGINT.createBlockBuilder(null, rowsPerSource);
+            random.longs(rowsPerSource).sorted().forEach(value -> BIGINT.writeLong(values, value));
+            sources.add(WorkProcessor.fromIterable(ImmutableList.of(new Page(values.build()))));
+        }
+
+        PageWithPositionComparator comparator = new SimplePageWithPositionComparator(ImmutableList.of(BIGINT), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), TYPE_OPERATORS_CACHE);
+        AtomicLong comparisons = new AtomicLong();
+        List<Page> pages = drain(MergeSortedPages.mergeSortedPages(
+                sources.build(),
+                (left, leftPosition, right, rightPosition) -> {
+                    comparisons.incrementAndGet();
+                    return comparator.compareTo(left, leftPosition, right, rightPosition);
+                },
+                ImmutableList.of(BIGINT),
+                newSimpleAggregatedMemoryContext(),
+                new DriverYieldSignal()));
+
+        assertThat(pages.stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(sourceCount * rowsPerSource);
+        // a match is played in every internal node to build the tree, then every returned row
+        // is replaced and only the matches between its leaf and the root are replayed
+        int treeHeight = Integer.SIZE - Integer.numberOfLeadingZeros(sourceCount - 1);
+        assertThat(comparisons.get()).isLessThanOrEqualTo(sourceCount - 1 + (long) sourceCount * rowsPerSource * treeHeight);
+    }
+
+    @Test
+    public void testBlockedAndYieldingSources()
+    {
+        List<Type> types = ImmutableList.of(INTEGER);
+        SettableFuture<Void> blocked = SettableFuture.create();
+        List<ProcessState<Page>> firstSource = ImmutableList.of(
+                ProcessState.ofResult(getOnlyElement(rowPagesBuilder(types).row(1).row(3).build())),
+                ProcessState.blocked(blocked),
+                ProcessState.ofResult(getOnlyElement(rowPagesBuilder(types).row(5).build())),
+                ProcessState.finished());
+        List<ProcessState<Page>> secondSource = ImmutableList.of(
+                ProcessState.yielded(),
+                ProcessState.ofResult(getOnlyElement(rowPagesBuilder(types).row(2).row(4).row(6).build())),
+                ProcessState.finished());
+
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newAggregatedMemoryContext();
+        WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
+                ImmutableList.of(processorFrom(firstSource), processorFrom(secondSource)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), TYPE_OPERATORS_CACHE),
+                types,
+                memoryContext,
+                new DriverYieldSignal());
+
+        // the second source yields before its first page
+        assertThat(mergedPages.process()).isFalse();
+        assertThat(mergedPages.isBlocked()).isFalse();
+
+        // the first source is blocked after its first page
+        assertThat(mergedPages.process()).isFalse();
+        assertThat(mergedPages.isBlocked()).isTrue();
+        // the page of the second source is still being merged
+        assertThat(memoryContext.getBytes()).isGreaterThan(0L);
+
+        blocked.set(null);
+        assertThat(mergedPages.isBlocked()).isFalse();
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(toMaterializedResult(types, ImmutableList.of(mergedPages.getResult())))
+                .containsExactlyElementsOf(resultBuilder(types)
+                        .row(1)
+                        .row(2)
+                        .row(3)
+                        .row(4)
+                        .row(5)
+                        .row(6)
+                        .build());
+
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
+        assertThat(memoryContext.getBytes()).isEqualTo(0L);
+    }
+
+    @Test
+    public void testYieldSignalIsCheckedWhileMerging()
+    {
+        DriverYieldSignal yieldSignal = new DriverYieldSignal();
+        yieldSignal.forceYieldForTesting();
+
+        int rowCount = 10_000;
+        BlockBuilder values = BIGINT.createBlockBuilder(null, rowCount);
+        for (int row = 0; row < rowCount; row++) {
+            BIGINT.writeLong(values, row);
+        }
+        WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
+                ImmutableList.of(WorkProcessor.fromIterable(ImmutableList.of(new Page(values.build())))),
+                new SimplePageWithPositionComparator(ImmutableList.of(BIGINT), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(BIGINT),
+                newSimpleAggregatedMemoryContext(),
+                yieldSignal);
+
+        // the signal stays on, so the merge keeps yielding, but every call after a yield makes progress
+        int yields = 0;
+        while (!mergedPages.process()) {
+            assertThat(mergedPages.isBlocked()).isFalse();
+            yields++;
+        }
+        assertThat(yields).isBetween(2, rowCount / 100);
+        assertThat(mergedPages.getResult().getPositionCount()).isEqualTo(rowCount);
+    }
+
+    @Test
+    public void testPageBreakPredicate()
+    {
+        List<Type> types = ImmutableList.of(INTEGER);
+        List<Integer> testedPositions = new ArrayList<>();
+        WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
+                ImmutableList.of(
+                        WorkProcessor.fromIterable(rowPagesBuilder(types).row(1).row(3).row(5).build()),
+                        WorkProcessor.fromIterable(rowPagesBuilder(types).row(2).row(4).build())),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(0),
+                types,
+                (pageBuilder, page, position) -> {
+                    testedPositions.add(INTEGER.getInt(page.getBlock(0), position));
+                    // every preceding row is already in the page builder
+                    return pageBuilder.getPositionCount() == 2;
+                },
+                true,
+                newSimpleAggregatedMemoryContext(),
+                new DriverYieldSignal());
+
+        assertThat(drain(mergedPages))
+                .extracting(Page::getPositionCount)
+                .containsExactly(2, 2, 1);
+        assertThat(testedPositions).containsExactly(1, 2, 3, 4, 5);
+    }
+
+    private static List<Page> drain(WorkProcessor<Page> mergedPages)
+    {
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        while (true) {
+            assertThat(mergedPages.process()).isTrue();
+            if (mergedPages.isFinished()) {
+                return pages.build();
+            }
+            pages.add(mergedPages.getResult());
+        }
     }
 
     private static MaterializedResult mergeSortedPages(
