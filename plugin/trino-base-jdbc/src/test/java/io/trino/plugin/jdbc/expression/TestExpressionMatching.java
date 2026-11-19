@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
+import io.trino.matching.Pattern;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
@@ -25,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -41,9 +42,9 @@ public class TestExpressionMatching
         Type type = createDecimalType(10, 2);
         TypePattern pattern = typePattern("decimal(p, s)");
 
-        Match match = pattern.getPattern().match(type).collect(onlyElement());
+        Captures captures = match(pattern.getPattern(), type);
         MatchContext matchContext = new MatchContext();
-        pattern.resolve(match.captures(), matchContext);
+        pattern.resolve(captures, matchContext);
 
         assertThat(matchContext.keys()).containsExactlyInAnyOrder("p", "s");
         assertThat(matchContext.get("p")).isEqualTo(10L);
@@ -61,9 +62,9 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("foo: decimal(p, s)");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Captures captures = match(pattern.getPattern(), expression);
         MatchContext matchContext = new MatchContext();
-        pattern.resolve(match.captures(), matchContext);
+        pattern.resolve(captures, matchContext);
 
         assertThat(matchContext.keys()).containsExactlyInAnyOrder("p", "s", "foo");
         assertThat(matchContext.get("p")).isEqualTo(21L);
@@ -82,9 +83,9 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("add(foo: decimal(p, s), bar: bigint)");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Captures captures = match(pattern.getPattern(), expression);
         MatchContext matchContext = new MatchContext();
-        pattern.resolve(match.captures(), matchContext);
+        pattern.resolve(captures, matchContext);
 
         assertThat(matchContext.keys()).containsExactlyInAnyOrder("p", "s", "foo", "bar");
         assertThat(matchContext.get("p")).isEqualTo(10L);
@@ -104,13 +105,22 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("add(foo: integer_class, bar: integer_class): integer_class");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Captures captures = match(pattern.getPattern(), expression);
         MatchContext matchContext = new MatchContext();
-        pattern.resolve(match.captures(), matchContext);
+        pattern.resolve(captures, matchContext);
 
         assertThat(matchContext.keys()).containsExactlyInAnyOrder("foo", "bar");
         assertThat(matchContext.get("foo")).isEqualTo(new Variable("first", INTEGER));
         assertThat(matchContext.get("bar")).isEqualTo(new Variable("second", BIGINT));
+    }
+
+    private static Captures match(Pattern<?> pattern, Object value)
+    {
+        MatchCursor cursor = pattern.matchCursor(value);
+        assertThat(cursor.matches()).isTrue();
+        Captures captures = cursor.current();
+        assertThat(cursor.matches()).isFalse();
+        return captures;
     }
 
     private static ExpressionPattern expressionPattern(String expressionPattern)

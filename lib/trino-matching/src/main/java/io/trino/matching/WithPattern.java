@@ -13,10 +13,6 @@
  */
 package io.trino.matching;
 
-import java.util.Optional;
-import java.util.function.BiFunction;
-import java.util.stream.Stream;
-
 import static java.util.Objects.requireNonNull;
 
 public final class WithPattern<T>
@@ -38,15 +34,5 @@ public final class WithPattern<T>
     public Property<? super T, ?, ?> getProperty()
     {
         return propertyPattern.getProperty();
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        // TODO remove cast
-        BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
-        Optional<?> propertyValue = property.apply((T) object, context);
-        return propertyValue.map(value -> propertyPattern.getPattern().match(value, captures, context))
-                .orElseGet(Stream::of);
     }
 }

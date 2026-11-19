@@ -15,7 +15,7 @@ package io.trino.plugin.base.aggregation;
 
 import io.trino.matching.Captures;
 import io.trino.matching.CustomPattern;
-import io.trino.matching.Match;
+import io.trino.matching.MatchCursor;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
 import io.trino.spi.connector.AggregateFunction;
@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 public final class AggregateFunctionPatterns
 {
@@ -85,17 +84,17 @@ public final class AggregateFunctionPatterns
         return new CustomPattern<>(Optional.empty())
         {
             @Override
-            public <C> Stream<Match> accept(Object object, Captures captures, C context)
+            public <C> MatchCursor accept(Object object, Captures captures, C context)
             {
                 if (!(object instanceof List)) {
-                    return Stream.of();
+                    return MatchCursor.empty();
                 }
                 @SuppressWarnings("unchecked")
                 List<ConnectorExpression> arguments = (List<ConnectorExpression>) object;
                 if (!arguments.stream().allMatch(Variable.class::isInstance)) {
-                    return Stream.of();
+                    return MatchCursor.empty();
                 }
-                return Stream.of(Match.of(captures));
+                return MatchCursor.single(captures);
             }
 
             @Override

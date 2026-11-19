@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -37,6 +36,7 @@ public abstract sealed class Pattern<T>
                 WithPattern
 {
     private final Optional<Pattern<?>> previous;
+    private final Pattern<?> previousBranch;
 
     public static Pattern<Object> any()
     {
@@ -56,6 +56,12 @@ public abstract sealed class Pattern<T>
     protected Pattern(Optional<Pattern<?>> previous)
     {
         this.previous = requireNonNull(previous, "previous is null");
+        this.previousBranch = previous.isEmpty() ? null : ChainedMatchCursor.findBranch(previous.orElseThrow());
+    }
+
+    final Pattern<?> previousBranch()
+    {
+        return previousBranch;
     }
 
     // FIXME make sure there's a proper toString,
@@ -105,32 +111,30 @@ public abstract sealed class Pattern<T>
         return previous;
     }
 
-    public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
-
     public <C> boolean matches(Object object, C context)
     {
-        return match(object, context)
-                .findFirst()
-                .isPresent();
+        MatchCursor cursor = matchCursor(object, context);
+        return cursor.matches();
     }
 
-    public final Stream<Match> match(Object object)
+    public final MatchCursor matchCursor(Object object)
     {
-        return match(object, Captures.empty(), null);
+        return matchCursor(object, Captures.empty(), null);
     }
 
-    public final <C> Stream<Match> match(Object object, C context)
+    public final <C> MatchCursor matchCursor(Object object, C context)
     {
-        return match(object, Captures.empty(), context);
+        return matchCursor(object, Captures.empty(), context);
     }
 
-    public final <C> Stream<Match> match(Object object, Captures captures, C context)
+    public final <C> MatchCursor matchCursor(Object object, Captures captures, C context)
     {
-        if (previous.isPresent()) {
-            return previous.get().match(object, captures, context)
-                    .flatMap(match -> accept(object, match.captures(), context));
+        requireNonNull(captures, "captures is null");
+        Pattern<?> branch = ChainedMatchCursor.findBranch(this);
+        if (branch == null) {
+            return new SingleMatchCursor(this, null, object, captures, context);
         }
-        return accept(object, captures, context);
+        return new ChainedMatchCursor(this, branch, object, captures, context);
     }
 
     @Override
