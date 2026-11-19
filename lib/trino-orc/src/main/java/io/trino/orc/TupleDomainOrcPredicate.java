@@ -171,11 +171,20 @@ public class TupleDomainOrcPredicate
         }
 
         if (sqlType == DOUBLE) {
-            return bloomFilter.testDouble((Double) predicateValue);
+            double value = (Double) predicateValue;
+            // Trino equates signed zeros, but they hash differently and the file may hold either.
+            if (value == 0) {
+                return bloomFilter.testDouble(0.0) || bloomFilter.testDouble(-0.0);
+            }
+            return bloomFilter.testDouble(value);
         }
 
         if (sqlType == REAL) {
-            return bloomFilter.testFloat(intBitsToFloat(((Number) predicateValue).intValue()));
+            float value = intBitsToFloat(((Number) predicateValue).intValue());
+            if (value == 0) {
+                return bloomFilter.testFloat(0.0f) || bloomFilter.testFloat(-0.0f);
+            }
+            return bloomFilter.testFloat(value);
         }
 
         if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
