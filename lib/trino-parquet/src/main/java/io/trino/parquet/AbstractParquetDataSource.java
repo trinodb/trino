@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.reader.ChunkedInputStream;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,6 +52,9 @@ public abstract class AbstractParquetDataSource
     private final ParquetReaderOptions options;
     private long readTimeNanos;
     private long readBytes;
+    // The first read of the tail of the file, which is usually larger than the footer, so it holds the indexes stored before it too
+    @Nullable
+    private Slice tail;
 
     protected AbstractParquetDataSource(ParquetDataSourceId id, long estimatedSize, ParquetReaderOptions options)
     {
@@ -103,7 +108,24 @@ public abstract class AbstractParquetDataSource
         readTimeNanos += System.nanoTime() - start;
         readBytes += tailSlice.length();
 
+        // The tail is kept only when it is not larger than the default read of the footer, so the retained memory is bounded
+        if (tail == null && tailSlice.length() <= options.getFooterReadSize().toBytes()) {
+            tail = tailSlice;
+        }
         return tailSlice;
+    }
+
+    @Override
+    public Optional<Slice> getBufferedSlice(long position, int length)
+    {
+        if (tail == null) {
+            return Optional.empty();
+        }
+        long tailPosition = estimatedSize - tail.length();
+        if (position < tailPosition || position + length > estimatedSize) {
+            return Optional.empty();
+        }
+        return Optional.of(tail.slice(toIntExact(position - tailPosition), length));
     }
 
     @Override

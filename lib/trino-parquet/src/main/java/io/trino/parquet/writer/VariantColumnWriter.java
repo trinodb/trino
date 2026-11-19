@@ -72,8 +72,8 @@ public class VariantColumnWriter
                 .build();
 
         // Push the two leaf blocks down with the augmented providers
-        metadataColumnWriter.writeBlock(new ColumnChunk(metadataBlock, defLevelWriterProviders, repLevelWriterProviders));
-        valueColumnWriter.writeBlock(new ColumnChunk(valueBlock, defLevelWriterProviders, repLevelWriterProviders));
+        metadataColumnWriter.writeBlock(new ColumnChunk(metadataBlock, columnChunk.getRowCount(), defLevelWriterProviders, repLevelWriterProviders));
+        valueColumnWriter.writeBlock(new ColumnChunk(valueBlock, columnChunk.getRowCount(), defLevelWriterProviders, repLevelWriterProviders));
     }
 
     @Override

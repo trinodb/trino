@@ -496,9 +496,11 @@ public class FlatColumnReader<BufferType>
     private int seekToNextPage(int remainingInBatch)
     {
         while (remainingInBatch > 0 && pageReader.hasNext()) {
-            DataPage page = pageReader.getNextPage();
             if (rowRanges == ALL_ROW_RANGES_ITERATOR) {
-                int remainingPageValues = page.getValueCount() - deferredPageValueCount;
+                // A flat column has a value per row, so the row count from the offset index allows to skip the page without reading it
+                OptionalLong pageRowCount = pageReader.getNextPageRowCount();
+                int pageValueCount = pageRowCount.isPresent() ? toIntExact(pageRowCount.orElseThrow()) : pageReader.getNextPage().getValueCount();
+                int remainingPageValues = pageValueCount - deferredPageValueCount;
                 if (remainingInBatch < remainingPageValues) {
                     deferredPageValueCount += remainingInBatch;
                     return 0;
@@ -509,6 +511,7 @@ public class FlatColumnReader<BufferType>
                 pageReader.skipNextPage();
                 continue;
             }
+            DataPage page = pageReader.getNextPage();
             rowRanges.resetForNewPage(page.getFirstRowIndex());
             if (remainingInBatch < page.getValueCount() || !rowRanges.isPageFullyConsumed(page.getValueCount())) {
                 readPage();

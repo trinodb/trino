@@ -22,24 +22,33 @@ import static java.util.Objects.requireNonNull;
 public class TestingChunkReader
         implements ChunkReader
 {
+    private final long diskOffset;
     @Nullable
     private Slice slice;
+    private boolean read;
 
     public TestingChunkReader(Slice slice)
     {
+        this(slice, 0);
+    }
+
+    public TestingChunkReader(Slice slice, long diskOffset)
+    {
         this.slice = requireNonNull(slice, "slice is null");
+        this.diskOffset = diskOffset;
     }
 
     @Override
     public Slice read()
     {
+        read = true;
         return requireNonNull(slice, "slice is null");
     }
 
     @Override
     public long getDiskOffset()
     {
-        return 0;
+        return diskOffset;
     }
 
     @Override
@@ -51,5 +60,10 @@ public class TestingChunkReader
     public boolean isFreed()
     {
         return slice == null;
+    }
+
+    public boolean isRead()
+    {
+        return read;
     }
 }

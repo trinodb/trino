@@ -13,6 +13,8 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -23,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Collection;
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -41,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public final class ChunkedInputStream
         extends InputStream
 {
-    private final Iterator<? extends ChunkReader> chunks;
+    private final PeekingIterator<? extends ChunkReader> chunks;
     private ChunkReader currentChunkReader;
     // current is explicitly initialized to EMPTY_SLICE as this field is set to null when the stream is closed
     private BasicSliceInput current = EMPTY_SLICE.getInput();
@@ -50,7 +51,7 @@ public final class ChunkedInputStream
     {
         requireNonNull(chunks, "chunks is null");
         checkArgument(!chunks.isEmpty(), "At least one chunk is expected but got none");
-        this.chunks = chunks.iterator();
+        this.chunks = Iterators.peekingIterator(chunks.iterator());
     }
 
     public Slice getSlice(int length)
@@ -77,6 +78,39 @@ public final class ChunkedInputStream
             throw new UncheckedIOException("Failed to read " + length + " bytes", e);
         }
         return Slices.wrappedBuffer(bytes);
+    }
+
+    /**
+     * Moves to the given position in the file, without reading the chunks that are entirely before it
+     */
+    public void skipTo(long diskOffset)
+            throws IOException
+    {
+        ensureOpen();
+        if (currentChunkReader != null) {
+            long position = currentChunkReader.getDiskOffset() + current.position();
+            checkArgument(diskOffset >= position, "Cannot skip back from %s to %s", position, diskOffset);
+        }
+        // The chunks are ordered by their position, so a chunk is entirely before the given position when the next one does not start after it
+        if (currentChunkReader == null || isNextChunkStartingAtOrBefore(diskOffset)) {
+            checkArgument(isNextChunkStartingAtOrBefore(diskOffset), "Position %s is outside of the chunks", diskOffset);
+            // The chunks entirely before the position are freed without being read
+            while (isNextChunkStartingAtOrBefore(diskOffset)) {
+                if (currentChunkReader != null) {
+                    currentChunkReader.free();
+                }
+                currentChunkReader = chunks.next();
+            }
+            current = currentChunkReader.readUnchecked().getInput();
+        }
+        long offsetInChunk = diskOffset - currentChunkReader.getDiskOffset();
+        checkArgument(offsetInChunk <= current.length(), "Position %s is outside of the chunk at %s with %s bytes", diskOffset, currentChunkReader.getDiskOffset(), current.length());
+        current.setPosition(offsetInChunk);
+    }
+
+    private boolean isNextChunkStartingAtOrBefore(long diskOffset)
+    {
+        return chunks.hasNext() && chunks.peek().getDiskOffset() <= diskOffset;
     }
 
     @Override

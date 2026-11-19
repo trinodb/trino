@@ -182,6 +182,37 @@ public class TestParquetDataSource
         assertThat(memoryContext.getBytes()).isEqualTo(50);
     }
 
+    @Test
+    public void testBufferedTail()
+            throws IOException
+    {
+        Slice testingInput = createTestingInput();
+        TestingParquetDataSource dataSource = new TestingParquetDataSource(
+                testingInput,
+                ParquetReaderOptions.builder()
+                        .withFooterReadSize(DataSize.ofBytes(1000))
+                        .build());
+        assertThat(dataSource.getBufferedSlice(3500, 100)).isEmpty();
+
+        assertThat(dataSource.readTail(1000)).isEqualTo(testingInput.slice(3000, 1000));
+        assertThat(dataSource.getBufferedSlice(3500, 100)).hasValue(testingInput.slice(3500, 100));
+        assertThat(dataSource.getBufferedSlice(3000, 1000)).hasValue(testingInput.slice(3000, 1000));
+        assertThat(dataSource.getBufferedSlice(2999, 10)).isEmpty();
+        assertThat(dataSource.getBufferedSlice(3995, 10)).isEmpty();
+
+        // a read of the tail larger than the footer read size is not kept
+        TestingParquetDataSource otherDataSource = new TestingParquetDataSource(
+                testingInput,
+                ParquetReaderOptions.builder()
+                        .withFooterReadSize(DataSize.ofBytes(100))
+                        .build());
+        otherDataSource.readTail(1000);
+        assertThat(otherDataSource.getBufferedSlice(3500, 100)).isEmpty();
+        otherDataSource.readTail(100);
+        assertThat(otherDataSource.getBufferedSlice(3950, 50)).hasValue(testingInput.slice(3950, 50));
+        assertThat(otherDataSource.getBufferedSlice(3850, 50)).isEmpty();
+    }
+
     private static Slice createTestingInput()
     {
         Slice testingInput = Slices.allocate(4000);

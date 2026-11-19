@@ -62,6 +62,12 @@ public final class ParquetColumnChunkIterator
 
     private byte[] dataPageHeaderAad;
     private boolean dictionaryWasRead;
+    // Set once a page was skipped based on this offset index, the number of values in the remaining pages is no longer known then
+    @Nullable
+    private OffsetIndex skippedPagesOffsetIndex;
+    // Position of the next page after pages were skipped, the input is moved there only when the page is read,
+    // so that consecutive pages are skipped with a single move, and the chunks they cover are not read
+    private long nextPageOffset = -1;
 
     public ParquetColumnChunkIterator(
             ParquetDataSourceId dataSourceId,
@@ -96,6 +102,10 @@ public final class ParquetColumnChunkIterator
         checkState(hasNext(), "No more data left to read in column (%s), metadata (%s), valueCount %s, dataPageCount %s", descriptor, metadata, valueCount, dataPageCount);
 
         try {
+            if (nextPageOffset >= 0) {
+                input.skipTo(nextPageOffset);
+                nextPageOffset = -1;
+            }
             byte[] pageHeaderAAD = null;
             if (decryptionContext.isPresent()) {
                 if (!dictionaryWasRead && metadata.hasDictionaryPage()) {
@@ -146,6 +156,28 @@ public final class ParquetColumnChunkIterator
         }
     }
 
+    public int getNextDataPageIndex()
+    {
+        return dataPageCount;
+    }
+
+    /**
+     * Skips the next data page without reading it, using the location of the page after it from the offset index.
+     * The chunks of the column chunk which are covered by the skipped pages are not read.
+     */
+    public void skipDataPage(OffsetIndex offsetIndex)
+    {
+        checkState(decryptionContext.isEmpty(), "Pages of encrypted column (%s) cannot be skipped", descriptor);
+        checkState(dictionaryWasRead || !metadata.hasDictionaryPage(), "Dictionary page of column (%s) has to be read before data pages", descriptor);
+        checkState(hasNext(), "No more data left to skip in column (%s)", descriptor);
+        int nextPageIndex = dataPageCount + 1;
+        if (nextPageIndex < offsetIndex.getPageCount()) {
+            nextPageOffset = offsetIndex.getOffset(nextPageIndex);
+        }
+        dataPageCount = nextPageIndex;
+        skippedPagesOffsetIndex = offsetIndex;
+    }
+
     private byte[] getPageHeaderAAD()
     {
         checkState(decryptionContext.isPresent());
@@ -183,6 +215,9 @@ public final class ParquetColumnChunkIterator
 
     private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
     {
+        if (skippedPagesOffsetIndex != null) {
+            return dataPageCountReadSoFar < skippedPagesOffsetIndex.getPageCount();
+        }
         if (offsetIndex == null) {
             return valuesCountReadSoFar < metadata.getValueCount();
         }
