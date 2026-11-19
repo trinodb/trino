@@ -22,6 +22,7 @@ smoke-only:
   - functions-python
   - google-sheets
   - http-event-listener
+  - http-extra-credentials
   - kafka-event-listener
   - lakehouse
   - ldap-group-provider

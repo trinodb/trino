@@ -22,6 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.QueryId;
+import io.trino.spi.security.ExtraCredentialsProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlEnvironmentConfig;
@@ -43,6 +44,7 @@ public class QuerySessionSupplier
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final ExtraCredentialsProvider extraCredentialsProvider;
     private final SessionPropertyManager sessionPropertyManager;
     private final String defaultPath;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
@@ -53,11 +55,13 @@ public class QuerySessionSupplier
     public QuerySessionSupplier(
             Metadata metadata,
             AccessControl accessControl,
+            ExtraCredentialsProvider extraCredentialsProvider,
             SessionPropertyManager sessionPropertyManager,
             SqlEnvironmentConfig config)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.extraCredentialsProvider = requireNonNull(extraCredentialsProvider, "extraCredentialsProvider is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.defaultPath = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
@@ -92,6 +96,12 @@ public class QuerySessionSupplier
             accessControl.checkCanSetUser(originalIdentity.getPrincipal(), identity.getUser());
             accessControl.checkCanImpersonateUser(originalIdentity, identity.getUser());
         }
+
+        // Resolved only once the user is authorized, so a denied user name never reaches the provider.
+        // Server-side credentials override client-supplied ones with the same name.
+        identity = Identity.from(identity)
+                .withAdditionalExtraCredentials(extraCredentialsProvider.getExtraCredentials(identity.getUser()))
+                .build();
 
         // add the enabled roles
         identity = addEnabledRoles(identity, context.getSelectedRole(), metadata);
