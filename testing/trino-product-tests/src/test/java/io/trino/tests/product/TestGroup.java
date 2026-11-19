@@ -419,6 +419,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("delta-lake-databricks-checkpoints-and-clones")
+    @interface DeltaLakeDatabricksCheckpointsAndClones {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("delta-lake-alluxio-caching")
     @interface DeltaLakeAlluxioCaching {}
 
