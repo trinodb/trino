@@ -14,7 +14,8 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
 import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -90,11 +90,14 @@ public class TestGenericRewrite
 
     private static Optional<ParameterizedExpression> apply(GenericRewrite rewrite, ConnectorExpression expression)
     {
-        Optional<Match> match = rewrite.getPattern().match(expression).collect(toOptional());
-        if (match.isEmpty()) {
+        MatchCursor cursor = rewrite.getPattern().matchCursor(expression);
+        if (!cursor.matches()) {
             return Optional.empty();
         }
-        return rewrite.rewrite(expression, match.get().captures(), new RewriteContext<>()
+        Captures captures = cursor.current();
+        assertThat(cursor.matches()).isFalse();
+
+        return rewrite.rewrite(expression, captures, new RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
