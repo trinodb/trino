@@ -20,6 +20,8 @@ import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.trino.tests.product.suite.DeltaLakeDatabricksShard.selectShard;
+
 public final class SuiteDeltaLakeDatabricks154
 {
     private SuiteDeltaLakeDatabricks154() {}
@@ -30,7 +32,7 @@ public final class SuiteDeltaLakeDatabricks154
         SuiteRunner.initialize(SuiteDeltaLakeDatabricks154.class);
 
         List<TestRunResult> results = new ArrayList<>();
-        results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks154Environment.class)
+        results.add(selectShard(SuiteRunner.forEnvironment(DeltaLakeDatabricks154Environment.class))
                 .includeTag(TestGroup.ConfiguredFeatures.class)
                 .includeTag(TestGroup.DeltaLakeDatabricks.class)
                 .run());

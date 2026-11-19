@@ -18,6 +18,7 @@ import io.trino.testing.containers.environment.EnvironmentManager;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.junit.jupiter.api.Tag;
 import org.junit.platform.engine.TestSource;
+import org.junit.platform.engine.discovery.ClassNameFilter;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.Launcher;
@@ -167,7 +168,8 @@ public final class SuiteRunner
             String runName,
             List<String> includeTags,
             List<String> excludeTags,
-            List<MethodSource> excludedTests)
+            List<MethodSource> excludedTests,
+            List<ClassNameFilter> classNameFilters)
             throws Exception
     {
         checkState(initializedSuite != null, "SuiteRunner.initialize must be called first");
@@ -215,6 +217,7 @@ public final class SuiteRunner
                         .map(test -> Pattern.quote(test.getClassName() + "#" + test.getMethodName()))
                         .toList()));
             }
+            classNameFilters.forEach(requestBuilder::filters);
             LauncherDiscoveryRequest request = requestBuilder.build();
 
             LauncherConfig config = LauncherConfig.builder()
@@ -371,6 +374,7 @@ public final class SuiteRunner
         private final List<Class<? extends Annotation>> includeTags = new ArrayList<>();
         private final List<Class<? extends Annotation>> excludeTags = new ArrayList<>();
         private final List<MethodSource> excludedTests = new ArrayList<>();
+        private final List<ClassNameFilter> classNameFilters = new ArrayList<>();
 
         private TestRun(Class<? extends ProductTestEnvironment> environmentClass)
         {
@@ -400,6 +404,12 @@ public final class SuiteRunner
             return this;
         }
 
+        public TestRun filterClassNames(ClassNameFilter filter)
+        {
+            classNameFilters.add(requireNonNull(filter, "filter is null"));
+            return this;
+        }
+
         public TestRunResult run()
                 throws Exception
         {
@@ -418,7 +428,7 @@ public final class SuiteRunner
                     ? "all"
                     : tagOf(includeTags.getFirst());
 
-            return SuiteRunner.run(environmentClass, runName, includeTagNames, excludeTagNames, excludedTests);
+            return SuiteRunner.run(environmentClass, runName, includeTagNames, excludeTagNames, excludedTests, classNameFilters);
         }
     }
 

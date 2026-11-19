@@ -1012,7 +1012,7 @@ jobs:
       issues: write # to comment on the PR for test-with-secrets runs (update-check)
       pull-requests: write # commenting on a PR is governed by this permission, not issues (update-check)
     runs-on: 'ubuntu-latest'
-    name: pt (${{ matrix.suite }})
+    name: pt (${{ matrix.suite }}${{ matrix.shard && format(', shard {0}', matrix.shard) || '' }})
     if: needs.build-pt.outputs.matrix != '{}'
     strategy:
       fail-fast: false
@@ -1021,6 +1021,7 @@ jobs:
     needs: build-pt
     env:
       MATRIX_SUITE: ${{ matrix.suite }}
+      MATRIX_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -1080,7 +1081,7 @@ jobs:
 
           declare -a suite_results=()
           declare -a suite_totals=()
-          echo "## pt ${MATRIX_SUITE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## pt ${MATRIX_SUITE}${MATRIX_SHARD:+, shard ${MATRIX_SHARD}}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
@@ -1096,6 +1097,7 @@ jobs:
               -Xmx512M \
               -XX:+ExitOnOutOfMemoryError \
               -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
+              -Dtrino.product-tests.databricks-shard="${MATRIX_SHARD}" \
               -cp "${test_jar[0]}:${product_test_classpath}" \
               io.trino.tests.product.suite.${suite} \
               | tee "${log_file}"
@@ -1178,7 +1180,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pt (${{ matrix.suite }})
+          name: pt (${{ matrix.suite }}${{ matrix.shard && format(', shard {0}', matrix.shard) || '' }})
           path: logs/
           retention-days: 7
       - name: Update PR check
@@ -1197,7 +1199,7 @@ jobs:
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${MATRIX_SUITE})"
+        run: .github/bin/cancel-merge-queue-workflow.sh "pt (${MATRIX_SUITE}${MATRIX_SHARD:+, shard ${MATRIX_SHARD}})"
 
 
   build-success:

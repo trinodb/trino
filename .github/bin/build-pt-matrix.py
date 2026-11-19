@@ -22,6 +22,7 @@ SERVER_TARBALL = "core/trino-server/target/trino-server-*.tar.gz"
 # Changes to these run all suites. trino-root stands for any file outside a module, including
 # the product-test Docker image. trino-cli is used by several suites and baked into the image.
 FULL_RUN_ARTIFACTS = {"trino-root", "trino-product-tests", "trino-cli", "trino-server", "trino-server-core"}
+DATABRICKS_SUITES = {"SuiteDeltaLakeDatabricks154", "SuiteDeltaLakeDatabricks18"}
 
 
 def main():
@@ -198,7 +199,12 @@ def with_available_secrets(config, suites, environment):
 
 
 def build_matrix(suites):
-    include = [{"suite": suite} for suite in suites]
+    include = []
+    for suite in suites:
+        if suite in DATABRICKS_SUITES:
+            include.extend({"suite": suite, "shard": shard} for shard in ("1", "2"))
+        else:
+            include.append({"suite": suite})
     return {"include": include} if include else {}
 
 
@@ -325,6 +331,18 @@ class TestBuildMatrix(unittest.TestCase):
 
     def test_full_matrix(self):
         self.assertEqual(build_matrix(all_suites(self.CONFIG)), {"include": [{"suite": suite} for suite in self.ALL_SUITES]})
+
+    def test_databricks_shards(self):
+        self.assertEqual(
+            build_matrix(["SuiteSmoke", "SuiteDeltaLakeDatabricks154", "SuiteDeltaLakeDatabricks18"]),
+            {"include": [
+                {"suite": "SuiteSmoke"},
+                {"suite": "SuiteDeltaLakeDatabricks154", "shard": "1"},
+                {"suite": "SuiteDeltaLakeDatabricks154", "shard": "2"},
+                {"suite": "SuiteDeltaLakeDatabricks18", "shard": "1"},
+                {"suite": "SuiteDeltaLakeDatabricks18", "shard": "2"},
+            ]},
+        )
 
     def test_server_tarball(self):
         with tempfile.TemporaryDirectory() as directory:
