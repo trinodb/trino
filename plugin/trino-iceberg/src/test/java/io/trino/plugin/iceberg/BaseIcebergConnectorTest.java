@@ -11063,7 +11063,7 @@ public abstract class BaseIcebergConnectorTest
                     "INSERT INTO " + table.getName() + " SELECT * FROM nation",
                     queryStats -> {
                         TableFinishInfo info = getTableFinishInfo(queryStats);
-                        assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                        assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\":\"25\"");
                     },
                     _ -> {});
         }
@@ -11074,7 +11074,7 @@ public abstract class BaseIcebergConnectorTest
                 "CREATE TABLE " + tableName + " AS SELECT * FROM nation",
                 queryStats -> {
                     TableFinishInfo info = getTableFinishInfo(queryStats);
-                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\":\"25\"");
                 },
                 _ -> {});
         assertUpdate("DROP TABLE " + tableName);
@@ -11086,7 +11086,7 @@ public abstract class BaseIcebergConnectorTest
                 "REFRESH MATERIALIZED VIEW " + materializedViewName,
                 queryStats -> {
                     TableFinishInfo info = getTableFinishInfo(queryStats);
-                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\":\"25\"");
                 },
                 _ -> {});
         assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);

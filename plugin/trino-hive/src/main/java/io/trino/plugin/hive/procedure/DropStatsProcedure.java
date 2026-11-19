@@ -170,8 +170,8 @@ public class DropStatsProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Null partition value");
         }
 
-        if (param instanceof List) {
-            return ((List<?>) param)
+        if (param instanceof List<?> list) {
+            return list
                     .stream()
                     .map(String.class::cast)
                     .collect(toImmutableList());

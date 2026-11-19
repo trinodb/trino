@@ -971,8 +971,8 @@ public class MongoSession
         else if (value instanceof ObjectId) {
             type = OBJECT_ID;
         }
-        else if (value instanceof List) {
-            List<Optional<Type>> subTypes = ((List<?>) value).stream()
+        else if (value instanceof List<?> list) {
+            List<Optional<Type>> subTypes = list.stream()
                     .map(this::guessFieldType)
                     .collect(toList());
 

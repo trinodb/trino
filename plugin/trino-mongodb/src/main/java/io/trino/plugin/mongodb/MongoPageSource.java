@@ -255,8 +255,8 @@ public class MongoPageSource
 
     private String toVarcharValue(Object value)
     {
-        if (value instanceof Collection<?>) {
-            return "[" + join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
+        if (value instanceof Collection<?> collection) {
+            return "[" + join(", ", collection.stream().map(this::toVarcharValue).collect(toList())) + "]";
         }
         if (value instanceof Document document) {
             return document.toJson();
@@ -303,9 +303,9 @@ public class MongoPageSource
             }
         }
         else if (type instanceof MapType mapType) {
-            if (value instanceof List<?>) {
+            if (value instanceof List<?> list) {
                 ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
-                    for (Object element : (List<?>) value) {
+                    for (Object element : list) {
                         if (!(element instanceof Map<?, ?> document)) {
                             continue;
                         }
