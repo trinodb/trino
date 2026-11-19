@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.memory;
 
+import io.trino.Session;
+import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -254,6 +256,24 @@ public class TestMemoryDefaultColumnValue
     void testCurrentPath()
     {
         assertDefaultValue("VARCHAR", "CURRENT_PATH", "CURRENT_PATH");
+    }
+
+    @Test
+    void testSessionDependentDefaultsEvaluatedOnInsert()
+    {
+        Session inserter = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("other_user"))
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_default_value", "(id int, u varchar DEFAULT CURRENT_USER, c varchar DEFAULT CURRENT_CATALOG, s varchar DEFAULT CURRENT_SCHEMA)")) {
+            String tableName = "%s.%s.%s".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName());
+            assertUpdate(inserter, "INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertThat(query(inserter, "SELECT u, c, s FROM " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('other_user', 'tpch', 'tiny')");
+        }
     }
 
     @Test

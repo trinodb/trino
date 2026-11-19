@@ -2435,7 +2435,12 @@ class StatementAnalyzer
                         throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s.%s': %s", table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
                     }
 
-                    validateDefaultExpression(expression, columnMetadata.getType());
+                    try {
+                        validateDefaultExpression(expression, columnMetadata.getType());
+                    }
+                    catch (TrinoException e) {
+                        throw new TrinoException(e::getErrorCode, extractLocation(table), "Invalid default column value for '%s.%s': %s".formatted(table.getName(), columnMetadata.getName(), e.getRawMessage()), e);
+                    }
                     Type expressionType = analyzeExpression(expression, scope).getType(expression);
                     if (!(expression instanceof Literal) && !typeCoercion.isStoreAssignable(expressionType, columnMetadata.getType())) {
                         throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, table, "Default value of '%s.%s' has type %s, which is not assignable to %s", table.getName(), columnMetadata.getName(), expressionType, columnMetadata.getType());

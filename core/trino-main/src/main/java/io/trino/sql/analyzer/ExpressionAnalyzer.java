@@ -282,7 +282,6 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeType.TIME_PICOS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -5198,9 +5197,15 @@ public class ExpressionAnalyzer
             ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
             Type expressionType = constantAnalyzer.analyze(expression, Scope.create());
 
-            Object value = evaluateConstant(expression, expressionType, parameters, plannerContext, session, accessControl);
-            if (!expressionType.equals(columnType)) {
-                checkDefaultColumnValue(session, plannerContext, value, columnType, expressionType);
+            if (expression instanceof Literal) {
+                Object value = evaluateConstant(expression, expressionType, parameters, plannerContext, session, accessControl);
+                if (!expressionType.equals(columnType)) {
+                    checkDefaultColumnValue(session, plannerContext, value, columnType, expressionType);
+                }
+            }
+            else {
+                TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
+                checkArgument(typeCoercion.isStoreAssignable(expressionType, columnType), "%s is not assignable to %s", expressionType, columnType);
             }
         }
         catch (RuntimeException e) {
@@ -5210,37 +5215,27 @@ public class ExpressionAnalyzer
 
     public static void validateDefaultExpression(Expression expression, Type columnType)
     {
-        if (expression instanceof Literal ||
-                expression instanceof CurrentDate ||
-                expression instanceof CurrentTime ||
-                expression instanceof CurrentTimestamp ||
-                expression instanceof LocalTime ||
-                expression instanceof LocalTimestamp) {
-            return;
-        }
-        if (expression instanceof CurrentUser || expression instanceof CurrentCatalog || expression instanceof CurrentSchema) {
+        switch (expression) {
+            case Literal _, CurrentDate _, CurrentTime _, CurrentTimestamp _, LocalTime _, LocalTimestamp _ -> {}
             // The length shall be at least 128 characters, as required by the SQL standard
-            if (!isCharacterStringType(columnType)) {
-                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires a character string column");
-            }
-            if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 128) ||
-                    (columnType instanceof CharType charType && charType.getLength() < 128)) {
-                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_USER, CURRENT_CATALOG, CURRENT_SCHEMA requires at least 128 length");
-            }
-            return;
-        }
-        if (expression instanceof CurrentPath) {
+            case CurrentUser _ -> validateCharacterStringColumn("CURRENT_USER", columnType, 128);
+            case CurrentCatalog _ -> validateCharacterStringColumn("CURRENT_CATALOG", columnType, 128);
+            case CurrentSchema _ -> validateCharacterStringColumn("CURRENT_SCHEMA", columnType, 128);
             // The length shall be at least 1031 characters, as required by the SQL standard
-            if (!isCharacterStringType(columnType)) {
-                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_PATH requires a character string column");
-            }
-            if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < 1031) ||
-                    (columnType instanceof CharType charType && charType.getLength() < 1031)) {
-                throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "CURRENT_PATH requires at least 1031 length");
-            }
-            return;
+            case CurrentPath _ -> validateCharacterStringColumn("CURRENT_PATH", columnType, 1031);
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported default expression: " + expression);
         }
-        throw new IllegalArgumentException("Unsupported default expression: " + expression);
+    }
+
+    private static void validateCharacterStringColumn(String function, Type columnType, int minLength)
+    {
+        if (!isCharacterStringType(columnType)) {
+            throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "%s requires a character string column".formatted(function));
+        }
+        if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < minLength) ||
+                (columnType instanceof CharType charType && charType.getLength() < minLength)) {
+            throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "%s requires at least %s length".formatted(function, minLength));
+        }
     }
 
     private static void checkDefaultColumnValue(Session session, PlannerContext plannerContext, Object value, Type type, Type literalType)
@@ -5265,9 +5260,6 @@ public class ExpressionAnalyzer
             Slice slice = (Slice) value;
             long actualLength = countCodePoints(slice);
             checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
-        }
-        if (type instanceof TimeType timeType && value instanceof Long picos) {
-            checkArgument(picos % Math.pow(10, TIME_PICOS.getPrecision() - timeType.getPrecision()) == 0, "Value too large");
         }
         if (type instanceof TimestampType timestampType) {
             int precision = timestampType.getPrecision();

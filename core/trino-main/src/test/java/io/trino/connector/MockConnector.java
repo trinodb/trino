@@ -613,7 +613,15 @@ public class MockConnector
         public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
         {
             MockConnectorColumnHandle mockColumnHandle = (MockConnectorColumnHandle) columnHandle;
-            return new ColumnMetadata(mockColumnHandle.name(), mockColumnHandle.type());
+            Optional<String> defaultValue = getColumns.apply(((MockConnectorTableHandle) tableHandle).getTableName()).stream()
+                    .filter(column -> column.getName().equals(mockColumnHandle.name()))
+                    .flatMap(column -> column.getDefaultValue().stream())
+                    .findFirst();
+            return ColumnMetadata.builder()
+                    .setName(mockColumnHandle.name())
+                    .setType(mockColumnHandle.type())
+                    .setDefaultValue(defaultValue)
+                    .build();
         }
 
         @Override
