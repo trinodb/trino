@@ -592,7 +592,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
-                <version>3.14</version>
+                <version>3.16</version>
             </dependency>
 
             <dependency>
