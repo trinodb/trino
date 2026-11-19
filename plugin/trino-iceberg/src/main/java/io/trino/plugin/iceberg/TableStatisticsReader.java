@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -84,6 +85,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
+import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 
 public final class TableStatisticsReader
 {
@@ -159,12 +161,16 @@ public final class TableStatisticsReader
         Domain pathDomain = getPathDomain(effectivePredicate);
         Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !column.isMetadataColumn()));
 
-        NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
-                CacheBuilder.newBuilder().maximumSize(1000),
-                CacheLoader.from(specId -> {
-                    PartitionSpec partitionSpec = icebergTable.specs().get(specId);
-                    return ManifestEvaluator.forRowFilter(filter, partitionSpec, true);
-                }));
+        Predicate<ManifestFile> matchesFilter = _ -> true;
+        if (!filter.equals(alwaysTrue())) {
+            NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
+                    CacheBuilder.newBuilder().maximumSize(1000),
+                    CacheLoader.from(specId -> {
+                        PartitionSpec partitionSpec = icebergTable.specs().get(specId);
+                        return ManifestEvaluator.forRowFilter(filter, partitionSpec, true);
+                    }));
+            matchesFilter = manifestFile -> manifestPartitionFilterEvaluators.getUnchecked(manifestFile.partitionSpecId()).eval(manifestFile);
+        }
         List<ManifestFile> filteredManifests = icebergTable.snapshot(snapshotId)
                 // We only need to look at data files to estimate statistics
                 .dataManifests(icebergTable.io())
@@ -172,10 +178,7 @@ public final class TableStatisticsReader
                 // remove any manifests that don't have any existing or added files
                 .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
                 // remove manifests that don't match the scan filter
-                .filter(manifestFile -> {
-                    ManifestEvaluator evaluator = manifestPartitionFilterEvaluators.getUnchecked(manifestFile.partitionSpecId());
-                    return evaluator.eval(manifestFile);
-                })
+                .filter(matchesFilter)
                 .collect(toImmutableList());
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
