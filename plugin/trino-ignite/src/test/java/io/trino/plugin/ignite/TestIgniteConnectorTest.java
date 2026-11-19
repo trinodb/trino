@@ -126,6 +126,28 @@ public class TestIgniteConnectorTest
     }
 
     @Test
+    @Override
+    public void testVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: Ignite treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testVarcharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (2 failures)")
+                .hasMessageContaining("Incorrect results for v LIKE '%\\_%'")
+                .hasMessageContaining("Incorrect results for v LIKE '%a\\%b%'");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: Ignite treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testDeleteWithVarcharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (2 failures)")
+                .hasMessageContaining("Incorrect results for v LIKE '%\\_%'")
+                .hasMessageContaining("Incorrect results for v LIKE '%a\\%b%'");
+    }
+
+    @Test
     public void testLikeWithEscape()
     {
         try (TestTable testTable = newTrinoTable(
@@ -492,16 +514,6 @@ public class TestIgniteConnectorTest
     public void testCharTrailingSpace()
     {
         abort("Ignite not support char trailing space");
-    }
-
-    @Test
-    @Override
-    public void testLikeWithBackslash()
-    {
-        // TODO https://github.com/trinodb/trino/issues/32256 Correctness issue: Ignite LIKE pushdown treats backslash as an escape character
-        assertThatThrownBy(super::testLikeWithBackslash)
-                .hasMessageContaining("Rows for query [SELECT k FROM test_like_backslash")
-                .hasMessageContaining("do not match");
     }
 
     @Override
