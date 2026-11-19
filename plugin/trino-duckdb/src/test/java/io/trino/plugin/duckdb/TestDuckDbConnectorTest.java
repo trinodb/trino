@@ -26,6 +26,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import java.util.List;
 import java.util.Optional;
 
+import static io.opentelemetry.api.trace.SpanKind.CLIENT;
 import static io.trino.plugin.duckdb.TestingDuckDb.TPCH_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -49,6 +50,14 @@ final class TestDuckDbConnectorTest
         return DuckDbQueryRunner.builder(duckDb)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Test
+    void testJdbcStatementTracing()
+    {
+        assertQuery("SELECT count(*) FROM nation", "VALUES 25");
+        assertThat(getQueryRunner().getSpans())
+                .anyMatch(span -> span.getKind() == CLIENT && span.getName().startsWith("SELECT"));
     }
 
     @Override
