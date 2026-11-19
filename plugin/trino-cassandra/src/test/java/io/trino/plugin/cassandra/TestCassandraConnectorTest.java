@@ -215,6 +215,22 @@ public class TestCassandraConnectorTest
 
     @Test
     @Override
+    public void testCharPushdownCorrectness()
+    {
+        assertThatThrownBy(super::testCharPushdownCorrectness)
+                .hasMessage("Unsupported type: char(10)");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCharPushdownCorrectness()
+    {
+        assertThatThrownBy(super::testDeleteWithCharPushdownCorrectness)
+                .hasMessage("Unsupported type: char(10)");
+    }
+
+    @Test
+    @Override
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)

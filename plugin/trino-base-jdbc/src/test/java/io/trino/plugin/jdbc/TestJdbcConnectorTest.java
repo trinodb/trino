@@ -20,6 +20,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -136,6 +137,32 @@ public class TestJdbcConnectorTest
                  "timestamp", "timestamp with time zone" -> dataMappingTestSetup.asUnsupported();
             default -> dataMappingTestSetup;
         });
+    }
+
+    @Test
+    @Override
+    public void testCharPushdownCorrectness()
+    {
+        // TODO Correctness issue: char ranges are pushed down, but H2 compares char values without padding
+        assertThatThrownBy(super::testCharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(4))
+                .hasMessageContaining("[Incorrect results for v <= CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v > CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v >= CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v BETWEEN CHAR 'a' AND CHAR 'b']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCharPushdownCorrectness()
+    {
+        // TODO Correctness issue: char ranges are pushed down, but H2 compares char values without padding
+        assertThatThrownBy(super::testDeleteWithCharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(4))
+                .hasMessageContaining("[Incorrect results for v <= CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v > CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v >= CHAR 'a']")
+                .hasMessageContaining("[Incorrect results for v BETWEEN CHAR 'a' AND CHAR 'b']");
     }
 
     @Test

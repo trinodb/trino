@@ -22,6 +22,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -123,6 +124,28 @@ public class TestIgniteConnectorTest
                         .isFullyPushedDown();
             }
         }
+    }
+
+    @Test
+    @Override
+    public void testVarcharPushdownCorrectness()
+    {
+        // TODO https://github.com/trinodb/trino/issues/32256 Correctness issue: Ignite treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPushdownCorrectness()
+    {
+        // TODO https://github.com/trinodb/trino/issues/32256 Correctness issue: Ignite treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testDeleteWithVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
     }
 
     @Test
@@ -458,16 +481,6 @@ public class TestIgniteConnectorTest
     public void testCharTrailingSpace()
     {
         abort("Ignite not support char trailing space");
-    }
-
-    @Test
-    @Override
-    public void testLikeWithBackslash()
-    {
-        // TODO https://github.com/trinodb/trino/issues/32256 Correctness issue: Ignite LIKE pushdown treats backslash as an escape character
-        assertThatThrownBy(super::testLikeWithBackslash)
-                .hasMessageContaining("Rows for query [SELECT k FROM test_like_backslash")
-                .hasMessageContaining("do not match");
     }
 
     @Override

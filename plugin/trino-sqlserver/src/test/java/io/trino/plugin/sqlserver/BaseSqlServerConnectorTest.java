@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -42,6 +43,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -487,6 +489,28 @@ public abstract class BaseSqlServerConnectorTest
         try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
         }
+    }
+
+    @Test
+    @Override
+    public void testVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testDeleteWithVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']");
     }
 
     @Test
