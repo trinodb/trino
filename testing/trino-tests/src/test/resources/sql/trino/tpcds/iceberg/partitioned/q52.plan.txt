@@ -8,12 +8,12 @@ local exchange (GATHER, SINGLE, [])
                             intermediate aggregation over (d_year, i_brand, i_brand_id)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        partial aggregation over (ss_item_sk, ss_sold_date_sk)
-                                            dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL)
+                                        partial aggregation over (ss_sold_date_sk, ss_item_sk)
+                                            dynamic filter (ss_sold_date_sk::EQUAL, ss_item_sk::EQUAL)
                                                 scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                                scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan item
+                                            scan date_dim

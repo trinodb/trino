@@ -275,7 +275,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 1 ],
+      "fields" : [ 20 ],
       "properties" : {
         "ndv" : "2003"
       }
@@ -283,7 +283,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 2 ],
+      "fields" : [ 1 ],
       "properties" : {
         "ndv" : "31931"
       }
@@ -291,7 +291,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 3 ],
+      "fields" : [ 2 ],
       "properties" : {
         "ndv" : "302044"
       }
@@ -299,7 +299,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 4 ],
+      "fields" : [ 3 ],
       "properties" : {
         "ndv" : "11975335"
       }
@@ -307,7 +307,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 5 ],
+      "fields" : [ 4 ],
       "properties" : {
         "ndv" : "1930039"
       }
@@ -315,7 +315,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 6 ],
+      "fields" : [ 5 ],
       "properties" : {
         "ndv" : "7166"
       }
@@ -323,7 +323,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 7 ],
+      "fields" : [ 6 ],
       "properties" : {
         "ndv" : "6043919"
       }
@@ -331,7 +331,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 8 ],
+      "fields" : [ 7 ],
       "properties" : {
         "ndv" : "501"
       }
@@ -339,7 +339,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 9 ],
+      "fields" : [ 8 ],
       "properties" : {
         "ndv" : "65"
       }
@@ -347,7 +347,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 10 ],
+      "fields" : [ 9 ],
       "properties" : {
         "ndv" : "173604263"
       }
@@ -355,7 +355,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 11 ],
+      "fields" : [ 10 ],
       "properties" : {
         "ndv" : "100"
       }
@@ -363,7 +363,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 12 ],
+      "fields" : [ 11 ],
       "properties" : {
         "ndv" : "690205"
       }
@@ -371,7 +371,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 13 ],
+      "fields" : [ 12 ],
       "properties" : {
         "ndv" : "119148"
       }
@@ -379,7 +379,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 14 ],
+      "fields" : [ 13 ],
       "properties" : {
         "ndv" : "1265263"
       }
@@ -387,7 +387,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 15 ],
+      "fields" : [ 14 ],
       "properties" : {
         "ndv" : "9791"
       }
@@ -395,7 +395,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 16 ],
+      "fields" : [ 15 ],
       "properties" : {
         "ndv" : "369535"
       }
@@ -403,7 +403,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 17 ],
+      "fields" : [ 16 ],
       "properties" : {
         "ndv" : "974503"
       }
@@ -411,7 +411,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 18 ],
+      "fields" : [ 17 ],
       "properties" : {
         "ndv" : "734714"
       }
@@ -419,7 +419,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 19 ],
+      "fields" : [ 18 ],
       "properties" : {
         "ndv" : "725685"
       }
@@ -427,7 +427,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 4803221953065828720,
       "sequence-number" : 2,
-      "fields" : [ 20 ],
+      "fields" : [ 19 ],
       "properties" : {
         "ndv" : "745702"
       }
