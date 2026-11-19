@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI love Trino\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"positive\\\",\\\"negative\\\",\\\"neutral\\\",\\\"mixed\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI love Trino\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -73,7 +73,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI am sad\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"positive\\\",\\\"negative\\\",\\\"neutral\\\",\\\"mixed\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI am sad\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -126,7 +126,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe sky is blue\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"positive\\\",\\\"negative\\\",\\\"neutral\\\",\\\"mixed\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe sky is blue\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -179,7 +179,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"positive\\\",\\\"negative\\\",\\\"neutral\\\",\\\"mixed\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {

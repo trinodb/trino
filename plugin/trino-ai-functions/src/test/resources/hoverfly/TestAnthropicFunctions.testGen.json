@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"What is the capital of France?\"\n  } ]\n}"
+          "value" : "{\"model\":\"claude-3-5-sonnet-latest\",\"max_tokens\":4096,\"messages\":[{\"role\":\"user\",\"content\":\"What is the capital of France?\"}]}"
         } ]
       },
       "response" : {
