@@ -937,6 +937,13 @@ public class TestStringFunctions
 
         assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'nice'", "-1"))
                 .isEqualTo(0L);
+
+        // instance near the BIGINT bounds must be treated as out of range, not fail with an overflow (https://github.com/trinodb/trino/issues/30803)
+        assertThat(assertions.function("strpos", "'abc/xyz'", "'/'", "BIGINT '-9223372036854775808'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz'", "'/'", "BIGINT '9223372036854775807'"))
+                .isEqualTo(0L);
     }
 
     @Test
@@ -1636,6 +1643,13 @@ public class TestStringFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("split_part", "'abc'", "''", "-1")::evaluate)
                 .hasMessage("Index must be greater than zero");
+
+        // index past the end with an empty delimiter must return NULL, not fail with an overflow (https://github.com/trinodb/trino/issues/30803)
+        assertThat(assertions.function("split_part", "'abc'", "''", "3000000000"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "BIGINT '9223372036854775807'"))
+                .isNull(createVarcharType(3));
 
         assertTrinoExceptionThrownBy(assertions.function("split_part", "utf8(from_hex('CE'))", "''", "1")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding");
