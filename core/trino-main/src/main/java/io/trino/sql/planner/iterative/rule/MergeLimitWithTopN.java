@@ -18,6 +18,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TopNNode;
 
 import static io.trino.matching.Capture.newCapture;
@@ -27,15 +28,19 @@ import static io.trino.sql.planner.plan.Patterns.topN;
 
 /**
  * This rule handles both LimitNode with ties and LimitNode without ties.
- * In the case of LimitNode with ties, the LimitNode is removed
- * if only its row count equals or exceeds TopNNode's row count:
+ * In the case of LimitNode with ties, when its row count equals or exceeds
+ * TopNNode's row count, the LimitNode is replaced with a SortNode using
+ * tiesResolvingScheme to preserve ordering, or removed directly when
+ * TopNNode already guarantees the required order (at most one row or
+ * matching orderingScheme):
  * <pre>
- *     - Limit (5, with ties)
- *        - TopN (3)
+ *     - Limit (5, with ties: b)
+ *        - TopN (3, order by: a)
  * </pre>
  * is transformed into:
  * <pre>
- *     - TopN (3)
+ *     - Sort (order by: b)
+ *        - TopN (3, order by: a)
  * </pre>
  * In the case of LimitNode without ties, the LimitNode is removed,
  * and the TopNNode's row count is updated to minimum row count
@@ -72,7 +77,14 @@ public class MergeLimitWithTopN
             if (parent.getCount() < child.getCount()) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(child);
+            if (child.getCount() <= 1 || child.getOrderingScheme().equals(parent.getTiesResolvingScheme().orElseThrow())) {
+                return Result.ofPlanNode(child);
+            }
+            return Result.ofPlanNode(new SortNode(
+                    context.getIdAllocator().getNextId(),
+                    child,
+                    parent.getTiesResolvingScheme().orElseThrow(),
+                    false));
         }
 
         return Result.ofPlanNode(

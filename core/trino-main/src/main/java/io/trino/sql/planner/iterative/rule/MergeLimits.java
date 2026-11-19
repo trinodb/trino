@@ -20,6 +20,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.SortNode;
 
 import java.util.List;
 
@@ -47,29 +48,31 @@ import static io.trino.sql.planner.plan.Patterns.source;
  * If the child LimitNode is with ties, the rule's behavior depends
  * on both nodes' row count.
  * If parent row count is lower or equal to child row count,
- * child node is removed from the plan:
+ * child node is replaced with a SortNode using its tiesResolvingScheme:
  * </p>
  * <pre>
  *     - Limit (3)
- *        - Limit (5, withTies)
+ *        - Limit (5, withTies: a)
  * </pre>
  * is transformed into:
  * <pre>
  *     - Limit (3)
+ *        - Sort (a)
  * </pre>
  * <p>
  * If parent row count is greater than child row count, both nodes
- * remain in the plan, but they are rearranged in the way that
- * the LimitNode with ties is the root:
+ * remain in the plan, rearranged so that the LimitNode with ties is the root,
+ * with a SortNode using its tiesResolvingScheme below the inner LimitNode:
  * </p>
  * <pre>
  *     - Limit (5)
- *        - Limit (3, withTies)
+ *        - Limit (3, withTies: a)
  * </pre>
  * is transformed into:
  * <pre>
- *     - Limit (3, withTies)
+ *     - Limit (3, withTies: a)
  *        - Limit (5)
+ *           - Sort (a)
  * </pre>
  */
 public class MergeLimits
@@ -113,15 +116,24 @@ public class MergeLimits
         }
 
         // parent is without ties and child is with ties
-        if (parent.getCount() > child.getCount()) {
-            return Result.ofPlanNode(
-                    child.replaceChildren(ImmutableList.of(
-                            parent.replaceChildren(ImmutableList.of(
-                                    child.getSource())))));
+        if (parent.getCount() > Integer.MAX_VALUE) {
+            return Result.empty();
         }
 
-        return Result.ofPlanNode(
-                parent.replaceChildren(ImmutableList.of(
-                        child.getSource())));
+        SortNode sortedSource = new SortNode(
+                context.getIdAllocator().getNextId(),
+                child.getSource(),
+                child.getTiesResolvingScheme().orElseThrow(),
+                false);
+        LimitNode innerLimit = new LimitNode(
+                parent.getId(),
+                sortedSource,
+                parent.getCount(),
+                false);
+        if (parent.getCount() > child.getCount()) {
+            return Result.ofPlanNode(child.replaceChildren(ImmutableList.of(innerLimit)));
+        }
+
+        return Result.ofPlanNode(innerLimit);
     }
 }

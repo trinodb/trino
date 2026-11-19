@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.optimizations;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -111,7 +113,39 @@ public class LimitPushDown
                 return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols());
             }
 
-            if (!node.requiresPreSortedInputs() && (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount()))) {
+            if (node.isWithTies()) {
+                if (limit == null) {
+                    return context.defaultRewrite(node);
+                }
+                if (limit.getCount() > Integer.MAX_VALUE || node.requiresPreSortedInputs()) {
+                    return new LimitNode(idAllocator.getNextId(), context.defaultRewrite(node), limit.getCount(), limit.isPartial());
+                }
+                OrderingScheme tiesResolvingScheme = node.getTiesResolvingScheme().orElseThrow();
+                PlanNode rewrittenSource = context.rewrite(node.getSource());
+                PlanNode topNSource;
+                if (rewrittenSource instanceof TopNNode topN && topN.getStep() == TopNNode.Step.SINGLE && topN.getOrderingScheme().equals(tiesResolvingScheme)) {
+                    topNSource = new TopNNode(
+                            topN.getId(),
+                            topN.getSource(),
+                            Math.min(topN.getCount(), limit.getCount()),
+                            tiesResolvingScheme,
+                            TopNNode.Step.SINGLE);
+                }
+                else {
+                    topNSource = new TopNNode(
+                            idAllocator.getNextId(),
+                            rewrittenSource,
+                            limit.getCount(),
+                            tiesResolvingScheme,
+                            TopNNode.Step.SINGLE);
+                }
+                if (node.getCount() >= limit.getCount()) {
+                    return topNSource;
+                }
+                return node.replaceChildren(ImmutableList.of(topNSource));
+            }
+
+            if (!node.requiresPreSortedInputs()) {
                 // The new limit context is partial if neither the existing context nor this limit node is final
                 boolean partial = node.isPartial() && (limit == null || limit.isPartial());
                 // default visitPlan logic will insert the limit node

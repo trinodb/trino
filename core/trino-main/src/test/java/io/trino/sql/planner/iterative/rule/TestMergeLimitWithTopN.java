@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -66,6 +67,43 @@ public class TestMergeLimitWithTopN
                 .matches(
                         topN(
                                 1,
+                                ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                values("a")));
+
+        tester().assertThat(new MergeLimitWithTopN())
+                .on(p -> {
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    return p.limit(
+                            5,
+                            ImmutableList.of(b),
+                            p.topN(
+                                    3,
+                                    ImmutableList.of(a),
+                                    p.values(a, b)));
+                })
+                .matches(
+                        sort(
+                                ImmutableList.of(sort("b", ASCENDING, FIRST)),
+                                topN(
+                                        3,
+                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                        values("a", "b"))));
+
+        tester().assertThat(new MergeLimitWithTopN())
+                .on(p -> {
+                    Symbol a = p.symbol("a", BIGINT);
+                    return p.limit(
+                            5,
+                            ImmutableList.of(a),
+                            p.topN(
+                                    3,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
+                })
+                .matches(
+                        topN(
+                                3,
                                 ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                 values("a")));
     }
