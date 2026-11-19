@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.Immutable;
 import jakarta.annotation.Nullable;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -164,11 +163,6 @@ public interface WorkProcessor<T>
     static <T> WorkProcessor<T> create(Process<T> process)
     {
         return WorkProcessorUtils.create(process);
-    }
-
-    static <T> WorkProcessor<T> mergeSorted(Iterable<WorkProcessor<T>> processorIterable, Comparator<T> comparator)
-    {
-        return WorkProcessorUtils.mergeSorted(processorIterable, comparator);
     }
 
     interface Transformation<T, R>
