@@ -35,6 +35,7 @@ import static java.lang.String.format;
 @RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
+@TestGroup.DeltaLakeDatabricksPart1
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeUpdateCompatibility
 {
