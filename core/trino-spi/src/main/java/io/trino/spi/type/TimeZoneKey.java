@@ -301,11 +301,12 @@ public final class TimeZoneKey
                     return "UTC";
                 }
 
+                boolean positive = zoneId.charAt(offset) == '+';
                 if (prefix.equals("Etc/GMT")) {
-                    hour = -hour;
+                    positive = !positive;
                 }
 
-                return formatZoneOffset(hour >= 0, abs(hour), minute);
+                return formatZoneOffset(positive, abs(hour), minute);
             }
         }
 
