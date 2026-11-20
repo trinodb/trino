@@ -189,6 +189,57 @@ public class TestHttpRequestSessionContextFactory
                 .hasMessage("Invalid extra credential name: internal$abc");
     }
 
+    @Test
+    public void testAuthenticatedExtraCredentialNameCannotBeOverridden()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "myIdentityCredential=attacker")
+                .build());
+        Identity authenticatedIdentity = Identity.forUser("testUser")
+                .withExtraCredentials(ImmutableMap.of("myIdentityCredential", "authenticated"))
+                .build();
+
+        assertThatThrownBy(
+                () -> sessionContextFactory(TRINO_HEADERS)
+                        .createSessionContext(headers, Optional.of("testRemote"), Optional.of(authenticatedIdentity)))
+                .isInstanceOf(WebApplicationException.class)
+                .hasMessage("Invalid extra credential name: myIdentityCredential");
+    }
+
+    @Test
+    public void testClientExtraCredentialsDoNotOverrideAuthenticatedExtraCredentials()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "token=client-token")
+                .build());
+        Identity authenticatedIdentity = Identity.forUser("testUser")
+                .withExtraCredentials(ImmutableMap.of("myIdentityCredential", "authenticated"))
+                .build();
+
+        SessionContext context = sessionContextFactory(TRINO_HEADERS)
+                .createSessionContext(headers, Optional.of("testRemote"), Optional.of(authenticatedIdentity));
+
+        assertThat(context.getIdentity().getExtraCredentials())
+                .containsEntry("myIdentityCredential", "authenticated")
+                .containsEntry("token", "client-token");
+    }
+
+    @Test
+    public void testExtraCredentialNameAllowedWhenUnauthenticated()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "myIdentityCredential=authenticated")
+                .build());
+
+        SessionContext context = sessionContextFactory(TRINO_HEADERS)
+                .createSessionContext(headers, Optional.of("testRemote"), Optional.empty());
+
+        assertThat(context.getIdentity().getExtraCredentials()).containsEntry("myIdentityCredential", "authenticated");
+    }
+
     private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         return assertThatThrownBy(
