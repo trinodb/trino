@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -36,7 +35,6 @@ public class TpcdsConnector
     private final TpcdsMetadata metadata;
     private final TpcdsSplitManager splitManager;
     private final TpcdsRecordSetProvider recordSetProvider;
-    private final TpcdsNodePartitioningProvider nodePartitioningProvider;
     private final TpcdsSessionProperties sessionProperties;
 
     @Inject
@@ -45,14 +43,12 @@ public class TpcdsConnector
             TpcdsMetadata metadata,
             TpcdsSplitManager splitManager,
             TpcdsRecordSetProvider recordSetProvider,
-            TpcdsNodePartitioningProvider nodePartitioningProvider,
             TpcdsSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
     }
 
@@ -78,12 +74,6 @@ public class TpcdsConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
-    }
-
-    @Override
-    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-    {
-        return nodePartitioningProvider;
     }
 
     @Override

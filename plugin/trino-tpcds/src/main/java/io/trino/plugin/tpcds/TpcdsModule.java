@@ -30,7 +30,6 @@ public class TpcdsModule
         binder.bind(TpcdsMetadata.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(TpcdsNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(TpcdsConnector.class).in(Scopes.SINGLETON);
     }
 }
