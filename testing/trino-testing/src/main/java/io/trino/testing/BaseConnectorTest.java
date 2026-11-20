@@ -839,6 +839,26 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testLikeWithBackslash()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = newTrinoTable(
+                "test_like_backslash",
+                "(k integer, v varchar)",
+                List.of(
+                        "1, 'a\\b'",
+                        "2, 'a%b'",
+                        "3, 'a\\%b'",
+                        "4, 'a\\\\%b'",
+                        "5, '%a\\%b%'",
+                        "6, '%a\\\\%b%'"))) {
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v LIKE '%a\\%b%'"))
+                    .hasCorrectResultsRegardlessOfPushdown();
+        }
+    }
+
     private static void verifyResultOrFailure(AssertProvider<QueryAssert> queryAssertProvider, Consumer<QueryAssert> verifyResults, Consumer<TrinoExceptionAssert> verifyFailure)
     {
         requireNonNull(verifyResults, "verifyResults is null");
