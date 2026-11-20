@@ -33,7 +33,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableFunctionNode
+public final class TableFunctionNode
         extends PlanNode
 {
     private final String name;

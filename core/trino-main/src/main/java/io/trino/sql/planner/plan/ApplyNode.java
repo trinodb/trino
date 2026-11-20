@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class ApplyNode
+public final class ApplyNode
         extends PlanNode
 {
     private final PlanNode input;

@@ -27,7 +27,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class StatisticsWriterNode
+public final class StatisticsWriterNode
         extends PlanNode
 {
     private final PlanNode source;

@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -24,6 +23,7 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;

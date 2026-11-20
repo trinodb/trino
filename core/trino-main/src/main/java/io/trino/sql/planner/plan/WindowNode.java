@@ -41,7 +41,7 @@ import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class WindowNode
+public final class WindowNode
         extends PlanNode
 {
     private final PlanNode source;

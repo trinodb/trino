@@ -25,7 +25,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class AdaptivePlanNode
+public final class AdaptivePlanNode
         extends PlanNode
 {
     private final PlanNode initialPlan;

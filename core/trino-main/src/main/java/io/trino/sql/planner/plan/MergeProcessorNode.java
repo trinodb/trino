@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
  * The node processes the result of the Searched CASE and RIGHT JOIN
  * derived from a MERGE statement.
  */
-public class MergeProcessorNode
+public final class MergeProcessorNode
         extends PlanNode
 {
     private final PlanNode source;

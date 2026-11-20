@@ -13,8 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import io.trino.sql.planner.iterative.GroupReference;
-
 public abstract class PlanVisitor<R, C>
 {
     protected abstract R visitPlan(PlanNode node, C context);

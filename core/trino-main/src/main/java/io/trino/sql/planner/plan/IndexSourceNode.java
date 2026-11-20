@@ -30,7 +30,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class IndexSourceNode
+public final class IndexSourceNode
         extends PlanNode
 {
     private final IndexHandle indexHandle;

@@ -25,7 +25,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class ProjectNode
+public final class ProjectNode
         extends PlanNode
 {
     private final PlanNode source;

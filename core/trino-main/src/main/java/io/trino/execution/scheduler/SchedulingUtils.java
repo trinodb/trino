@@ -42,7 +42,7 @@ public final class SchedulingUtils
 
         PlanNode root = plan.getFragment().getRoot();
         RemoteSourceNode sourceNode = plan.getFragment().getRemoteSourceNodes().stream().filter(node -> node.getSourceFragmentIds().contains(sourceFragmentId)).collect(onlyElement());
-        List<PlanNode> pathToSource = findPath(root, sourceNode).orElseThrow(() -> new RuntimeException("Could not find path from %s to %s in %s".formatted(root, sourceNode, plan.getFragment())));
+        List<PlanNode> pathToSource = findPath(root, sourceNode).orElseThrow(() -> new RuntimeException("Could not find path from %s to %s in %s".formatted(root, sourceNode.getId(), plan.getFragment())));
 
         for (int pos = 0; pos < pathToSource.size() - 1; ++pos) {
             PlanNode node = pathToSource.get(pos);

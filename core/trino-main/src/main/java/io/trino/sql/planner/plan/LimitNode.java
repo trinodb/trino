@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class LimitNode
+public final class LimitNode
         extends PlanNode
 {
     private final PlanNode source;

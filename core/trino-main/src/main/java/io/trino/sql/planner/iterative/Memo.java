@@ -20,6 +20,7 @@ import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;

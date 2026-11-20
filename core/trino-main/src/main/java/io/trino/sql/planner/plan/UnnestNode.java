@@ -29,7 +29,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class UnnestNode
+public final class UnnestNode
         extends PlanNode
 {
     private final PlanNode source;

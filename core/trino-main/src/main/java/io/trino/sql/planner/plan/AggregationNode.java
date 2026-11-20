@@ -43,7 +43,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class AggregationNode
+public final class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;

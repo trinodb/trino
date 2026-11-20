@@ -14,15 +14,17 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -272,43 +274,16 @@ public class TestMemo
         return child.getGroupId();
     }
 
-    private GenericNode node(PlanNodeId id, PlanNode... children)
+    private static PlanNode node(PlanNodeId id, PlanNode... children)
     {
-        return new GenericNode(id, ImmutableList.copyOf(children));
+        if (children.length == 0) {
+            return new ValuesNode(id, 0);
+        }
+        return new UnionNode(id, ImmutableList.copyOf(children), ImmutableListMultimap.of(), ImmutableList.of());
     }
 
-    private GenericNode node(PlanNode... children)
+    private PlanNode node(PlanNode... children)
     {
         return node(idAllocator.getNextId(), children);
-    }
-
-    private static class GenericNode
-            extends PlanNode
-    {
-        private final List<PlanNode> sources;
-
-        public GenericNode(PlanNodeId id, List<PlanNode> sources)
-        {
-            super(id);
-            this.sources = ImmutableList.copyOf(sources);
-        }
-
-        @Override
-        public List<PlanNode> getSources()
-        {
-            return sources;
-        }
-
-        @Override
-        public List<Symbol> getOutputSymbols()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
-        public PlanNode replaceChildren(List<PlanNode> newChildren)
-        {
-            return new GenericNode(getId(), newChildren);
-        }
     }
 }

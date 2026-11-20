@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative;
 
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
