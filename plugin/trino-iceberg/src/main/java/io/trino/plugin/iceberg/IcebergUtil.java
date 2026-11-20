@@ -53,7 +53,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -133,6 +137,7 @@ import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
 import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnMetadata;
@@ -185,6 +190,8 @@ import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
+import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampNanosToRange;
+import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampTzNanosToRange;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
@@ -245,6 +252,7 @@ import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
+import static org.apache.iceberg.expressions.ExpressionUtil.selectsPartitions;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
@@ -685,9 +693,25 @@ public final class IcebergUtil
 
     private static boolean canEnforceConstraintWithinPartitioningSpec(TypeOperators typeOperators, PartitionSpec spec, IcebergColumnHandle column, Domain domain)
     {
-        for (PartitionField field : spec.getFieldsBySourceId(column.getId())) {
+        List<PartitionField> fields = spec.getFieldsBySourceId(column.getId());
+        // A predicate on an identity partitioning column can always be enforced, even when other transforms are present.
+        if (fields.stream().anyMatch(field -> field.transform().isIdentity())) {
+            return true;
+        }
+        for (PartitionField field : fields) {
             if (canEnforceConstraintWithPartitionField(typeOperators, field, column, domain)) {
-                return true;
+                if (domain.getValues().isAll() || domain.getValues().isNone() ||
+                        !(column.getType() instanceof TimestampType || column.getType() instanceof TimestampWithTimeZoneType)) {
+                    return true;
+                }
+                // Iceberg can widen temporal projections to include partitions written by older versions.
+                // Only remove the residual filter when the inclusive and strict projections are equivalent.
+                String columnName = spec.schema().findColumnName(column.getId());
+                if (columnName == null) {
+                    return false;
+                }
+                return selectsPartitions(
+                        toIcebergExpression(columnName, column.getType(), domain), spec, true);
             }
         }
         return false;
@@ -699,11 +723,6 @@ public final class IcebergUtil
             // Useless for filtering.
             return false;
         }
-        if (field.transform().isIdentity()) {
-            // A predicate on an identity partitioning column can always be enforced.
-            return true;
-        }
-
         ColumnTransform transform = PartitionTransforms.getColumnTransform(field, column.getType());
         if (transform.preservesNonNull()) {
             // Partitioning transform must return NULL for NULL input.
@@ -743,17 +762,36 @@ public final class IcebergUtil
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
+            if (!isTimestampInIcebergRange(type, boundedValue)) {
+                return false;
+            }
             Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
-            if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
+            if (adjacentValue.isEmpty() || !isTimestampInIcebergRange(type, adjacentValue.get()) ||
+                    yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
-            if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
+            if (!isTimestampInIcebergRange(type, boundedValue)) {
                 return false;
             }
+            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
+            if (adjacentValue.isEmpty() || !isTimestampInIcebergRange(type, adjacentValue.get()) ||
+                    yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isTimestampInIcebergRange(io.trino.spi.type.Type type, Object value)
+    {
+        if (type.equals(TIMESTAMP_NANOS)) {
+            return compareTimestampNanosToRange((LongTimestamp) value) == 0;
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            return compareTimestampTzNanosToRange((LongTimestampWithTimeZone) value) == 0;
         }
         return true;
     }
