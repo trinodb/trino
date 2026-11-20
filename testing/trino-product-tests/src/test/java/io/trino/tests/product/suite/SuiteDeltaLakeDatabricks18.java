@@ -33,7 +33,6 @@ public final class SuiteDeltaLakeDatabricks18
         results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks18Environment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
                 .includeTag(TestGroup.DeltaLakeDatabricks.class)
-                .excludeTag(TestGroup.DeltaLakeExclude18.class)
                 .run());
 
         SuiteRunner.printSummary(results);
