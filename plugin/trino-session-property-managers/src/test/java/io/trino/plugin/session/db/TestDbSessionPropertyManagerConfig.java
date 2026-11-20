@@ -15,14 +15,20 @@ package io.trino.plugin.session.db;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDbSessionPropertyManagerConfig
@@ -32,27 +38,74 @@ public class TestDbSessionPropertyManagerConfig
     {
         assertRecordedDefaults(recordDefaults(DbSessionPropertyManagerConfig.class)
                 .setConfigDbUrl(null)
-                .setUsername(null)
-                .setPassword(null)
-                .setSpecsRefreshPeriod(new Duration(10, SECONDS)));
+                .setConfigDbUser(null)
+                .setConfigDbPassword(null)
+                .setMaxRefreshInterval(new Duration(1, HOURS))
+                .setRefreshInterval(new Duration(1, SECONDS))
+                .setConnectTimeout(new Duration(10, SECONDS))
+                .setSocketTimeout(new Duration(30, SECONDS))
+                .setRunMigrationsEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("session-property-manager.db.url", "foo")
-                .put("session-property-manager.db.username", "bar")
-                .put("session-property-manager.db.password", "pass")
-                .put("session-property-manager.db.refresh-period", "50s")
+                .put("session-property-manager.config-db-url", "foo")
+                .put("session-property-manager.config-db-user", "bar")
+                .put("session-property-manager.config-db-password", "pass")
+                .put("session-property-manager.max-refresh-interval", "1m")
+                .put("session-property-manager.refresh-interval", "2s")
+                .put("session-property-manager.config-db-connect-timeout", "5s")
+                .put("session-property-manager.config-db-socket-timeout", "2m")
+                .put("session-property-manager.db-migrations-enabled", "false")
                 .buildOrThrow();
 
         DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
                 .setConfigDbUrl("foo")
-                .setUsername("bar")
-                .setPassword("pass")
-                .setSpecsRefreshPeriod(new Duration(50, TimeUnit.SECONDS));
+                .setConfigDbUser("bar")
+                .setConfigDbPassword("pass")
+                .setMaxRefreshInterval(new Duration(1, MINUTES))
+                .setRefreshInterval(new Duration(2, SECONDS))
+                .setConnectTimeout(new Duration(5, SECONDS))
+                .setSocketTimeout(new Duration(2, MINUTES))
+                .setRunMigrationsEnabled(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testDeprecatedProperties()
+    {
+        Map<String, String> currentProperties = ImmutableMap.of(
+                "session-property-manager.config-db-url", "foo",
+                "session-property-manager.config-db-user", "bar",
+                "session-property-manager.config-db-password", "pass",
+                "session-property-manager.refresh-interval", "50s");
+
+        Map<String, String> oldProperties = ImmutableMap.of(
+                "session-property-manager.db.url", "foo",
+                "session-property-manager.db.username", "bar",
+                "session-property-manager.db.password", "pass",
+                "session-property-manager.db.refresh-period", "50s");
+
+        assertDeprecatedEquivalence(DbSessionPropertyManagerConfig.class, currentProperties, oldProperties);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        // Also applies to the deprecated session-property-manager.db.refresh-period, which accepted any value of 1ms or more
+        assertFailsValidation(
+                new DbSessionPropertyManagerConfig().setRefreshInterval(new Duration(500, MILLISECONDS)),
+                "refreshInterval",
+                "must be greater than or equal to 1s",
+                MinDuration.class);
+
+        assertFailsValidation(
+                new DbSessionPropertyManagerConfig().setRefreshInterval(new Duration(2, HOURS)),
+                "refreshIntervalValid",
+                "maxRefreshInterval must be greater than refreshInterval",
+                AssertTrue.class);
     }
 }
