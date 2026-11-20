@@ -14,9 +14,12 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
@@ -26,6 +29,16 @@ import io.trino.spi.type.Type;
 public final class MapValues
 {
     private MapValues() {}
+
+    @ColumnarScalar
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType("array(V)")
+    public static Block getValuesColumnar(SelectedPositions selectedPositions, @SqlType("map(K,V)") Block mapColumn)
+    {
+        ColumnarMap map = ColumnarMap.toColumnarMap(mapColumn);
+        return selectedPositions.select(map.toArrayBlock(map.getValuesBlock()));
+    }
 
     @TypeParameter("K")
     @TypeParameter("V")

@@ -333,6 +333,7 @@ import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
+import static io.trino.SystemSessionProperties.isColumnarProjectionEnabled;
 import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
@@ -1582,7 +1583,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
+            return pageFunctionCompiler.compileProjection(rewritten, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty(), isColumnarProjectionEnabled(session));
         }
 
         private ValueAccessors preparePhysicalValuePointers(
@@ -1728,7 +1729,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty());
+            return pageFunctionCompiler.compileProjection(argument, inputLayout.buildOrThrow(), getCharVarcharCoercion(session), Optional.empty(), isColumnarProjectionEnabled(session));
         }
 
         @Override
@@ -2108,6 +2109,7 @@ public class LocalExecutionPlanner
             try {
                 boolean columnarFilterEvaluationEnabled = isColumnarFilterEvaluationEnabled(session);
                 boolean filterReorderingEnabled = isAdaptiveFilterReorderingEnabled(session);
+                boolean columnarProjectionEnabled = isColumnarProjectionEnabled(session);
                 Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
                 if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
                     dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
@@ -2122,6 +2124,7 @@ public class LocalExecutionPlanner
                         getCharVarcharCoercion(session),
                         columnarFilterEvaluationEnabled,
                         filterReorderingEnabled,
+                        columnarProjectionEnabled,
                         staticFilters,
                         dynamicPageFilterFactory,
                         projections,

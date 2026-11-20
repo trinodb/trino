@@ -21,8 +21,10 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -30,6 +32,9 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,6 +44,8 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntPredicate;
+import java.util.function.IntToLongFunction;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
@@ -58,6 +65,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -75,6 +83,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
@@ -98,6 +107,13 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestArrayOperators
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    private static final ArrayType VARCHAR_ARRAY = new ArrayType(VARCHAR);
+    private static final ArrayType NESTED_ARRAY = new ArrayType(VARCHAR_ARRAY);
+    // positions with invalid arguments for the functions that can fail
+    private static final IntPredicate INVALID = position -> position % 3 == 1;
 
     @BeforeAll
     public void init()
@@ -6129,5 +6145,137 @@ public class TestArrayOperators
                             ARRAY[1e0],
                             ARRAY[nan()],
                             ARRAY[CAST(NULL AS DOUBLE)]""");
+    }
+
+    @Test
+    public void testColumnarSlice()
+    {
+        // slice fails for a zero start index or a negative length
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("slice", new Reference(VARCHAR_ARRAY, "input"), new Reference(BIGINT, "start"), new Reference(BIGINT, "length")),
+                INVALID,
+                new Input("input", VARCHAR_ARRAY, varcharArrayBlock()),
+                new Input("start", BIGINT, longBlock(position -> INVALID.test(position) && position % 2 == 0 ? 0L : 1L)),
+                new Input("length", BIGINT, longBlock(position -> INVALID.test(position) && position % 2 == 1 ? -1L : 2L)));
+    }
+
+    @Test
+    public void testColumnarArrayFirstAndLast()
+    {
+        for (String function : ImmutableList.of("array_first", "array_last")) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function(function, new Reference(NESTED_ARRAY, "input")),
+                    new Input("input", NESTED_ARRAY, nestedArrayBlock()));
+        }
+    }
+
+    @Test
+    public void testColumnarElementAt()
+    {
+        // element_at fails for a zero index, and returns null for an index past the end of the array
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("element_at", new Reference(NESTED_ARRAY, "input"), new Reference(BIGINT, "index")),
+                INVALID,
+                new Input("input", NESTED_ARRAY, nestedArrayBlock()),
+                new Input("index", BIGINT, longBlock(TestArrayOperators::elementAtIndex)));
+    }
+
+    @Test
+    public void testColumnarSubscript()
+    {
+        // subscript fails for an index past the end of the array
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.operator(SUBSCRIPT, new Reference(NESTED_ARRAY, "input"), new Reference(BIGINT, "index")),
+                INVALID,
+                new Input("input", NESTED_ARRAY, nestedArrayBlock()),
+                new Input("index", BIGINT, longBlock(position -> INVALID.test(position) ? 100L : 1L)));
+    }
+
+    private static long elementAtIndex(int position)
+    {
+        if (INVALID.test(position)) {
+            return 0;
+        }
+        // first, last, second, and past the end of the array
+        return switch (position % 4) {
+            case 0 -> 1;
+            case 1 -> -1;
+            case 2 -> 2;
+            default -> 5;
+        };
+    }
+
+    private static Block varcharArrayBlock()
+    {
+        // every seventh array is null, and the arrays have up to three elements
+        ArrayBlockBuilder builder = VARCHAR_ARRAY.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry(elements -> writeVarchars(elements, value, value % 4));
+        }
+        return builder.build();
+    }
+
+    private static Block nestedArrayBlock()
+    {
+        // every non-null outer array has at least one element, so the first element can always be selected
+        ArrayBlockBuilder builder = NESTED_ARRAY.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry(innerArrays -> {
+                ArrayBlockBuilder innerArrayBuilder = (ArrayBlockBuilder) innerArrays;
+                for (int array = 0; array < (value % 3) + 1; array++) {
+                    if ((value + array) % 5 == 4) {
+                        innerArrayBuilder.appendNull();
+                        continue;
+                    }
+                    int arrayIndex = array;
+                    innerArrayBuilder.buildEntry(elements -> writeVarchars(elements, value * 10 + arrayIndex, (value + arrayIndex) % 3));
+                }
+            });
+        }
+        return builder.build();
+    }
+
+    private static void writeVarchars(BlockBuilder builder, int value, int count)
+    {
+        // every sixth element is null
+        for (int element = 0; element < count; element++) {
+            if ((value + element) % 6 == 5) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(builder, "value-" + value + "-" + element);
+            }
+        }
+    }
+
+    private static Block longBlock(IntToLongFunction value)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            BIGINT.writeLong(builder, value.applyAsLong(position));
+        }
+        return builder.build();
+    }
+
+    @Test
+    public void testColumnarCardinality()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(VARCHAR_ARRAY, "input")),
+                new Input("input", VARCHAR_ARRAY, varcharArrayBlock()));
+        // the offsets of a region do not start at the first array
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(VARCHAR_ARRAY, "input")),
+                new Input("input", VARCHAR_ARRAY, region(VARCHAR_ARRAY, varcharArrayBlock())));
     }
 }

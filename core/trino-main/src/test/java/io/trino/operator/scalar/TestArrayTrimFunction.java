@@ -14,7 +14,11 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +26,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.function.IntPredicate;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -35,6 +46,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestArrayTrimFunction
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    private static final ArrayType BIGINT_ARRAY = new ArrayType(BIGINT);
+    // positions with a negative size
+    private static final IntPredicate INVALID = position -> position % 3 == 1;
 
     @BeforeAll
     public void init()
@@ -82,5 +99,20 @@ public class TestArrayTrimFunction
                 .hasMessage("size must not exceed array cardinality 4: 5");
         assertTrinoExceptionThrownBy(assertions.function("trim_array", "ARRAY[1, 2, 3, 4]", "-1")::evaluate)
                 .hasMessage("size must not be negative: -1");
+    }
+
+    @Test
+    public void testColumnarEquivalence()
+    {
+        // trim_array fails for a negative size
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.function("trim_array", new Reference(BIGINT_ARRAY, "input"), new Reference(BIGINT, "size")),
+                INVALID,
+                new Input("input", BIGINT_ARRAY, createArrayBigintBlock(IntStream.range(0, POSITION_COUNT)
+                        .mapToObj(position -> position % 7 == 3 ? null : LongStream.range(0, position % 4).boxed().toList())
+                        .toList())),
+                new Input("size", BIGINT, createLongsBlock(IntStream.range(0, POSITION_COUNT)
+                        .mapToObj(position -> INVALID.test(position) ? -1L : 0L)
+                        .toList())));
     }
 }

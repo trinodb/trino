@@ -14,8 +14,10 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
@@ -25,6 +27,14 @@ import io.trino.spi.type.StandardTypes;
 public final class ArrayCardinalityFunction
 {
     private ArrayCardinalityFunction() {}
+
+    @ColumnarScalar
+    @TypeParameter("E")
+    @SqlType(StandardTypes.BIGINT)
+    public static Block arrayCardinalityColumnar(SelectedPositions selectedPositions, @SqlType("array(E)") Block arrayColumn)
+    {
+        return CardinalityBlockProjection.project(selectedPositions, arrayColumn);
+    }
 
     @TypeParameter("E")
     @SqlType(StandardTypes.BIGINT)

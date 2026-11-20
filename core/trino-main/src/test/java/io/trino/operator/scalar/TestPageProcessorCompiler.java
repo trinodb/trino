@@ -77,8 +77,8 @@ public class TestPageProcessorCompiler
                 new Symbol(arrayType, "$col_1"), 1);
         List<Expression> projections = ImmutableList.of(call(resolvedFunction, col0, col1));
 
-        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         assertThat(factory1 != factory2).isTrue();
     }
 
@@ -90,6 +90,7 @@ public class TestPageProcessorCompiler
                 new Symbol(VARCHAR, "$col_1"), 1);
         PageProcessor processor = compiler.compilePageProcessor(
                         CHAR_VARCHAR_COERCION,
+                        true,
                         true,
                         true,
                         Optional.empty(),
@@ -137,6 +138,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(
                         CHAR_VARCHAR_COERCION,
+                        true,
                         true,
                         true,
                         Optional.of(filter),
@@ -188,6 +190,7 @@ public class TestPageProcessorCompiler
                         CHAR_VARCHAR_COERCION,
                         true,
                         true,
+                        true,
                         Optional.of(filter),
                         Optional.empty(),
                         ImmutableList.of(col0),
@@ -217,6 +220,7 @@ public class TestPageProcessorCompiler
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 2);
         PageProcessor processor = compiler.compilePageProcessor(
                         CHAR_VARCHAR_COERCION,
+                        true,
                         true,
                         true,
                         Optional.empty(),
@@ -256,6 +260,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(
                         CHAR_VARCHAR_COERCION,
+                        true,
                         true,
                         true,
                         Optional.empty(),
