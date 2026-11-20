@@ -33,6 +33,7 @@ import io.trino.spi.function.ScalarOperator;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -145,6 +146,43 @@ public class UuidType
         ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
                 value.getLong(offset),
                 value.getLong(offset + SIZE_OF_LONG));
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        byte[] bytes = ((Slice) object).getBytes();
+        verifyUuidLength(bytes.length);
+        for (int i = bytes.length - 1; i >= 0; i--) {
+            if (bytes[i] != 0) {
+                bytes[i]--;
+                return Optional.of(Slices.wrappedBuffer(bytes));
+            }
+            bytes[i] = (byte) 0xFF;
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        byte[] bytes = ((Slice) object).getBytes();
+        verifyUuidLength(bytes.length);
+        for (int i = bytes.length - 1; i >= 0; i--) {
+            if (bytes[i] != (byte) 0xFF) {
+                bytes[i]++;
+                return Optional.of(Slices.wrappedBuffer(bytes));
+            }
+            bytes[i] = 0;
+        }
+        return Optional.empty();
+    }
+
+    private static void verifyUuidLength(int length)
+    {
+        if (length != INT128_BYTES) {
+            throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, length));
+        }
     }
 
     @Override

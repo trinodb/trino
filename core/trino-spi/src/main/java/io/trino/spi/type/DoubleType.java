@@ -162,6 +162,35 @@ public final class DoubleType
         return Optional.empty();
     }
 
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        double value = (double) object;
+        // NaN compares greater than every other value, but it is not a bound a range can use
+        if (Double.isNaN(value) || value == Double.NEGATIVE_INFINITY) {
+            return Optional.empty();
+        }
+        return Optional.of(normalizeZero(Math.nextDown(value)));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        double value = (double) object;
+        // NaN compares greater than every other value, but it is not a bound a range can use
+        if (Double.isNaN(value) || value == Double.POSITIVE_INFINITY) {
+            return Optional.empty();
+        }
+        return Optional.of(normalizeZero(Math.nextUp(value)));
+    }
+
+    // -0.0 and 0.0 are equal, so keep a single representation of zero
+    @SuppressWarnings("FloatingPointEquality")
+    private static double normalizeZero(double value)
+    {
+        return value == 0 ? 0.0 : value;
+    }
+
     @ScalarOperator(READ_VALUE)
     private static double read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
     {

@@ -127,14 +127,21 @@ public class TestUuidType
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getPreviousValue(uuid("00000000-0000-0000-0000-000000000100"))).contains(uuid("00000000-0000-0000-0000-0000000000ff"));
+        assertThat(type.getPreviousValue(uuid("12345678-0000-0000-0000-000000000000"))).contains(uuid("12345677-ffff-ffff-ffff-ffffffffffff"));
+        assertThat(type.getPreviousValue(uuid("00000000-0000-0000-0000-000000000000"))).isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getNextValue(uuid("00000000-0000-0000-0000-0000000000ff"))).contains(uuid("00000000-0000-0000-0000-000000000100"));
+        assertThat(type.getNextValue(uuid("12345677-ffff-ffff-ffff-ffffffffffff"))).contains(uuid("12345678-0000-0000-0000-000000000000"));
+        assertThat(type.getNextValue(uuid("ffffffff-ffff-ffff-ffff-ffffffffffff"))).isEmpty();
+    }
+
+    private static Slice uuid(String value)
+    {
+        return javaUuidToTrinoUuid(java.util.UUID.fromString(value));
     }
 }

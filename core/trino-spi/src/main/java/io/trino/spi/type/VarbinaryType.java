@@ -14,10 +14,13 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+
+import java.util.Optional;
 
 public final class VarbinaryType
         extends AbstractVariableWidthType
@@ -69,6 +72,29 @@ public final class VarbinaryType
         }
 
         return new SqlVarbinary(getSlice(block, position).getBytes());
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        Slice value = (Slice) object;
+        // The values are ordered as unsigned bytes and their length is unbounded, so the greatest lesser value
+        // exists only when the value ends with a lowest byte: nothing sorts between a value and the same value
+        // without its trailing zero byte.
+        if (value.length() == 0 || value.getByte(value.length() - 1) != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(value.copy(0, value.length() - 1));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        Slice value = (Slice) object;
+        // nothing sorts between a value and the same value with a zero byte appended
+        Slice next = Slices.allocate(value.length() + 1);
+        next.setBytes(0, value);
+        return Optional.of(next);
     }
 
     @Override
