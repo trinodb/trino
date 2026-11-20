@@ -1955,14 +1955,6 @@ public class TestPinotConnectorSmokeTest
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
-        // AVG on INTEGER columns is not pushed down
-        assertThat(query("SELECT string_col, AVG(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
-
-        // SUM on INTEGER columns is not pushed down
-        assertThat(query("SELECT string_col, SUM(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
-
         // MIN on VARCHAR columns is not pushed down
         assertThat(query("SELECT bool_col, MIN(string_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -2684,6 +2676,55 @@ public class TestPinotConnectorSmokeTest
 
         assertThat(query("select COUNT(DISTINCT  \"qu\"\"ot\"\"ed\") from \"select non_quoted as \"\"qu\"\"\"\"ot\"\"\"\"ed\"\" from quotes_in_column_name\""))
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testIntegerSumAndAvgPushdown()
+    {
+        Session aggregationPushdownDisabledSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("pinot", "aggregation_pushdown_enabled", "false")
+                .build();
+
+        // SUM and AVG on INTEGER columns coerce the argument to BIGINT, the cast is absorbed into the table scan
+        String groupedQuery = "SELECT string_col, SUM(int_col), AVG(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col";
+        assertThat(query(groupedQuery))
+                .matches(aggregationPushdownDisabledSession, groupedQuery)
+                .isFullyPushedDown();
+
+        String globalQuery = "SELECT COUNT(*), SUM(int_col), AVG(int_col), SUM(long_col) FROM " + ALL_TYPES_TABLE;
+        assertThat(query(globalQuery))
+                .matches(aggregationPushdownDisabledSession, globalQuery)
+                .isFullyPushedDown();
+
+        String filteredQuery = "SELECT bool_col, SUM(int_col) FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649 GROUP BY bool_col";
+        assertThat(query(filteredQuery))
+                .matches(aggregationPushdownDisabledSession, filteredQuery)
+                .isFullyPushedDown();
+
+        String filteredOnIntegerQuery = "SELECT bool_col, SUM(int_col) FROM " + ALL_TYPES_TABLE + " WHERE int_col > 0 GROUP BY bool_col";
+        assertThat(query(filteredOnIntegerQuery))
+                .matches(aggregationPushdownDisabledSession, filteredOnIntegerQuery)
+                .isFullyPushedDown();
+
+        // The cast is not absorbed when the same column is also projected as INTEGER
+        String castAndColumnQuery = "SELECT int_col, CAST(int_col AS bigint) AS widened_col FROM " + ALL_TYPES_TABLE;
+        assertThat(query(castAndColumnQuery))
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertQuery("SELECT count(*) FROM (" + castAndColumnQuery + ") WHERE int_col <> widened_col", "VALUES 0");
+
+        // A projected cast without an aggregation still returns correct values
+        String castQuery = "SELECT CAST(int_col AS bigint) FROM " + ALL_TYPES_TABLE + " WHERE long_col < 4147483649";
+        assertThat(query(castQuery))
+                .matches(aggregationPushdownDisabledSession, castQuery);
+
+        // The cast is not absorbed when aggregation pushdown is disabled
+        assertThat(query(aggregationPushdownDisabledSession, groupedQuery))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+
+        // Passthrough queries are not rewritten
+        String passthroughQuery = "SELECT bool_col, SUM(int_col) FROM \"SELECT bool_col, int_col FROM " + ALL_TYPES_TABLE + " LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + "\" GROUP BY bool_col";
+        assertThat(query(passthroughQuery))
+                .matches(aggregationPushdownDisabledSession, passthroughQuery);
     }
 
     @Test

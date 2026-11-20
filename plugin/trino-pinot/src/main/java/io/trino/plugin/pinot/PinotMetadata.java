@@ -48,9 +48,11 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -62,7 +64,9 @@ import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -81,11 +85,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractVariables;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -361,6 +367,93 @@ public class PinotMetadata
                 domain.isOnlyNull() ||
                 isUnsupportedAlwaysFalse ||
                 isInOrNull;
+    }
+
+    // Trino coerces INTEGER arguments of sum and avg to BIGINT, which places a projection between the aggregation and the table scan.
+    // Absorbing CAST(integer_column AS BIGINT) into a BIGINT column handle lets the aggregation be pushed down to Pinot.
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        PinotTableHandle tableHandle = (PinotTableHandle) handle;
+        if (tableHandle.query().isPresent()) {
+            return Optional.empty();
+        }
+
+        // Keyed by the name of the INTEGER variable being cast
+        Map<String, Variable> widenedVariables = new LinkedHashMap<>();
+        Map<String, PinotColumnHandle> widenedColumns = new LinkedHashMap<>();
+        ImmutableList.Builder<ConnectorExpression> newProjections = ImmutableList.builder();
+        Set<String> referencedVariables = new HashSet<>();
+        for (ConnectorExpression projection : projections) {
+            Optional<Variable> castArgument = integerToBigintCastArgument(projection, assignments);
+            if (castArgument.isEmpty()) {
+                newProjections.add(projection);
+                extractVariables(projection).forEach(variable -> referencedVariables.add(variable.getName()));
+                continue;
+            }
+            String argumentName = castArgument.get().getName();
+            if (!widenedVariables.containsKey(argumentName)) {
+                String widenedName = argumentName + "_bigint";
+                for (int suffix = 0; assignments.containsKey(widenedName) || widenedColumns.containsKey(widenedName); suffix++) {
+                    widenedName = argumentName + "_bigint_" + suffix;
+                }
+                PinotColumnHandle column = (PinotColumnHandle) assignments.get(argumentName);
+                widenedColumns.put(widenedName, new PinotColumnHandle(
+                        column.getColumnName(),
+                        BIGINT,
+                        column.getExpression(),
+                        column.isAliased(),
+                        false,
+                        column.isReturnNullOnEmptyGroup(),
+                        Optional.empty(),
+                        Optional.empty()));
+                widenedVariables.put(argumentName, new Variable(widenedName, BIGINT));
+            }
+            newProjections.add(widenedVariables.get(argumentName));
+        }
+
+        if (widenedVariables.isEmpty()) {
+            return Optional.empty();
+        }
+        // PinotColumnHandle equality is based on the column name only, so the INTEGER and BIGINT handles of one column cannot both be scanned
+        if (widenedVariables.keySet().stream().anyMatch(referencedVariables::contains)) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<Assignment> newAssignments = ImmutableList.builder();
+        assignments.forEach((name, column) -> {
+            if (!widenedVariables.containsKey(name)) {
+                newAssignments.add(new Assignment(name, column, ((PinotColumnHandle) column).getDataType()));
+            }
+        });
+        widenedColumns.forEach((name, column) -> newAssignments.add(new Assignment(name, column, BIGINT)));
+
+        return Optional.of(new ProjectionApplicationResult<>(tableHandle, newProjections.build(), newAssignments.build(), false));
+    }
+
+    private static Optional<Variable> integerToBigintCastArgument(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        if (!(expression instanceof Call call) ||
+                !call.getFunctionName().equals(CAST_FUNCTION_NAME) ||
+                !call.getType().equals(BIGINT) ||
+                call.getArguments().size() != 1 ||
+                !(getOnlyElement(call.getArguments()) instanceof Variable argument) ||
+                !argument.getType().equals(INTEGER)) {
+            return Optional.empty();
+        }
+        PinotColumnHandle column = (PinotColumnHandle) assignments.get(argument.getName());
+        if (!column.getDataType().equals(INTEGER)) {
+            return Optional.empty();
+        }
+        return Optional.of(argument);
     }
 
     @Override
