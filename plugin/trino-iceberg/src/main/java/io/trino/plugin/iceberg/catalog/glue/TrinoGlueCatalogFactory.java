@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
@@ -72,6 +73,7 @@ public class TrinoGlueCatalogFactory
             IcebergConfig icebergConfig,
             IcebergGlueCatalogConfig catalogConfig,
             @UsingSystemSecurity boolean usingSystemSecurity,
+            GlueCache glueCache,
             GlueMetastoreStats stats,
             GlueClient glueClient,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
@@ -85,7 +87,7 @@ public class TrinoGlueCatalogFactory
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = nodeVersion.toString();
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
-        this.glueClient = new StatsRecordingGlueClient(glueClient, stats);
+        this.glueClient = new StatsRecordingGlueClient(glueClient, glueCache, stats);
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
