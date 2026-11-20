@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -46,11 +47,12 @@ public class TestGatherPartialTopN
                             .addInputsSet(orderBy)
                             .addSource(p.topN(10, ImmutableList.of(orderBy), PARTIAL, p.values(orderBy))));
                 }).matches(exchange(REMOTE,
-                        topN(
+                        limit(
                                 10,
-                                ImmutableList.of(sort("a", ASCENDING, FIRST)),
-                                PARTIAL,
-                                exchange(LOCAL, GATHER,
+                                ImmutableList.of(),
+                                true,
+                                ImmutableList.of("a"),
+                                exchange(LOCAL, GATHER, ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         topN(
                                                 10,
                                                 ImmutableList.of(sort("a", ASCENDING, FIRST)),

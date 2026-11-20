@@ -28,6 +28,7 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -48,6 +49,7 @@ public class LocalMergeSourceOperator
         private final OrderingCompiler orderingCompiler;
         private final List<Integer> sortChannels;
         private final List<SortOrder> orderings;
+        private final OptionalLong fetch;
         private boolean closed;
 
         public LocalMergeSourceOperatorFactory(
@@ -57,8 +59,10 @@ public class LocalMergeSourceOperator
                 List<Type> types,
                 OrderingCompiler orderingCompiler,
                 List<Integer> sortChannels,
-                List<SortOrder> orderings)
+                List<SortOrder> orderings,
+                OptionalLong fetch)
         {
+            this.fetch = requireNonNull(fetch, "fetch is null");
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.localExchange = requireNonNull(localExchange, "localExchange is null");
@@ -82,7 +86,7 @@ public class LocalMergeSourceOperator
                     .boxed()
                     .map(_ -> localExchange.getNextSource())
                     .collect(toImmutableList());
-            return new LocalMergeSourceOperator(operatorContext, sources, types, comparator);
+            return new LocalMergeSourceOperator(operatorContext, sources, types, comparator, fetch);
         }
 
         @Override
@@ -103,7 +107,7 @@ public class LocalMergeSourceOperator
     private final List<LocalExchangeSource> sources;
     private final WorkProcessor<Page> mergedPages;
 
-    public LocalMergeSourceOperator(OperatorContext operatorContext, List<LocalExchangeSource> sources, List<Type> types, PageWithPositionComparator comparator)
+    public LocalMergeSourceOperator(OperatorContext operatorContext, List<LocalExchangeSource> sources, List<Type> types, PageWithPositionComparator comparator, OptionalLong fetch)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sources = requireNonNull(sources, "sources is null");
@@ -113,7 +117,11 @@ public class LocalMergeSourceOperator
         mergedPages = mergeSortedPages(
                 pageProducers,
                 requireNonNull(comparator, "comparator is null"),
+                IntStream.range(0, types.size()).boxed().collect(toImmutableList()),
                 types,
+                (pageBuilder, _) -> pageBuilder.isFull(),
+                false,
+                fetch,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());
     }

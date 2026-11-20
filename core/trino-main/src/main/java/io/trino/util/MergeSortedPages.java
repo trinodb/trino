@@ -24,12 +24,15 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.WorkProcessor.mergeSorted;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +69,20 @@ public final class MergeSortedPages
             AggregatedMemoryContext aggregatedMemoryContext,
             DriverYieldSignal yieldSignal)
     {
+        return mergeSortedPages(pageProducers, comparator, outputChannels, outputTypes, pageBreakPredicate, updateMemoryAfterEveryPosition, OptionalLong.empty(), aggregatedMemoryContext, yieldSignal);
+    }
+
+    public static WorkProcessor<Page> mergeSortedPages(
+            List<WorkProcessor<Page>> pageProducers,
+            PageWithPositionComparator comparator,
+            List<Integer> outputChannels,
+            List<Type> outputTypes,
+            BiPredicate<PageBuilder, PageWithPosition> pageBreakPredicate,
+            boolean updateMemoryAfterEveryPosition,
+            OptionalLong fetch,
+            AggregatedMemoryContext aggregatedMemoryContext,
+            DriverYieldSignal yieldSignal)
+    {
         requireNonNull(pageProducers, "pageProducers is null");
         requireNonNull(comparator, "comparator is null");
         requireNonNull(outputChannels, "outputChannels is null");
@@ -74,8 +91,16 @@ public final class MergeSortedPages
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         requireNonNull(yieldSignal, "yieldSignal is null");
 
+        long maxRows = fetch.orElse(Long.MAX_VALUE);
+        checkArgument(maxRows >= 0, "fetch is negative");
+        if (pageProducers.isEmpty() || maxRows == 0) {
+            return WorkProcessor.of();
+        }
+
+        // A bounded merge can finish with a partially consumed page in each input.
+        AggregatedMemoryContext inputMemory = fetch.isPresent() ? aggregatedMemoryContext.newAggregatedMemoryContext() : aggregatedMemoryContext;
         List<WorkProcessor<PageWithPosition>> pageWithPositionProducers = pageProducers.stream()
-                .map(pageProducer -> pageWithPositions(pageProducer, aggregatedMemoryContext))
+                .map(pageProducer -> pageWithPositions(pageProducer, inputMemory))
                 .collect(toImmutableList());
 
         Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> comparator.compareTo(
@@ -84,8 +109,28 @@ public final class MergeSortedPages
                 secondPageWithPosition.getPage(),
                 secondPageWithPosition.getPosition());
 
+        WorkProcessor<PageWithPosition> positions = mergeSorted(pageWithPositionProducers, pageWithPositionComparator);
+        if (fetch.isPresent()) {
+            positions = positions.transform(new WorkProcessor.Transformation<>()
+            {
+                private long remaining = maxRows;
+
+                @Override
+                public TransformationState<PageWithPosition> process(@Nullable PageWithPosition position)
+                {
+                    if (remaining == 0 || position == null) {
+                        inputMemory.close();
+                        return TransformationState.finished();
+                    }
+                    remaining--;
+                    // Keep the last position so finishing never requests another row from a source.
+                    return TransformationState.ofResult(position, remaining > 0);
+                }
+            });
+        }
+
         return buildPage(
-                mergeSorted(pageWithPositionProducers, pageWithPositionComparator),
+                positions,
                 outputChannels,
                 outputTypes,
                 pageBreakPredicate,

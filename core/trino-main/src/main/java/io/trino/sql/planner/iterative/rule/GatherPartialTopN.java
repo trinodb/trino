@@ -21,15 +21,18 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNNode;
+
+import java.util.Optional;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.Patterns.exchange;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -37,7 +40,7 @@ import static io.trino.sql.planner.plan.Patterns.topN;
 import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
 
 /**
- * Adds local round-robin and gathering exchange on top of partial TopN to limit the task output size.
+ * Adds local round-robin and merging exchanges on top of partial TopN to limit the task output size.
  * Replaces plans like:
  * <pre>
  * exchange(remote)
@@ -46,8 +49,8 @@ import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
  * with
  * <pre>
  *  exchange(remote)
- *      - topn(partial)
- *          - exchange(local, gather)
+ *      - limit(partial)
+ *          - exchange(local, merge)
  *              - topn(partial)
  *                  - local_exchange(round_robin)
  *                      - topn(partial)
@@ -103,11 +106,12 @@ public class GatherPartialTopN
                 PARTIAL);
 
         return Result.ofPlanNode(node.replaceChildren(
-                ImmutableList.of(new TopNNode(
+                ImmutableList.of(new LimitNode(
                         context.getIdAllocator().getNextId(),
-                        gatheringExchange(context.getIdAllocator().getNextId(), LOCAL, roundRobinTopN),
+                        mergingExchange(context.getIdAllocator().getNextId(), LOCAL, roundRobinTopN, originalPartialTopN.getOrderingScheme()),
                         originalPartialTopN.getCount(),
-                        originalPartialTopN.getOrderingScheme(),
-                        PARTIAL))));
+                        Optional.empty(),
+                        true,
+                        originalPartialTopN.getOrderingScheme().orderBy()))));
     }
 }
