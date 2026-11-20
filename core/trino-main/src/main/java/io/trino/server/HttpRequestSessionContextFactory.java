@@ -263,7 +263,7 @@ public class HttpRequestSessionContextFactory
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
-                .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
+                .withAdditionalExtraCredentials(parseExtraCredentials(authenticatedIdentity, protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .withEnabledRoles(systemEnabledRoles.build())
                 .build();
@@ -339,11 +339,16 @@ public class HttpRequestSessionContextFactory
         return role;
     }
 
-    private static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    private static Map<String, String> parseExtraCredentials(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         Map<String, String> credentials = parseProperty(headers, protocolHeaders.requestExtraCredential());
+        // Extra credentials set by the authenticator are authoritative and must not be overridden by the client
+        Set<String> authenticatedCredentialNames = authenticatedIdentity
+                .map(identity -> identity.getExtraCredentials().keySet())
+                .orElse(ImmutableSet.of());
         for (String name : credentials.keySet()) {
             assertRequest(!name.startsWith("internal$"), "Invalid extra credential name: %s", name);
+            assertRequest(!authenticatedCredentialNames.contains(name), "Invalid extra credential name: %s", name);
         }
         return credentials;
     }
