@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
@@ -102,6 +104,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
@@ -117,6 +120,13 @@ public class ElasticsearchClient
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
     private static final Set<String> NODE_ROLES = ImmutableSet.of("data", "data_content", "data_hot", "data_warm", "data_cold", "data_frozen");
+
+    // _cat/indices fails when an index is deleted while the response is being built
+    private static final RetryPolicy<List<String>> INDEX_LISTING_RETRY_POLICY = RetryPolicy.<List<String>>builder()
+            .withMaxAttempts(3)
+            .withBackoff(10, 100, MILLIS)
+            .handleIf(ElasticsearchClient::isIndexNotFound)
+            .build();
 
     private final BackpressureRestClient client;
     private final int scrollSize;
@@ -384,6 +394,11 @@ public class ElasticsearchClient
     }
 
     public List<String> getIndexes()
+    {
+        return Failsafe.with(INDEX_LISTING_RETRY_POLICY).get(this::listIndexes);
+    }
+
+    private List<String> listIndexes()
     {
         return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
             try {
@@ -1118,6 +1133,24 @@ public class ElasticsearchClient
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+    }
+
+    private static boolean isIndexNotFound(Throwable throwable)
+    {
+        if (!(throwable.getCause() instanceof ResponseException exception)) {
+            return false;
+        }
+        HttpEntity entity = exception.getResponse().getEntity();
+        if (exception.getResponse().getStatusLine().getStatusCode() != 404 || entity == null) {
+            return false;
+        }
+        try {
+            JsonNode type = JSON_MAPPER.readTree(EntityUtils.toByteArray(entity)).path("error").path("type");
+            return type.isString() && type.asString().equals("index_not_found_exception");
+        }
+        catch (IOException | JacksonException e) {
+            return false;
         }
     }
 
