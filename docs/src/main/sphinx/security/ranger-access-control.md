@@ -42,7 +42,22 @@ The following table lists the configuration properties for the Ranger access con
     are resolved dynamically by searching on the classpath.
 * - `ranger.hadoop.config.resource`
   - Comma-separated list of Hadoop configuration files. Relative paths are
-    resolved dynamically by searching on the classpath. 
+    resolved dynamically by searching on the classpath.
+* - `ranger.extra-credentials.groups-key`
+  - Optional extra credential key whose value contains group names to include
+    in Ranger access requests, merged with groups from `Identity.getGroups()`.
+    Disabled by default.
+* - `ranger.extra-credentials.groups-separator`
+  - Separator used to split group names in the value of
+    `ranger.extra-credentials.groups-key`. Defaults to `|`.
+:::
+
+:::{warning}
+`X-Trino-Extra-Credential` is a client request header. Only enable
+`ranger.extra-credentials.groups-key` when a trusted identity proxy
+authenticates the user, removes any client-supplied value for this key, and
+injects authenticated groups. Otherwise clients could claim privileged groups
+and bypass Ranger group-based policies.
 :::
 
 ### ranger-trino-security.xml

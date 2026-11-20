@@ -78,9 +78,11 @@ public class RangerConfig
     }
 
     @Config("ranger.extra-credentials.groups-key")
-    @ConfigDescription("Extra credential key whose value contains pipe-separated group names to be included in Ranger access requests. " +
-            "When set, groups injected by identity proxies via X-Trino-Extra-Credential are visible to Ranger group-based policies. " +
-            "If not set (default), only Identity.getGroups() is used.")
+    @ConfigDescription("Extra credential key whose value contains group names " +
+            "(split by ranger.extra-credentials.groups-separator) to include in Ranger access requests. " +
+            "When set, groups from X-Trino-Extra-Credential under this key are merged with Identity.getGroups(). " +
+            "Disabled by default. Only enable behind a trusted identity proxy that overwrites this key; " +
+            "client-supplied values must not be trusted for authorization.")
     public RangerConfig setExtraCredentialsGroupsKey(String extraCredentialsGroupsKey)
     {
         this.extraCredentialsGroupsKey = Optional.ofNullable(extraCredentialsGroupsKey);
