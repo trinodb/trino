@@ -575,7 +575,7 @@ public class AddExchanges
                     // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
                     // through the source which was producing ordered input.
                     List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
-                    boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
+                    boolean sortingSatisfied = child.getProperties().matchLocalProperties(desiredProperties).stream()
                             .allMatch(Optional::isEmpty);
                     if (sortingSatisfied) {
                         yield withDerivedProperties(

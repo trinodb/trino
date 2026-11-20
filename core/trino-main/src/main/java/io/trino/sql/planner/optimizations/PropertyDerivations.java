@@ -31,8 +31,10 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
@@ -89,6 +91,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -104,6 +107,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
@@ -560,6 +564,13 @@ public final class PropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> {
+                    SymbolEquivalences joinEquivalences = probeProperties.getEquivalences()
+                            .merge(buildProperties.getEquivalences())
+                            .with(node.getCriteria().stream()
+                                    .map(clause -> ImmutableList.of(clause.getLeft(), clause.getRight()))
+                                    .collect(toImmutableList()))
+                            .translate(column -> filterIfMissing(node.getOutputSymbols(), column));
+
                     probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
                     buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
 
@@ -579,6 +590,7 @@ public final class PropertyDerivations
 
                     yield ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
+                            .equivalences(joinEquivalences)
                             .unordered(unordered)
                             .build();
                 }
@@ -774,8 +786,17 @@ public final class PropertyDerivations
             Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
             constants.putAll(extractFixedValues(decomposedPredicate.tupleDomain()).orElse(ImmutableMap.of()));
 
+            // Rows that satisfy a = b have equal values in both symbols
+            List<List<Symbol>> equalSymbols = extractConjuncts(node.getPredicate()).stream()
+                    .map(IrExpressions::matchComparison)
+                    .filter(comparison -> comparison != null && comparison.operator() == ComparisonOperator.EQUAL)
+                    .filter(comparison -> comparison.left() instanceof Reference && comparison.right() instanceof Reference)
+                    .map(comparison -> ImmutableList.of(Symbol.from(comparison.left()), Symbol.from(comparison.right())))
+                    .collect(toImmutableList());
+
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
+                    .equivalences(properties.getEquivalences().with(equalSymbols))
                     .build();
         }
 
@@ -813,8 +834,17 @@ public final class PropertyDerivations
             }
             constants.putAll(translatedProperties.getConstants());
 
+            // Outputs that are copies of the same input symbol are equivalent
+            Map<Symbol, List<Symbol>> outputsByInput = new HashMap<>();
+            for (Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+                if (assignment.getValue() instanceof Reference reference) {
+                    outputsByInput.computeIfAbsent(Symbol.from(reference), _ -> new ArrayList<>()).add(assignment.getKey());
+                }
+            }
+
             return ActualProperties.builderFrom(translatedProperties)
                     .constants(constants)
+                    .equivalences(translatedProperties.getEquivalences().with(outputsByInput.values()))
                     .build();
         }
 

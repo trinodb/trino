@@ -23,7 +23,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.optimizations.LocalProperties;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -84,7 +83,7 @@ public class ValidateStreamingAggregations
             StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session, symbolAllocator);
 
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = properties.matchLocalProperties(desiredProperties).iterator();
             Optional<LocalProperty<Symbol>> unsatisfiedRequirement = Iterators.getOnlyElement(matchIterator);
             checkArgument(unsatisfiedRequirement.isEmpty(), "Streaming aggregation with input not grouped on the grouping keys");
             return null;
