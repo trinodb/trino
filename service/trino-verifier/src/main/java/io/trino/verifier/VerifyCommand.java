@@ -188,6 +188,9 @@ public class VerifyCommand
             System.exit((numFailedQueries > 0) ? 1 : 0);
         }
         catch (InterruptedException | MalformedURLException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new RuntimeException(e);
         }
         finally {
@@ -319,6 +322,9 @@ public class VerifyCommand
             }
         }
         catch (InterruptedException | ExecutionException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new RuntimeException("Query rewriting failed", e);
         }
 
