@@ -18,9 +18,8 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.ParametricImplementationsGroup;
-import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.operator.scalar.annotations.ParametricScalarConstantSpecialization;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation;
-import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -30,7 +29,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
@@ -46,15 +45,18 @@ public class ParametricScalar
         extends SqlScalarFunction
 {
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
+    private final List<ParametricScalarConstantSpecialization> constantSpecializations;
 
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
+            List<ParametricScalarConstantSpecialization> constantSpecializations,
             boolean deprecated)
     {
         super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
         this.implementations = requireNonNull(implementations);
+        this.constantSpecializations = List.copyOf(requireNonNull(constantSpecializations, "constantSpecializations is null"));
     }
 
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
@@ -105,26 +107,9 @@ public class ParametricScalar
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        declareDependencies(builder, implementations.getExactImplementations().values());
-        declareDependencies(builder, implementations.getSpecializedImplementations());
-        declareDependencies(builder, implementations.getGenericImplementations());
+        ParametricScalarImplementation.declareDependencies(builder, implementations);
+        constantSpecializations.forEach(specialization -> specialization.declareDependencies(builder));
         return builder.build();
-    }
-
-    private static void declareDependencies(
-            FunctionDependencyDeclarationBuilder builder,
-            Collection<ParametricScalarImplementation> implementations)
-    {
-        for (ParametricScalarImplementation implementation : implementations) {
-            for (ParametricScalarImplementationChoice choice : implementation.getChoices()) {
-                for (ImplementationDependency dependency : choice.getDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-                for (ImplementationDependency dependency : choice.getConstructorDependencies()) {
-                    dependency.declareDependencies(builder);
-                }
-            }
-        }
     }
 
     @Override
@@ -143,7 +128,7 @@ public class ParametricScalar
                 throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Expected implementation %s(%s):%s but java types do not match".formatted(
                         boundSignature.getName(), expectedTypes, boundSignature.getReturnType().getJavaType().getSimpleName()));
             }
-            return scalarFunctionImplementation.get();
+            return withConstantSpecializations(scalarFunctionImplementation.get(), functionBinding, functionDependencies);
         }
 
         SpecializedSqlScalarFunction selectedImplementation = null;
@@ -155,7 +140,7 @@ public class ParametricScalar
             }
         }
         if (selectedImplementation != null) {
-            return selectedImplementation;
+            return withConstantSpecializations(selectedImplementation, functionBinding, functionDependencies);
         }
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
@@ -165,9 +150,25 @@ public class ParametricScalar
             }
         }
         if (selectedImplementation != null) {
-            return selectedImplementation;
+            return withConstantSpecializations(selectedImplementation, functionBinding, functionDependencies);
         }
 
         throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", boundSignature, getFunctionMetadata().getSignature()));
+    }
+
+    private SpecializedSqlScalarFunction withConstantSpecializations(
+            SpecializedSqlScalarFunction rowImplementation,
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies)
+    {
+        if (constantSpecializations.isEmpty()) {
+            return rowImplementation;
+        }
+        return new ConstantSpecializedSqlScalarFunction(
+                rowImplementation,
+                constantSpecializations.stream()
+                        .map(specialization -> specialization.specialize(functionBinding, functionDependencies))
+                        .flatMap(Optional::stream)
+                        .toList());
     }
 }

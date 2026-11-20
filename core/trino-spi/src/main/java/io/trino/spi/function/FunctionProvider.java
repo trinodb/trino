@@ -13,9 +13,12 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.Unstable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
+
+import java.util.Optional;
 
 public interface FunctionProvider
 {
@@ -26,6 +29,27 @@ public interface FunctionProvider
             InvocationConvention invocationConvention)
     {
         throw new UnsupportedOperationException("%s does not provide scalar functions".formatted(getClass().getName()));
+    }
+
+    /**
+     * Selects an optional scalar implementation that consumes constant SQL
+     * arguments while creating its per-expression instance. This method is
+     * invoked during expression compilation and implementations must not cache
+     * results by constant value in a global function cache.
+     * <p>
+     * The returned method handle has the remaining SQL signature formed by
+     * removing the constant argument positions. Its instance factory must have
+     * no parameters because all dependencies and constants must already be
+     * bound.
+     */
+    @Unstable
+    default Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies,
+            ScalarFunctionSpecializationContext specializationContext)
+    {
+        return Optional.empty();
     }
 
     default AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)

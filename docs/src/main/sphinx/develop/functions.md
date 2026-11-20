@@ -115,6 +115,88 @@ to avoid unexpected results.
   SELECT clamp(value => 7, hi => 5, lo => 0);
   ```
 
+### Constant-specialized scalar functions
+
+A scalar function can optionally precompute state when one or more call
+arguments are compile-time constants. This is an optimization only. The
+`@NonConstantImplementation` is always required and remains valid when the
+arguments are not constants.
+
+Annotated constant-specialized functions use one outer function definition
+class. A nested `@NonConstantImplementation` class declares the complete SQL
+signature. Each nested `@ConstantSpecialization` class receives some arguments
+as constants and implements the remaining signature with those arguments
+removed. Both kinds of nested class must be `public static`:
+
+```java
+@ScalarFunction("matches_pattern")
+public final class MatchesPatternFunction
+{
+    @NonConstantImplementation
+    public static final class Row
+    {
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean matches(
+                @SqlType(StandardTypes.VARCHAR) Slice value,
+                @SqlType(StandardTypes.VARCHAR) Slice pattern)
+        {
+            return compilePattern(pattern).matches(value);
+        }
+    }
+
+    @ConstantSpecialization
+    public static final class ConstantPattern
+    {
+        private final CompiledPattern pattern;
+
+        public ConstantPattern(@ConstantArgument(position = 1) Slice pattern)
+        {
+            this.pattern = compilePattern(pattern);
+        }
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public boolean matches(@SqlType(StandardTypes.VARCHAR) Slice value)
+        {
+            return pattern.matches(value);
+        }
+    }
+}
+```
+
+The `position` of each `@ConstantArgument` is the zero-based index of the argument
+in the complete SQL signature, and each position may be declared only once. The
+constructor parameters annotated with `@ConstantArgument` determine which
+arguments the specialization receives as constants. Constructor dependencies are supported and must precede
+the constant arguments. A nullable constant argument uses the boxed native
+container type in the constructor, just as it does in a row implementation.
+
+Trino selects a constant specialization only for literal constants present in
+the compiled IR expression. A successful specialization binds the constants
+into a zero-argument instance factory. The generated expression evaluator calls
+that factory once, stores the instance using the existing scalar-function
+instance lifecycle, and omits the constant arguments from each row invocation.
+The instance is local to the evaluator and is not shared across tasks.
+
+Selection is performed while compiling the expression, and the bound factory is
+retained by the generated expression class. Because the constants are part of the
+generated class, expressions that use a specialization are not shared between
+different constant values.
+
+If a constant is null for an argument that does not accept nulls, or if the
+specialization constructor throws for the given constants, Trino uses the
+`@NonConstantImplementation` instead. Errors for invalid constants are therefore
+raised only when a row is evaluated, as without a specialization. When several
+specializations apply, the one with the most constant arguments is used. Two
+specializations of one function cannot declare the same constant arguments.
+
+Direct function implementations can provide the same optimization by
+overriding
+`FunctionProvider.getConstantSpecializedScalarFunctionImplementation`. The
+request supplies an invocation convention and an argument-aligned list of
+optional SPI `Constant` values. A successful result supplies the implementation
+for the remaining signature and a non-empty set of constant argument positions.
+Its instance factory must already be bound to a zero-argument method handle.
+
 ## Parametric scalar functions
 
 Scalar functions that have type parameters have some additional complexity.
