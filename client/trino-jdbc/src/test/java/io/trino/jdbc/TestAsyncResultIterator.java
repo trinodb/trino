@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
@@ -38,12 +39,19 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -128,6 +136,103 @@ class TestAsyncResultIterator
                 // Iterate until exception
             }
         }).isSameAs(exception);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testRowsAroundBatchSize()
+    {
+        for (int rowCount : new int[] {0, 1, 99, 100, 101, 250}) {
+            AsyncResultIterator iterator = new AsyncResultIterator(
+                    new PagedStatementClient(pages(rowCount), Optional.empty()),
+                    ignored -> {},
+                    new WarningsManager(),
+                    Optional.empty());
+
+            assertThat(ImmutableList.copyOf(iterator))
+                    .describedAs("%s rows", rowCount)
+                    .isEqualTo(rows(rowCount));
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testFailureAfterFullBatches()
+    {
+        RuntimeException exception = new RuntimeException("failure after 250 rows");
+        AsyncResultIterator iterator = new AsyncResultIterator(
+                new PagedStatementClient(pages(250), Optional.of(exception)),
+                ignored -> {},
+                new WarningsManager(),
+                Optional.empty());
+
+        for (int row = 0; row < 250; row++) {
+            assertThat(iterator.next()).isEqualTo(ImmutableList.of(row));
+        }
+        assertThatThrownBy(iterator::hasNext).isSameAs(exception);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCloseWhileConsumerWaitsForRows()
+            throws Exception
+    {
+        CountDownLatch advanceStarted = new CountDownLatch(1);
+        // the background thread reads one row, then waits for more until it is interrupted by close()
+        AsyncResultIterator iterator = new AsyncResultIterator(
+                new MockStatementClient(() -> fromList(rows(1)))
+                {
+                    @Override
+                    public boolean advance()
+                    {
+                        advanceStarted.countDown();
+                        try {
+                            new CountDownLatch(1).await();
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return false;
+                    }
+                },
+                ignored -> {},
+                new WarningsManager(),
+                Optional.empty());
+
+        ExecutorService executor = newSingleThreadExecutor();
+        try {
+            AtomicReference<Thread> consumerThread = new AtomicReference<>();
+            Future<List<List<Object>>> consumer = executor.submit(() -> {
+                consumerThread.set(Thread.currentThread());
+                return ImmutableList.copyOf(iterator);
+            });
+            advanceStarted.await();
+            while (consumerThread.get() == null || consumerThread.get().getState() != Thread.State.WAITING) {
+                TimeUnit.MILLISECONDS.sleep(10);
+            }
+
+            iterator.close();
+
+            assertThatThrownBy(() -> consumer.get(5, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(CancellationException.class);
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static List<List<Object>> rows(int count)
+    {
+        return IntStream.range(0, count)
+                .mapToObj(row -> ImmutableList.<Object>of(row))
+                .collect(toImmutableList());
+    }
+
+    // split into pages that do not align with the batch size
+    private static List<List<List<Object>>> pages(int rowCount)
+    {
+        return Lists.partition(rows(rowCount), 30);
     }
 
     private static class MockStatementClient
@@ -300,6 +405,42 @@ class TestAsyncResultIterator
         public void close()
         {
             // do nothing
+        }
+    }
+
+    private static class PagedStatementClient
+            extends MockStatementClient
+    {
+        private final List<List<List<Object>>> pages;
+        private final Optional<RuntimeException> failure;
+        private int page;
+
+        public PagedStatementClient(List<List<List<Object>>> pages, Optional<RuntimeException> failure)
+        {
+            super(() -> {
+                throw new UnsupportedOperationException();
+            });
+            this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
+            this.failure = requireNonNull(failure, "failure is null");
+        }
+
+        @Override
+        public ResultRows currentRows()
+        {
+            return fromList(page < pages.size() ? pages.get(page) : ImmutableList.of());
+        }
+
+        @Override
+        public boolean advance()
+        {
+            page++;
+            if (page < pages.size()) {
+                return true;
+            }
+            if (failure.isPresent()) {
+                throw failure.get();
+            }
+            return false;
         }
     }
 
