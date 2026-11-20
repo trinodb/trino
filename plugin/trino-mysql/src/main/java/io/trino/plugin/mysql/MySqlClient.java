@@ -35,7 +35,6 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMergeTableHandle;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -571,9 +570,10 @@ public class MySqlClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+            throws SQLException
     {
-        return declareUtcZone(super.getColumns(session, schemaTableName, remoteTableName));
+        return declareUtcZone(super.getColumns(session, connection, schemaTableName, remoteTableName));
     }
 
     private static List<JdbcColumnHandle> declareUtcZone(List<JdbcColumnHandle> columns)
@@ -1298,7 +1298,7 @@ public class MySqlClient
                 return tableStatistics.build();
             }
 
-            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
+            for (JdbcColumnHandle column : getColumns(session, connection, table)) {
                 ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
 
                 String columnName = column.getColumnName();

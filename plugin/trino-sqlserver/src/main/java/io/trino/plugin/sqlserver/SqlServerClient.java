@@ -38,7 +38,6 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
@@ -854,7 +853,10 @@ public class SqlServerClient
 
             Map<String, String> columnNameToStatisticsName = getColumnNameToStatisticsName(table, statisticsDao, tableObjectId);
 
-            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
+            List<JdbcColumnHandle> columns = retryOnDeadlock(
+                    () -> getColumns(session, connection, table),
+                    "error when getting columns for table '%s'".formatted(remoteTableName));
+            for (JdbcColumnHandle column : columns) {
                 String statisticName = columnNameToStatisticsName.get(column.getColumnName());
                 if (statisticName == null) {
                     // No statistic for column
