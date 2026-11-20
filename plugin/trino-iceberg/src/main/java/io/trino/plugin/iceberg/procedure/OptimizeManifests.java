@@ -19,10 +19,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.CommitMetricsReporter;
 import io.trino.spi.TrinoException;
-import it.unimi.dsi.fastutil.Hash;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
-import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DataFile;
@@ -37,21 +34,19 @@ import org.apache.iceberg.metrics.CommitMetricsResult;
 import org.apache.iceberg.metrics.CommitReport;
 import org.apache.iceberg.metrics.MetricsReporters;
 import org.apache.iceberg.types.Comparators;
-import org.apache.iceberg.types.JavaHash;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.ParallelIterable;
 import org.apache.iceberg.util.PartitionUtil;
+import org.apache.iceberg.util.StructLikeMap;
+import org.apache.iceberg.util.StructLikeSet;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -84,12 +79,12 @@ public final class OptimizeManifests
         int targetManifestClusters = toIntExact(Math.min(((totalManifestsSize + manifestTargetSizeBytes - 1) / manifestTargetSizeBytes), 200));
 
         // Cluster manifests by partitioning fields for better manifest pruning when reading data files with filters
-        Map<Object, Integer> clusteredPartitionValues;
+        Map<StructLike, Integer> clusteredPartitions;
         if (table.spec().isPartitioned() && targetManifestClusters > 1) {
-            clusteredPartitionValues = getClusteredPartitionValues(table, manifests, targetManifestClusters, icebergScanExecutor);
+            clusteredPartitions = clusterPartitions(table, manifests, targetManifestClusters, icebergScanExecutor);
         }
         else {
-            clusteredPartitionValues = ImmutableMap.of();
+            clusteredPartitions = ImmutableMap.of();
         }
 
         Types.StructType partitionType = table.spec().partitionType();
@@ -102,15 +97,10 @@ public final class OptimizeManifests
         // because of the clustering logic
         rewriteManifests
                 .clusterBy(dataFile -> {
-                    if (clusteredPartitionValues.isEmpty()) {
+                    if (clusteredPartitions.isEmpty()) {
                         return 0;
                     }
-                    StructLike partition = PartitionUtil.coercePartition(partitionType, specs.get(dataFile.specId()), dataFile.partition());
-                    Object value = partition.get(0, Object.class);
-                    if (value == null) {
-                        return 0;
-                    }
-                    return clusteredPartitionValues.get(value);
+                    return clusteredPartitions.getOrDefault(partitionTuple(dataFile, partitionType, specs), 0);
                 })
                 .scanManifestsWith(icebergScanExecutor);
         carryForwardMaterializedViewDependencies(rewriteManifests);
@@ -138,21 +128,14 @@ public final class OptimizeManifests
                 "processed_manifest_entries_count", metrics.manifestEntriesProcessed().value());
     }
 
-    private static Map<Object, Integer> getClusteredPartitionValues(
+    private static Map<StructLike, Integer> clusterPartitions(
             BaseTable icebergTable,
             List<ManifestFile> dataManifests,
             int targetClusters,
             ExecutorService icebergScanExecutor)
     {
-        checkArgument(icebergTable.spec().isPartitioned(), "Table %s must be partitioned", icebergTable);
-
-        // Clustering is limited to the top-level partitioning column as that is likely
-        // to be the most effective for filters during reads
-        Type.PrimitiveType firstPartitionFieldType = icebergTable.spec().partitionType()
-                .fields().getFirst()
-                .type().asPrimitiveType();
-        Hash.Strategy<Object> icebergHashStrategy = new IcebergHashStrategy(firstPartitionFieldType);
-
+        Types.StructType partitionType = icebergTable.spec().partitionType();
+        Map<Integer, PartitionSpec> specs = icebergTable.specs();
         Iterable<CloseableIterable<ContentFile<DataFile>>> dataFileIterables = Iterables.transform(
                 dataManifests,
                 manifestFile ->
@@ -160,72 +143,33 @@ public final class OptimizeManifests
                                 liveEntries(
                                         ManifestFiles.read(manifestFile, icebergTable.io(), icebergTable.specs()).select(ImmutableList.of("partition"))),
                                 ContentFile::copyWithoutStats));
-        // Collect unique values of top-level partitioning column
-        Set<Object> uniqueValues = new ObjectOpenCustomHashSet<>(icebergHashStrategy);
+        Set<StructLike> uniquePartitions = StructLikeSet.create(partitionType);
         try (CloseableIterable<ContentFile<DataFile>> dataFiles = new ParallelIterable<>(dataFileIterables, icebergScanExecutor)) {
-            Types.StructType partitionType = icebergTable.spec().partitionType();
-            Map<Integer, PartitionSpec> specs = icebergTable.specs();
-            dataFiles.forEach(dataFile -> {
-                StructLike partition = PartitionUtil.coercePartition(partitionType, specs.get(dataFile.specId()), dataFile.partition());
-                Object value = partition.get(0, Object.class);
-                if (value != null) {
-                    uniqueValues.add(value);
-                }
-            });
+            dataFiles.forEach(dataFile -> uniquePartitions.add(partitionTuple(dataFile, partitionType, specs)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
 
-        if (uniqueValues.isEmpty()) {
-            return ImmutableMap.of();
-        }
-        // Sort unique values to cluster nearby partitions together
-        Object[] sortedValues = uniqueValues.toArray();
-        ObjectArrays.quickSort(sortedValues, Comparators.forType(firstPartitionFieldType));
+        StructLike[] sortedPartitions = uniquePartitions.toArray(new StructLike[uniquePartitions.size()]);
+        ObjectArrays.quickSort(sortedPartitions, Comparators.forType(partitionType));
 
-        // Assign a bucket in range [0, targetClusters) to the partition values, while also grouping
-        // adjacent values into same bucket
-        Map<Object, Integer> valueToBucket = new Object2IntOpenCustomHashMap<>(icebergHashStrategy);
-        for (int i = 0; i < sortedValues.length; i++) {
-            int bucket = (i * targetClusters / sortedValues.length);
-            valueToBucket.put(sortedValues[i], bucket);
+        // Keep adjacent partition tuples together while bounding the number of clusters.
+        Map<StructLike, Integer> partitionToBucket = StructLikeMap.create(partitionType);
+        for (int i = 0; i < sortedPartitions.length; i++) {
+            int bucket = toIntExact((long) i * targetClusters / sortedPartitions.length);
+            partitionToBucket.put(sortedPartitions[i], bucket);
         }
 
-        return valueToBucket;
+        return partitionToBucket;
     }
 
-    /**
-     * Bridges Iceberg's JavaHash and Comparator into FastUtil's Hash.Strategy.
-     */
-    private static final class IcebergHashStrategy
-            implements Hash.Strategy<Object>
+    private static StructLike partitionTuple(ContentFile<DataFile> dataFile, Types.StructType partitionType, Map<Integer, PartitionSpec> specs)
     {
-        private final JavaHash<Object> hasher;
-        private final Comparator<Object> comparator;
-
-        IcebergHashStrategy(Type.PrimitiveType type)
-        {
-            this.hasher = JavaHash.forType(type);
-            this.comparator = Comparators.forType(type);
+        PartitionSpec fileSpec = specs.get(dataFile.specId());
+        if (fileSpec.partitionType().equals(partitionType)) {
+            return dataFile.partition();
         }
-
-        @Override
-        public int hashCode(Object o)
-        {
-            return o == null ? 0 : hasher.hash(o);
-        }
-
-        @Override
-        public boolean equals(Object a, Object b)
-        {
-            if (a == b) {
-                return true;
-            }
-            if (a == null || b == null) {
-                return false;
-            }
-            return comparator.compare(a, b) == 0;
-        }
+        return PartitionUtil.coercePartition(partitionType, fileSpec, dataFile.partition());
     }
 }

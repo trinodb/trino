@@ -337,15 +337,15 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
-    void testClusterByFirstPartitionField()
+    void testClusterByAllPartitionFields()
     {
         try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, 5, 100)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, 10, 500)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, null)", 1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10, 200)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20, 300)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 20, 400)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 25, 400)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 10, 400)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 10, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 10, 300)", 1);
 
             Set<String> manifestFiles = manifestFiles(table.getName());
             assertThat(manifestFiles).hasSize(6);
@@ -358,15 +358,16 @@ final class TestIcebergOptimizeManifestsProcedure
                     .doesNotContainAnyElementsOf(manifestFiles);
 
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES (0, 5, 100), (1, 10, 100), (2, 10, 200), (3, 20, 300), (4, 20, 400), (5, 25, 400)");
+                    .matches("VALUES (0, 10, 500), (1, 10, null), (2, 10, 200), (3, 10, 400), (4, 10, 100), (5, 10, 300)");
 
-            // Verify clustering by first partition field
-            List<PartitionSummary> summaries = partitionSummaries(table.getName());
-            assertThat(summaries).hasSize(2);
-            assertThat(summaries.get(0).lowerBound()).isEqualTo(5);
-            assertThat(summaries.get(0).upperBound()).isEqualTo(10);
-            assertThat(summaries.get(1).lowerBound()).isEqualTo(20);
-            assertThat(summaries.get(1).upperBound()).isEqualTo(25);
+            assertThat(query(
+                    """
+                    SELECT CAST(partition_summaries[2].lower_bound AS integer),
+                           CAST(partition_summaries[2].upper_bound AS integer),
+                           partition_summaries[2].contains_null
+                    FROM "%s$manifests"
+                    """.formatted(table.getName())))
+                    .matches("VALUES (100, 200, true), (300, 500, false)");
         }
     }
 
