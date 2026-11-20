@@ -38,7 +38,6 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -172,12 +171,12 @@ public class TestAddExchangesPlans
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("nation")))))
+                                                exchange(REMOTE,
+                                                        REPARTITION,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                                exchange(REMOTE,
+                                                        REPARTITION,
+                                                        tableScan("nation"))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE,
@@ -191,9 +190,9 @@ public class TestAddExchangesPlans
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                                exchange(REMOTE,
+                                                        REPARTITION,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
                                                 exchange(REMOTE,
                                                         REPARTITION,
                                                         values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))
@@ -383,10 +382,7 @@ public class TestAddExchangesPlans
                                 .equiCriteria("nationkey", "regionkey")
                                 .distributionType(REPLICATED)
                                 .spillable(false)
-                                .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE,
@@ -401,9 +397,9 @@ public class TestAddExchangesPlans
                                 .equiCriteria("nationkey", "regionkey")
                                 .distributionType(DistributionType.PARTITIONED)
                                 .left(
-                                        exchange(REMOTE, REPARTITION,
-                                                anyTree(
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, GATHER,
                                                 exchange(REMOTE,
@@ -657,10 +653,7 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
-                                .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                 .right(
                                         exchange(LOCAL, GATHER,
                                                 exchange(REMOTE,
@@ -676,10 +669,7 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
-                                .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE,
@@ -692,19 +682,13 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey2")
-                                .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE, REPLICATE,
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .equiCriteria("regionkey2", "regionkey1")
-                                                                .left(
-                                                                        node(
-                                                                                FilterNode.class,
-                                                                                tableScan("region", ImmutableMap.of("regionkey2", "regionkey"))))
+                                                                .left(tableScan("region", ImmutableMap.of("regionkey2", "regionkey")))
                                                                 .right(
                                                                         exchange(LOCAL, GATHER,
                                                                                 exchange(REMOTE,
@@ -720,10 +704,7 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
-                                .left(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE,
@@ -1159,9 +1140,7 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, join -> join
                                 .equiCriteria("regionkey", "nationkey")
-                                .left(
-                                        node(FilterNode.class,
-                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))
+                                .left(tableScan("region", ImmutableMap.of("regionkey", "regionkey")))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                                 exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
@@ -1183,10 +1162,8 @@ public class TestAddExchangesPlans
                                         exchange(LOCAL,
                                                 REPARTITION,
                                                 FIXED_ARBITRARY_DISTRIBUTION,
-                                                node(FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
-                                                node(FilterNode.class,
-                                                        tableScan("nation"))))
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
+                                                tableScan("nation")))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                                 exchange(REMOTE,
@@ -1210,9 +1187,7 @@ public class TestAddExchangesPlans
                                 tableScan("nation"),
                                 join(INNER, join -> join
                                         .equiCriteria("nationkey", "regionkey")
-                                        .left(
-                                                node(FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                        .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                         .right(
                                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                                         exchange(REMOTE,

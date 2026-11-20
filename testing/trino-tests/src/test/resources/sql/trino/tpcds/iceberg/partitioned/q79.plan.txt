@@ -11,8 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk, ss_store_sk)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_customer_sk::EQUAL, ss_store_sk::EQUAL, ss_hdemo_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                        scan store_sales
+                                                    scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim

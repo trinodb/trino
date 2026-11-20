@@ -13,6 +13,11 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+import java.util.function.Consumer;
+
 public interface OperatorFactory
 {
     Operator createOperator(DriverContext driverContext);
@@ -27,4 +32,36 @@ public interface OperatorFactory
     void noMoreOperators();
 
     OperatorFactory duplicate();
+
+    /**
+     * Propagates a constraint on this operator's output to constraints on its input. Operators are barriers unless
+     * they provide a semantic rule explicitly.
+     */
+    default void propagateRuntimeConstraint(
+            RuntimeConstraintRequest request,
+            Consumer<RuntimeConstraintRequest> input,
+            RuntimeConstraintWiringContext context)
+    {
+        context.stop(this, request);
+    }
+
+    default void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context) {}
+
+    default void registerRuntimeConstraintInput(
+            Consumer<List<RuntimeConstraintRequest>> requests,
+            RuntimeConstraintWiringContext context)
+    {}
+
+    /**
+     * Returns constraints originated by this operator and expressed on its input channels.
+     */
+    default List<RuntimeConstraintRequest> getInputRuntimeConstraints()
+    {
+        return ImmutableList.of();
+    }
+
+    default List<RuntimeConstraintRequest> getInputRuntimeConstraints(RuntimeConstraintWiringContext context)
+    {
+        return getInputRuntimeConstraints();
+    }
 }

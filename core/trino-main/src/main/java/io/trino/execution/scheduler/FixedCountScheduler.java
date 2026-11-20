@@ -35,12 +35,20 @@ public class FixedCountScheduler
 
     private final TaskScheduler taskScheduler;
     private final List<InternalNode> partitionToNode;
+    private final boolean scheduleWiringTask;
+    private int firstUnscheduledPartition;
 
     public FixedCountScheduler(StageExecution stageExecution, List<InternalNode> partitionToNode)
+    {
+        this(stageExecution, partitionToNode, false);
+    }
+
+    public FixedCountScheduler(StageExecution stageExecution, List<InternalNode> partitionToNode, boolean scheduleWiringTask)
     {
         requireNonNull(stageExecution, "stage is null");
         this.taskScheduler = (node, partition) -> stageExecution.scheduleTask(node, partition, ImmutableMultimap.of());
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
+        this.scheduleWiringTask = scheduleWiringTask;
     }
 
     @VisibleForTesting
@@ -48,12 +56,22 @@ public class FixedCountScheduler
     {
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
+        this.scheduleWiringTask = false;
+    }
+
+    @Override
+    public void start()
+    {
+        if (scheduleWiringTask && !partitionToNode.isEmpty()) {
+            taskScheduler.scheduleTask(partitionToNode.getFirst(), 0);
+            firstUnscheduledPartition = 1;
+        }
     }
 
     @Override
     public ScheduleResult schedule()
     {
-        List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
+        List<RemoteTask> newTasks = IntStream.range(firstUnscheduledPartition, partitionToNode.size())
                 .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition))
                 .filter(Optional::isPresent)
                 .map(Optional::get)

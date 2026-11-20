@@ -33,6 +33,7 @@ import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintDynamicFilter;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -61,6 +63,7 @@ public class TableScanOperator
         private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
         private final List<Type> columnTypes;
+        private volatile DynamicFilter dynamicFilter;
         private boolean closed;
 
         public TableScanOperatorFactory(
@@ -74,6 +77,21 @@ public class TableScanOperator
                 List<Type> columnTypes,
                 AggregatedMemoryContext pageSourceProviderMemoryContext)
         {
+            this(operatorId, planNodeId, sourceId, pageSourceProvider, table, tableCredentials, columns, columnTypes, pageSourceProviderMemoryContext, DynamicFilter.EMPTY);
+        }
+
+        public TableScanOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                PlanNodeId sourceId,
+                PageSourceProviderFactory pageSourceProvider,
+                TableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<ColumnHandle> columns,
+                List<Type> columnTypes,
+                AggregatedMemoryContext pageSourceProviderMemoryContext,
+                DynamicFilter dynamicFilter)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -81,6 +99,7 @@ public class TableScanOperator
             this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle(), pageSourceProviderMemoryContext);
         }
 
@@ -102,7 +121,8 @@ public class TableScanOperator
                     pageSourceProvider,
                     table,
                     tableCredentials,
-                    columns);
+                    columns,
+                    dynamicFilter);
             pageSourceProvider.retain();
 
             if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
@@ -112,6 +132,25 @@ public class TableScanOperator
                         () -> "TableScanOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
             }
             return operator;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (request.channel() >= columns.size() || request.isCollection()) {
+                context.stop(this, request);
+                return;
+            }
+            context.bindScan(sourceId, columns.get(request.channel()), request);
+        }
+
+        @Override
+        public void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context)
+        {
+            context.completeScan(sourceId, columns, dynamicFilter -> this.dynamicFilter = RuntimeConstraintDynamicFilter.combine(this.dynamicFilter, dynamicFilter));
         }
 
         @Override
@@ -131,6 +170,7 @@ public class TableScanOperator
     private final TableHandle table;
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
+    private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
@@ -154,12 +194,25 @@ public class TableScanOperator
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns)
     {
+        this(operatorContext, sourceId, pageSourceProvider, table, tableCredentials, columns, DynamicFilter.EMPTY);
+    }
+
+    public TableScanOperator(
+            OperatorContext operatorContext,
+            PlanNodeId sourceId,
+            PageSourceProvider pageSourceProvider,
+            TableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
     }
 
@@ -280,7 +333,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY, pageSourceMemoryContext::setBytes);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, dynamicFilter, pageSourceMemoryContext::setBytes);
             if (source.isFinished()) {
                 return null;
             }

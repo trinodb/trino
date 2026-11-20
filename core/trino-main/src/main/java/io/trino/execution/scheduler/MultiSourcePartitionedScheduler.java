@@ -53,6 +53,7 @@ public class MultiSourcePartitionedScheduler
     private final DynamicFilterService dynamicFilterService;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final PartitionIdAllocator partitionIdAllocator = new PartitionIdAllocator();
+    private final boolean splitSourceCreationDeferred;
 
     public MultiSourcePartitionedScheduler(
             StageExecution stageExecution,
@@ -65,6 +66,7 @@ public class MultiSourcePartitionedScheduler
     {
         requireNonNull(partitionedSplitSources, "partitionedSplitSources is null");
         checkArgument(partitionedSplitSources.size() > 1, "It is expected that there will be more than one split sources");
+        splitSourceCreationDeferred = partitionedSplitSources.values().stream().anyMatch(SplitSource::isSplitSourceCreationDeferred);
 
         ImmutableList.Builder<SourceScheduler> sourceSchedulers = ImmutableList.builder();
         for (PlanNodeId planNodeId : partitionedSplitSources.keySet()) {
@@ -96,10 +98,11 @@ public class MultiSourcePartitionedScheduler
          *  * there can be task in other stage blocked waiting for the dynamic filters, or
          *  * connector split source for this stage might be blocked waiting the dynamic filters.
         */
-        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
+        if (splitSourceCreationDeferred ||
+                dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
             stageExecution.beginScheduling();
             /*
-             * We can select node randomly because DynamicFilterSourceOperator is not dependent on splits
+             * We can select a node randomly because runtime constraint collection is not dependent on splits
              * scheduled by this scheduler.
              */
             scheduleTaskOnRandomNode();

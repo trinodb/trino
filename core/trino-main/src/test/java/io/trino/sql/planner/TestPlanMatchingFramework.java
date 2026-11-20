@@ -168,9 +168,7 @@ public class TestPlanMatchingFramework
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        anyTree(
-                                                tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .left(tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey")))))));
@@ -183,9 +181,7 @@ public class TestPlanMatchingFramework
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("L_ORDERS_OK", "R_ORDERS_OK")
-                                .left(
-                                        anyTree(
-                                                tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .left(tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey")))))));
@@ -270,9 +266,7 @@ public class TestPlanMatchingFramework
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                .left(
-                                        anyTree(
-                                                tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .left(tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))))))

@@ -97,6 +97,8 @@ public class TestDeltaLakeDynamicFiltering
             MaterializedResultWithPlan filteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(true, joinDistributionType), query);
             MaterializedResultWithPlan unfilteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(false, joinDistributionType), query);
             assertEqualsIgnoreOrder(filteredResult.result().getMaterializedRows(), unfilteredResult.result().getMaterializedRows());
+            assertThat(getDynamicFilteringStats(filteredResult.queryId()).getTotalDynamicFilters()).isGreaterThan(0);
+            assertThat(getDynamicFilteringStats(unfilteredResult.queryId()).getTotalDynamicFilters()).isZero();
 
             QueryStats filteredStats = getQueryStats(filteredResult.queryId());
             QueryStats unfilteredStats = getQueryStats(unfilteredResult.queryId());

@@ -80,7 +80,7 @@ public class TestEliminateCrossJoins
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("L_PARTKEY", "P_PARTKEY")
-                                                .left(anyTree(LINEITEM_TABLESCAN))
+                                                .left(LINEITEM_TABLESCAN)
                                                 .right(anyTree(PART_TABLESCAN))))
                                 .right(anyTree(ORDERS_TABLESCAN)))));
     }
@@ -98,13 +98,13 @@ public class TestEliminateCrossJoins
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("O4_ORDERKEY", "O3_ORDERKEY")
-                                                .left(anyTree(strictTableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey", "O4_totalprice", "totalprice"))))
+                                                .left(strictTableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey", "O4_totalprice", "totalprice")))
                                                 .right(anyTree(strictTableScan("orders", ImmutableMap.of("O3_ORDERKEY", "orderkey", "O3_ORDERSTATUS", "orderstatus"))))))
                                 .right(
                                         anyTree(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("O2_ORDERKEY", "O1_ORDERKEY")
-                                                        .left(anyTree(strictTableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey", "O2_CUSTKEY", "custkey"))))
+                                                        .left(strictTableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey", "O2_CUSTKEY", "custkey")))
                                                         .right(anyTree(strictTableScan("orders", ImmutableMap.of("O1_ORDERKEY", "orderkey"))))))))));
     }
 
@@ -117,7 +117,7 @@ public class TestEliminateCrossJoins
                                 .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .left(anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                                 .right(anyTree(tableScan("part")))))
                                 .right(anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
@@ -133,7 +133,7 @@ public class TestEliminateCrossJoins
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
-                                .left(anyTree(ORDERS_TABLESCAN))
+                                .left(ORDERS_TABLESCAN)
                                 .right(
                                         anyTree(
                                                 join(INNER, leftJoinBuilder -> leftJoinBuilder

@@ -20,6 +20,8 @@ import io.trino.operator.JoinOperatorType;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
@@ -28,20 +30,26 @@ import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.JoinType;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.RuntimeConstraintComparison;
 import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
+import static io.trino.operator.join.JoinType.FULL_OUTER;
 import static io.trino.operator.join.JoinType.INNER;
 import static io.trino.operator.join.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +70,9 @@ public class LookupJoinOperatorFactory
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
+    private final List<Integer> probeJoinChannels;
+    private final List<Integer> probeOutputChannels;
+    private final List<RuntimeConstraintComparison> runtimeConstraintComparisons;
 
     private boolean closed;
 
@@ -78,6 +89,24 @@ public class LookupJoinOperatorFactory
             OptionalInt totalOperatorsCount,
             List<Integer> probeJoinChannels,
             PartitioningSpillerFactory partitioningSpillerFactory)
+    {
+        this(operatorId, planNodeId, lookupSourceFactoryManager, probeTypes, probeOutputTypes, buildOutputTypes, joinOperatorType, joinProbeFactory, hashCompiler, totalOperatorsCount, probeJoinChannels, partitioningSpillerFactory, ImmutableList.of());
+    }
+
+    public LookupJoinOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+            List<Type> probeTypes,
+            List<Type> probeOutputTypes,
+            List<Type> buildOutputTypes,
+            JoinOperatorType joinOperatorType,
+            JoinProbeFactory joinProbeFactory,
+            NullSafeHashCompiler hashCompiler,
+            OptionalInt totalOperatorsCount,
+            List<Integer> probeJoinChannels,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            List<RuntimeConstraintComparison> runtimeConstraintComparisons)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -105,6 +134,9 @@ public class LookupJoinOperatorFactory
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
         requireNonNull(probeJoinChannels, "probeJoinChannels is null");
+        this.probeJoinChannels = ImmutableList.copyOf(probeJoinChannels);
+        this.runtimeConstraintComparisons = ImmutableList.copyOf(requireNonNull(runtimeConstraintComparisons, "runtimeConstraintComparisons is null"));
+        this.probeOutputChannels = ImmutableList.copyOf(joinProbeFactory.getOutputChannels());
         List<Type> hashTypes = probeJoinChannels.stream()
                 .map(probeTypes::get)
                 .collect(toImmutableList());
@@ -131,6 +163,9 @@ public class LookupJoinOperatorFactory
         totalOperatorsCount = other.totalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
+        probeJoinChannels = other.probeJoinChannels;
+        probeOutputChannels = other.probeOutputChannels;
+        runtimeConstraintComparisons = other.runtimeConstraintComparisons;
 
         closed = false;
         joinBridgeManager.incrementProbeFactoryCount();
@@ -181,6 +216,51 @@ public class LookupJoinOperatorFactory
                 partitioningSpillerFactory,
                 operatorContext,
                 sourcePages);
+    }
+
+    @Override
+    public List<RuntimeConstraintRequest> getInputRuntimeConstraints()
+    {
+        if (joinType == PROBE_OUTER || joinType == FULL_OUTER) {
+            return ImmutableList.of();
+        }
+        return Stream.concat(
+                        IntStream.range(0, probeJoinChannels.size())
+                                .mapToObj(index -> new RuntimeConstraintRequest(
+                                        RuntimeConstraintRequest.joinConstraintId(planNodeId, index),
+                                        probeJoinChannels.get(index),
+                                        ComparisonOperator.EQUAL,
+                                        false,
+                                        probeTypes.get(probeJoinChannels.get(index)))),
+                        IntStream.range(0, runtimeConstraintComparisons.size())
+                                .mapToObj(index -> {
+                                    RuntimeConstraintComparison comparison = runtimeConstraintComparisons.get(index);
+                                    return new RuntimeConstraintRequest(
+                                            RuntimeConstraintRequest.joinConstraintId(planNodeId, probeJoinChannels.size() + index),
+                                            comparison.probeChannel(),
+                                            comparison.operator(),
+                                            comparison.nullAllowed(),
+                                            comparison.probeType());
+                                }))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public void propagateRuntimeConstraint(
+            RuntimeConstraintRequest request,
+            Consumer<RuntimeConstraintRequest> input,
+            RuntimeConstraintWiringContext context)
+    {
+        if (joinType == INNER && request.isConstraint() &&
+                request.channelsMatch(channel -> channel >= probeOutputChannels.size() && channel < probeOutputChannels.size() + buildOutputTypes.size())) {
+            context.bindLocalSource(joinBridgeManager, request.mapChannels(channel -> channel - probeOutputChannels.size()));
+            return;
+        }
+        if ((joinType != INNER && joinType != PROBE_OUTER) || !request.channelsMatch(channel -> channel < probeOutputChannels.size())) {
+            context.stop(getOperatorType(), request);
+            return;
+        }
+        input.accept(request.mapChannels(probeOutputChannels::get));
     }
 
     @Override

@@ -87,6 +87,12 @@ public class BufferingSplitSource
     }
 
     @Override
+    public boolean isSplitSourceCreationDeferred()
+    {
+        return source.isSplitSourceCreationDeferred();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

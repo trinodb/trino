@@ -19,10 +19,14 @@ import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.ReferenceCount;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -39,21 +43,29 @@ public class LocalExchangeSinkOperator
         private final LocalExchangeSinkFactory sinkFactory;
         private final PlanNodeId planNodeId;
         private final Function<Page, Page> pagePreprocessor;
+        private final List<Integer> inputChannels;
         private final ReferenceCount factoryReferenceCount;
         private boolean closed;
 
         public LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor)
         {
-            this(sinkFactory, operatorId, planNodeId, pagePreprocessor, new ReferenceCount(1));
+            this(sinkFactory, operatorId, planNodeId, pagePreprocessor, List.of(), new ReferenceCount(1));
             factoryReferenceCount.getFreeFuture().addListener(sinkFactory::noMoreSinkFactories, directExecutor());
         }
 
-        private LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor, ReferenceCount factoryReferenceCount)
+        public LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor, List<Integer> inputChannels)
+        {
+            this(sinkFactory, operatorId, planNodeId, pagePreprocessor, inputChannels, new ReferenceCount(1));
+            factoryReferenceCount.getFreeFuture().addListener(sinkFactory::noMoreSinkFactories, directExecutor());
+        }
+
+        private LocalExchangeSinkOperatorFactory(LocalExchangeSinkFactory sinkFactory, int operatorId, PlanNodeId planNodeId, Function<Page, Page> pagePreprocessor, List<Integer> inputChannels, ReferenceCount factoryReferenceCount)
         {
             this.sinkFactory = requireNonNull(sinkFactory, "sinkFactory is null");
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+            this.inputChannels = List.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
             this.factoryReferenceCount = requireNonNull(factoryReferenceCount, "factoryReferenceCount is null");
         }
 
@@ -79,7 +91,26 @@ public class LocalExchangeSinkOperator
         public OperatorFactory duplicate()
         {
             factoryReferenceCount.retain();
-            return new LocalExchangeSinkOperatorFactory(sinkFactory.duplicate(), operatorId, planNodeId, pagePreprocessor, factoryReferenceCount);
+            return new LocalExchangeSinkOperatorFactory(sinkFactory.duplicate(), operatorId, planNodeId, pagePreprocessor, inputChannels, factoryReferenceCount);
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < inputChannels.size())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(inputChannels::get));
+        }
+
+        @Override
+        public void registerRuntimeConstraintInput(Consumer<List<RuntimeConstraintRequest>> requests, RuntimeConstraintWiringContext context)
+        {
+            context.registerLocalConsumer(sinkFactory.getLocalExchange(), requests);
         }
     }
 

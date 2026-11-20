@@ -9,8 +9,7 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         partial aggregation over (expr_136, expr_137, ss_sold_date_sk, ss_item_sk)
-                                            dynamic filter (ss_sold_date_sk::EQUAL, ss_item_sk::EQUAL)
-                                                scan store_sales
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan item
@@ -25,8 +24,7 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ws_item_sk])
                                                     partial aggregation over (expr_155, expr_156, ws_sold_date_sk_154, ws_item_sk)
-                                                        dynamic filter (ws_sold_date_sk::EQUAL, ws_item_sk::EQUAL)
-                                                            scan web_sales
+                                                        scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [i_item_sk_18])
                                                         scan item
@@ -38,8 +36,7 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         partial aggregation over (expr_133, expr_135, cs_sold_date_sk, cs_item_sk)
-                                            dynamic filter (cs_sold_date_sk::EQUAL, cs_item_sk::EQUAL)
-                                                scan catalog_sales
+                                            scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan item

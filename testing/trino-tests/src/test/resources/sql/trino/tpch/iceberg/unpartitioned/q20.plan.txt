@@ -12,14 +12,12 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [partkey_18, suppkey_19])
                                                     partial aggregation over (partkey_18, suppkey_19)
-                                                        dynamic filter (suppkey_19::EQUAL, partkey_18::EQUAL, suppkey_19::EQUAL)
-                                                            scan lineitem
+                                                        scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [partkey, suppkey_5])
                                                 join (INNER, PARTITIONED, can skip output duplicates):
                                                     remote exchange (REPARTITION, HASH, [partkey])
-                                                        dynamic filter (suppkey_5::EQUAL, partkey::EQUAL)
-                                                            scan partsupp
+                                                        scan partsupp
                                                     final aggregation over (partkey_11)
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [partkey_11])
@@ -32,8 +30,7 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [suppkey])
                         join (INNER, REPLICATED):
-                            dynamic filter (nationkey::EQUAL)
-                                scan supplier
+                            scan supplier
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     scan nation

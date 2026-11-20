@@ -60,7 +60,7 @@ class ContinuousTaskStatusFetcher
     private final StateMachine<TaskStatus> taskStatus;
     private final AtomicLong expectedTaskInstanceId = new AtomicLong();
     private final JsonCodec<TaskStatus> taskStatusCodec;
-    private final DynamicFiltersFetcher dynamicFiltersFetcher;
+    private final RuntimeConstraintFetcher runtimeConstraintFetcher;
 
     private final Duration refreshMaxWait;
     private final Executor executor;
@@ -81,7 +81,7 @@ class ContinuousTaskStatusFetcher
             String nodeInstanceId,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
-            DynamicFiltersFetcher dynamicFiltersFetcher,
+            RuntimeConstraintFetcher runtimeConstraintFetcher,
             Executor executor,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
@@ -99,7 +99,7 @@ class ContinuousTaskStatusFetcher
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
-        this.dynamicFiltersFetcher = requireNonNull(dynamicFiltersFetcher, "dynamicFiltersFetcher is null");
+        this.runtimeConstraintFetcher = requireNonNull(runtimeConstraintFetcher, "runtimeConstraintFetcher is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -280,7 +280,7 @@ class ContinuousTaskStatusFetcher
             onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().self()))));
         }
 
-        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.dynamicFiltersVersion());
+        runtimeConstraintFetcher.updateSequenceAndFetchIfNecessary(newValue.runtimeConstraintContributionsSequence());
     }
 
     /**

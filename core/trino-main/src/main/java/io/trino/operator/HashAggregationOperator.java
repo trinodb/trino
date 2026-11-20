@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -222,6 +223,19 @@ public class HashAggregationOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!globalAggregationGroupIds.isEmpty() || !request.channelsMatch(channel -> channel < groupByChannels.size())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(groupByChannels::get));
         }
 
         @Override

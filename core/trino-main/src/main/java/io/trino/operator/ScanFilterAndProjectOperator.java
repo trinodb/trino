@@ -41,18 +41,21 @@ import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintDynamicFilter;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
@@ -363,8 +366,10 @@ public class ScanFilterAndProjectOperator
         private final TableHandle table;
         private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
-        private final DynamicFilter dynamicFilter;
+        private volatile DynamicFilter dynamicFilter;
         private final List<Type> types;
+        private final List<OptionalInt> inputChannels;
+        private final List<Optional<Type>> inputTypes;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
         private boolean closed;
@@ -384,6 +389,40 @@ public class ScanFilterAndProjectOperator
                 int minOutputPageRowCount,
                 AggregatedMemoryContext pageSourceProviderMemoryContext)
         {
+            this(operatorId,
+                    planNodeId,
+                    sourceId,
+                    pageSourceProvider,
+                    pageProcessor,
+                    table,
+                    tableCredentials,
+                    columns,
+                    dynamicFilter,
+                    types,
+                    types.stream().map(_ -> OptionalInt.empty()).collect(toImmutableList()),
+                    types.stream().map(_ -> Optional.<Type>empty()).toList(),
+                    minOutputPageSize,
+                    minOutputPageRowCount,
+                    pageSourceProviderMemoryContext);
+        }
+
+        public ScanFilterAndProjectOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                PlanNodeId sourceId,
+                PageSourceProviderFactory pageSourceProvider,
+                Function<DynamicFilter, PageProcessor> pageProcessor,
+                TableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<ColumnHandle> columns,
+                DynamicFilter dynamicFilter,
+                List<Type> types,
+                List<OptionalInt> inputChannels,
+                List<Optional<Type>> inputTypes,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount,
+                AggregatedMemoryContext pageSourceProviderMemoryContext)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
@@ -393,6 +432,9 @@ public class ScanFilterAndProjectOperator
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
+            this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
+            this.inputTypes = ImmutableList.copyOf(requireNonNull(inputTypes, "inputTypes is null"));
+            checkState(inputChannels.size() == inputTypes.size(), "inputChannels and inputTypes have different sizes");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle(), pageSourceProviderMemoryContext);
@@ -437,6 +479,33 @@ public class ScanFilterAndProjectOperator
                         () -> "ScanFilterAndProjectOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
             }
             return operator;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < inputChannels.size() && inputChannels.get(channel).isPresent()) || request.isCollection() || request.isComparisonDemand()) {
+                context.stop(getOperatorType(), request);
+                return;
+            }
+            int inputChannel = inputChannels.get(request.channel()).orElseThrow();
+            if (inputChannel >= columns.size()) {
+                context.stop(getOperatorType(), request);
+                return;
+            }
+            RuntimeConstraintRequest scanRequest = inputTypes.get(request.channel())
+                    .map(type -> request.withChannelAndTargetType(inputChannel, type))
+                    .orElseGet(() -> request.withChannel(inputChannel));
+            context.bindScan(sourceId, columns.get(inputChannel), context.mapConstraint(getOperatorType(), request, scanRequest));
+        }
+
+        @Override
+        public void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context)
+        {
+            context.completeScan(sourceId, columns, dynamicFilter -> this.dynamicFilter = RuntimeConstraintDynamicFilter.combine(this.dynamicFilter, dynamicFilter));
         }
 
         @Override

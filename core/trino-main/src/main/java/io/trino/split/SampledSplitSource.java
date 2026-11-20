@@ -83,4 +83,10 @@ public class SampledSplitSource
     {
         return splitSource.getMetrics();
     }
+
+    @Override
+    public boolean isSplitSourceCreationDeferred()
+    {
+        return splitSource.isSplitSourceCreationDeferred();
+    }
 }

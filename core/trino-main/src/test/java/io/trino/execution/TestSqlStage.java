@@ -46,7 +46,6 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -67,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -247,12 +245,11 @@ public class TestSqlStage
                     Multimap<PlanNodeId, Split> initialSplits,
                     OutputBuffers outputBuffers,
                     PartitionedSplitCountTracker partitionedSplitCountTracker,
-                    Set<DynamicFilterId> outboundDynamicFilterIds,
                     Optional<DataSize> estimatedMemory,
                     boolean summarizeTaskInfo)
             {
                 capturedCredentials.set(tableCredentials);
-                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
+                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, estimatedMemory, summarizeTaskInfo);
             }
         };
 
@@ -308,12 +305,11 @@ public class TestSqlStage
                     Multimap<PlanNodeId, Split> initialSplits,
                     OutputBuffers outputBuffers,
                     PartitionedSplitCountTracker partitionedSplitCountTracker,
-                    Set<DynamicFilterId> outboundDynamicFilterIds,
                     Optional<DataSize> estimatedMemory,
                     boolean summarizeTaskInfo)
             {
                 taskNode.set(node);
-                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
+                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, estimatedMemory, summarizeTaskInfo);
             }
         };
 

@@ -24,12 +24,10 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +55,6 @@ public class MemoryTrackingRemoteTaskFactory
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
@@ -72,7 +69,6 @@ public class MemoryTrackingRemoteTaskFactory
                 initialSplits,
                 outputBuffers,
                 partitionedSplitCountTracker,
-                outboundDynamicFilterIds,
                 estimatedMemory,
                 summarizeTaskInfo);
 
