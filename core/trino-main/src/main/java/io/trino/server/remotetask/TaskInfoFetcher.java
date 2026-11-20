@@ -66,7 +66,7 @@ public class TaskInfoFetcher
     private static final SpoolingOutputStats.Snapshot ALREADY_RETRIEVED_MARKER = new SpoolingOutputStats.Snapshot(Slices.EMPTY_SLICE, 0);
 
     private final TaskId taskId;
-    private final String nodeInstanceId;
+    private final RemoteTaskNodeInstance nodeInstance;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final StateMachine<TaskInfo> taskInfo;
@@ -103,7 +103,7 @@ public class TaskInfoFetcher
             Consumer<Throwable> onFail,
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
-            String nodeInstanceId,
+            RemoteTaskNodeInstance nodeInstance,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
@@ -121,7 +121,7 @@ public class TaskInfoFetcher
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.taskStatus().taskId();
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
+        this.nodeInstance = requireNonNull(nodeInstance, "nodeInstance is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
@@ -247,6 +247,7 @@ public class TaskInfoFetcher
 
         HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.self());
         URI uri = summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
+        String nodeInstanceId = nodeInstance.nodeInstanceId();
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
@@ -256,7 +257,7 @@ public class TaskInfoFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskInfoResponseCallback(), request.getUri(), stats), executor);
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskInfoResponseCallback(), request.getUri(), _ -> nodeInstance.canRetryRejectedRequest(nodeInstanceId), stats), executor);
     }
 
     synchronized void updateTaskInfo(TaskInfo newTaskInfo)

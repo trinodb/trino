@@ -61,17 +61,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
-    private static final long TASK_INSTANCE_ID = 0x1337;
+    private static final long DEFAULT_TASK_INSTANCE_ID = 0x1337;
 
     private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
-    private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(location -> new MockBuffer(location, serdeFactory.createSerializer(Optional.empty()))));
-
     private final DataSize expectedMaxSize;
+
+    private final LoadingCache<URI, MockBuffer> buffers;
 
     public MockExchangeRequestProcessor(DataSize expectedMaxSize)
     {
+        this(expectedMaxSize, DEFAULT_TASK_INSTANCE_ID);
+    }
+
+    public MockExchangeRequestProcessor(DataSize expectedMaxSize, long taskInstanceId)
+    {
         this.expectedMaxSize = expectedMaxSize;
+        this.buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(location -> new MockBuffer(location, serdeFactory.createSerializer(Optional.empty()), taskInstanceId)));
     }
 
     public void addPage(URI location, Page page)
@@ -169,15 +175,17 @@ public class MockExchangeRequestProcessor
     {
         private final URI location;
         private final PageSerializer serializer;
+        private final long taskInstanceId;
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
         private final BlockingQueue<Slice> serializedPages = new LinkedBlockingQueue<>();
         private final AtomicReference<RuntimeException> failure = new AtomicReference<>();
 
-        private MockBuffer(URI location, PageSerializer serializer)
+        private MockBuffer(URI location, PageSerializer serializer, long taskInstanceId)
         {
             this.location = location;
             this.serializer = serializer;
+            this.taskInstanceId = taskInstanceId;
         }
 
         public void setCompleted()
@@ -206,7 +214,7 @@ public class MockExchangeRequestProcessor
         {
             // if location is complete return GONE
             if (completed.get() && serializedPages.isEmpty()) {
-                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), true);
+                return BufferResult.emptyResults(taskInstanceId, token.get(), true);
             }
 
             RuntimeException failure = this.failure.get();
@@ -229,7 +237,7 @@ public class MockExchangeRequestProcessor
 
             // if no page, return NO CONTENT
             if (serializedPage == null) {
-                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), false);
+                return BufferResult.emptyResults(taskInstanceId, token.get(), false);
             }
 
             // add serializedPages up to the size limit
@@ -248,7 +256,7 @@ public class MockExchangeRequestProcessor
             // update sequence id
             long nextToken = token.get() + responsePages.size();
 
-            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, responsePages);
+            BufferResult bufferResult = new BufferResult(taskInstanceId, token.get(), nextToken, false, responsePages);
             token.set(nextToken);
 
             return bufferResult;

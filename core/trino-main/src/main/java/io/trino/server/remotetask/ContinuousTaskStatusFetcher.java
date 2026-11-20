@@ -55,7 +55,7 @@ class ContinuousTaskStatusFetcher
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
     private final TaskId taskId;
-    private final String nodeInstanceId;
+    private final RemoteTaskNodeInstance nodeInstance;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final AtomicLong expectedTaskInstanceId = new AtomicLong();
@@ -78,7 +78,7 @@ class ContinuousTaskStatusFetcher
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskStatus initialTaskStatus,
-            String nodeInstanceId,
+            RemoteTaskNodeInstance nodeInstance,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
             DynamicFiltersFetcher dynamicFiltersFetcher,
@@ -92,7 +92,7 @@ class ContinuousTaskStatusFetcher
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         this.taskId = initialTaskStatus.taskId();
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
+        this.nodeInstance = requireNonNull(nodeInstance, "nodeInstance is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
         this.expectedTaskInstanceId.set(initialTaskStatus.taskInstanceId());
@@ -150,6 +150,7 @@ class ContinuousTaskStatusFetcher
             return;
         }
 
+        String nodeInstanceId = nodeInstance.nodeInstanceId();
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskStatus.self()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
@@ -161,7 +162,7 @@ class ContinuousTaskStatusFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), _ -> nodeInstance.canRetryRejectedRequest(nodeInstanceId), stats), executor);
     }
 
     TaskStatus getTaskStatus()

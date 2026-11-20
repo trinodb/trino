@@ -13,7 +13,9 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseTooLargeException;
@@ -44,6 +46,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -69,6 +72,8 @@ import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
@@ -372,6 +377,75 @@ public class TestHttpPageBufferClient
         requestComplete.await(10, SECONDS);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
         assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
+    }
+
+    @Test
+    public void testRemoteNodeRestartedBeforeAnyPagesRead()
+            throws Exception
+    {
+        Page expectedPage = new Page(100);
+        DataSize maxSize = DataSize.of(10, MEGABYTE);
+        MockExchangeRequestProcessor previousInstance = new MockExchangeRequestProcessor(maxSize, 1);
+        MockExchangeRequestProcessor restartedInstance = new MockExchangeRequestProcessor(maxSize, 2);
+        NodeInstanceProcessor processor = new NodeInstanceProcessor(ImmutableMap.of(
+                "node-instance", previousInstance,
+                "restarted-node-instance", restartedInstance,
+                "restarted-again-node-instance", new MockExchangeRequestProcessor(maxSize, 3)));
+
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        TestingClientCallback callback = new TestingClientCallback(requestComplete);
+
+        URI location = URI.create("http://localhost:8080");
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                maxSize,
+                MAX_RESPONSE_CONTENT_LENGTH,
+                new Duration(1, MINUTES),
+                true,
+                TASK_ID,
+                location,
+                "node-instance",
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // no pages are produced by the previous instance of the node yet
+        processor.setNodeInstanceId("node-instance");
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+
+        // nothing has been read from the previous instance of the node, so the client switches to the restarted one
+        processor.setNodeInstanceId("restarted-node-instance");
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getCompletedRequests()).isEqualTo(1);
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertStatus(client, location, "queued", 0, 2, 2, 1, "not scheduled");
+
+        // the task on the restarted instance is a different task instance
+        restartedInstance.addPage(location, expectedPage);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertPageEquals(expectedPage, getOnlyElement(callback.getPages()));
+        assertThat(callback.getFailedBuffers()).isEqualTo(0);
+        assertThat(processor.getRequestedNodeInstanceIds()).containsExactly("node-instance", "node-instance", "restarted-node-instance");
+
+        // pages have been read from the current instance of the node, so another restart fails the client
+        processor.setNodeInstanceId("restarted-again-node-instance");
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, SECONDS);
+        assertThat(callback.getPages()).isEmpty();
+        assertThat(callback.getFailedBuffers()).isEqualTo(1);
+        assertThat(callback.getFailure())
+                .isInstanceOfSatisfying(TrinoException.class, exception -> assertThat(exception.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode()));
     }
 
     @Test
@@ -954,6 +1028,44 @@ public class TestHttpPageBufferClient
             finally {
                 afterRequest.await(10, SECONDS);
             }
+        }
+    }
+
+    private static class NodeInstanceProcessor
+            implements TestingHttpClient.Processor
+    {
+        private final Map<String, TestingHttpClient.Processor> instances;
+        private final AtomicReference<String> nodeInstanceId = new AtomicReference<>();
+        private final List<String> requestedNodeInstanceIds = Collections.synchronizedList(new ArrayList<>());
+
+        private NodeInstanceProcessor(Map<String, TestingHttpClient.Processor> instances)
+        {
+            this.instances = ImmutableMap.copyOf(instances);
+        }
+
+        private void setNodeInstanceId(String nodeInstanceId)
+        {
+            this.nodeInstanceId.set(nodeInstanceId);
+        }
+
+        private List<String> getRequestedNodeInstanceIds()
+        {
+            return ImmutableList.copyOf(requestedNodeInstanceIds);
+        }
+
+        @Override
+        public Response handle(Request request)
+                throws Exception
+        {
+            String requestedNodeInstanceId = request.getHeader(TRINO_NODE_INSTANCE_ID);
+            String currentNodeInstanceId = nodeInstanceId.get();
+            if (request.getMethod().equals("GET") && !request.getUri().getPath().endsWith("/acknowledge")) {
+                requestedNodeInstanceIds.add(requestedNodeInstanceId);
+            }
+            if (!currentNodeInstanceId.equals(requestedNodeInstanceId)) {
+                return new TestingResponse(PRECONDITION_FAILED, ImmutableListMultimap.of(TRINO_NODE_INSTANCE_ID_HEADER, currentNodeInstanceId), new byte[0]);
+            }
+            return instances.get(currentNodeInstanceId).handle(request);
         }
     }
 

@@ -106,6 +106,8 @@ import jakarta.ws.rs.core.UriInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.io.EOFException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,6 +134,7 @@ import static io.trino.SystemSessionProperties.REMOTE_TASK_GUARANTEED_SPLITS_PER
 import static io.trino.SystemSessionProperties.REMOTE_TASK_MAX_REQUEST_SIZE;
 import static io.trino.SystemSessionProperties.REMOTE_TASK_REQUEST_SIZE_HEADROOM;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.execution.TaskState.CANCELED;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
@@ -171,6 +174,7 @@ public class TestHttpRemoteTask
 
     private static final boolean TRACE_HTTP = false;
     private static final String NODE_INSTANCE_ID = "node-instance-id";
+    private static final String RESTARTED_NODE_INSTANCE_ID = "restarted-node-instance-id";
 
     @Test
     @Timeout(30)
@@ -185,7 +189,73 @@ public class TestHttpRemoteTask
     public void testNodeRestartedBeforeFirstResponse()
             throws Exception
     {
-        runTest(FailureScenario.NODE_RESTARTED);
+        runTest(FailureScenario.NODE_RESTARTED_BEFORE_FIRST_RESPONSE);
+    }
+
+    @Test
+    @Timeout(30)
+    public void testNodeRestartedBeforeTaskCreated()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NODE_RESTARTED_BEFORE_TASK_CREATED);
+        // the node is down when the task is created
+        testingTaskResource.setConnectFailures(2);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+
+        // the task did not reach the node instance it was addressed to, so it is created on the restarted one
+        poll(() -> testingTaskResource.getCreateOrUpdateCounter() > 0);
+        assertThat(testingTaskResource.getConnectFailures()).isEqualTo(0);
+        assertThat(testingTaskResource.isPlanReceived()).isTrue();
+        assertThat(remoteTask.getNodeInstanceId()).isEqualTo(RESTARTED_NODE_INSTANCE_ID);
+        long statusFetchCounter = testingTaskResource.getStatusFetchCounter();
+        poll(() -> testingTaskResource.getStatusFetchCounter() > statusFetchCounter + 2);
+        assertThat(remoteTask.getTaskStatus().state().isDone())
+                .describedAs(format("TaskStatus is in a done state: %s", remoteTask.getTaskStatus()))
+                .isFalse();
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        waitUntilIdle(lastActivityNanos);
+        httpRemoteTaskFactory.stop();
+
+        assertThat(remoteTask.getTaskStatus().state()).isEqualTo(CANCELED);
+        assertThat(remoteTask.getTaskStatus().failures()).isEmpty();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCancelBeforeTaskRedirected()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NODE_RESTARTED_BEFORE_TASK_CREATED);
+        // the task updates never reach the node
+        testingTaskResource.setConnectFailures(Integer.MAX_VALUE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        poll(() -> testingTaskResource.getConnectFailures() < Integer.MAX_VALUE);
+
+        // the cancellation addressed to the previous instance of the node is redirected to the restarted one
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        waitUntilIdle(lastActivityNanos);
+        httpRemoteTaskFactory.stop();
+
+        assertThat(remoteTask.getTaskStatus().state()).isEqualTo(CANCELED);
+        assertThat(remoteTask.getTaskStatus().failures()).isEmpty();
+        assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(0);
+        // the cancellation and the final cleanup
+        assertThat(testingTaskResource.getDeletedNodeInstanceIds()).isNotEmpty().containsOnly(RESTARTED_NODE_INSTANCE_ID);
     }
 
     @Test
@@ -649,13 +719,16 @@ public class TestHttpRemoteTask
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
             }
-            case NODE_RESTARTED -> {
+            case NODE_RESTARTED_BEFORE_FIRST_RESPONSE -> {
                 assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
-                // the task must not be re-created on the restarted node
-                assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(0);
+                // the task may have run on the previous node instance, so it must not be re-created on the restarted one
+                assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(1);
+                assertThat(remoteTask.getNodeInstanceId()).isEqualTo(NODE_INSTANCE_ID);
+                // the task is aborted on the restarted node instance, so readers redirected there fail
+                assertThat(testingTaskResource.getDeletedNodeInstanceIds()).contains(RESTARTED_NODE_INSTANCE_ID);
             }
             case REJECTED_EXECUTION -> {
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
@@ -768,8 +841,18 @@ public class TestHttpRemoteTask
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
                             JsonCodec<FailTaskRequest> failTaskRequestCodec)
                     {
-                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
-                        TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
+                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper)
+                                .setTrace(TRACE_HTTP);
+                        TestingHttpClient testingHttpClient = new TestingHttpClient(request -> {
+                            if (request.getMethod().equals("POST") && testingTaskResource.takeConnectFailure()) {
+                                throw new ConnectException("Connection refused");
+                            }
+                            var response = jaxrsTestingHttpProcessor.handle(request);
+                            if (request.getMethod().equals("POST") && testingTaskResource.takeTaskUpdateResponseLost()) {
+                                throw new EOFException("Connection closed before the response was received");
+                            }
+                            return response;
+                        });
                         testingTaskResource.setHttpClient(testingHttpClient);
                         return new HttpRemoteTaskFactory(
                                 config,
@@ -832,7 +915,8 @@ public class TestHttpRemoteTask
         NO_FAILURE,
         TASK_MISMATCH,
         TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
-        NODE_RESTARTED,
+        NODE_RESTARTED_BEFORE_TASK_CREATED,
+        NODE_RESTARTED_BEFORE_FIRST_RESPONSE,
         REJECTED_EXECUTION,
         STUCK_TERMINATING,
     }
@@ -857,6 +941,12 @@ public class TestHttpRemoteTask
         private TaskState taskState;
         private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
+
+        private boolean nodeRestarted;
+        private boolean taskUpdateResponseLost;
+        private int connectFailures;
+        private boolean planReceived;
+        private final List<String> deletedNodeInstanceIds = new ArrayList<>();
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
@@ -903,6 +993,9 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             checkNodeInstance(expectedNodeInstanceId);
+            if (taskUpdateRequest.fragment().isPresent()) {
+                planReceived = true;
+            }
             for (SplitAssignment splitAssignment : taskUpdateRequest.splitAssignments()) {
                 taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (_, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
@@ -912,7 +1005,49 @@ public class TestHttpRemoteTask
             }
             createOrUpdateCounter++;
             lastActivityNanos.set(System.nanoTime());
+            if (failureScenario == FailureScenario.NODE_RESTARTED_BEFORE_FIRST_RESPONSE && !nodeRestarted) {
+                // the worker crashes before responding, and is restarted
+                nodeRestarted = true;
+                taskUpdateResponseLost = true;
+            }
             return buildTaskInfo();
+        }
+
+        public synchronized void setConnectFailures(int connectFailures)
+        {
+            this.connectFailures = connectFailures;
+        }
+
+        public synchronized int getConnectFailures()
+        {
+            return connectFailures;
+        }
+
+        public synchronized boolean takeConnectFailure()
+        {
+            if (connectFailures == 0) {
+                return false;
+            }
+            connectFailures--;
+            lastActivityNanos.set(System.nanoTime());
+            return true;
+        }
+
+        public synchronized boolean isPlanReceived()
+        {
+            return planReceived;
+        }
+
+        public synchronized List<String> getDeletedNodeInstanceIds()
+        {
+            return ImmutableList.copyOf(deletedNodeInstanceIds);
+        }
+
+        public synchronized boolean takeTaskUpdateResponseLost()
+        {
+            boolean lost = taskUpdateResponseLost;
+            taskUpdateResponseLost = false;
+            return lost;
         }
 
         public synchronized SplitAssignment getTaskSplitAssignment(PlanNodeId planNodeId)
@@ -979,6 +1114,7 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             checkNodeInstance(expectedNodeInstanceId);
+            deletedNodeInstanceIds.add(expectedNodeInstanceId);
             lastActivityNanos.set(System.nanoTime());
 
             if (failureScenario == FailureScenario.STUCK_TERMINATING) {
@@ -995,12 +1131,14 @@ public class TestHttpRemoteTask
         private void checkNodeInstance(String expectedNodeInstanceId)
         {
             String nodeInstanceId = NODE_INSTANCE_ID;
-            if (failureScenario == FailureScenario.NODE_RESTARTED) {
-                nodeInstanceId = "restarted-" + NODE_INSTANCE_ID;
+            if (failureScenario == FailureScenario.NODE_RESTARTED_BEFORE_TASK_CREATED || nodeRestarted) {
+                nodeInstanceId = RESTARTED_NODE_INSTANCE_ID;
             }
             if (!nodeInstanceId.equals(expectedNodeInstanceId)) {
                 lastActivityNanos.set(System.nanoTime());
-                throw new WebApplicationException(Response.status(Response.Status.PRECONDITION_FAILED).build());
+                throw new WebApplicationException(Response.status(Response.Status.PRECONDITION_FAILED)
+                        .header(TRINO_NODE_INSTANCE_ID, nodeInstanceId)
+                        .build());
             }
         }
 
@@ -1016,7 +1154,7 @@ public class TestHttpRemoteTask
                     // This way, the version number can't be reached if it is reset to 0.
                     version = 1_000_000;
                 }
-                case TASK_MISMATCH, NODE_RESTARTED, REJECTED_EXECUTION, STUCK_TERMINATING, NO_FAILURE -> {}
+                case TASK_MISMATCH, NODE_RESTARTED_BEFORE_TASK_CREATED, NODE_RESTARTED_BEFORE_FIRST_RESPONSE, REJECTED_EXECUTION, STUCK_TERMINATING, NO_FAILURE -> {}
                 default -> throw new UnsupportedOperationException();
             }
         }
@@ -1091,7 +1229,7 @@ public class TestHttpRemoteTask
                         throw new RejectedExecutionException();
                     }
                 }
-                case NODE_RESTARTED, STUCK_TERMINATING, NO_FAILURE -> {}
+                case NODE_RESTARTED_BEFORE_TASK_CREATED, NODE_RESTARTED_BEFORE_FIRST_RESPONSE, STUCK_TERMINATING, NO_FAILURE -> {}
                 default -> throw new UnsupportedOperationException();
             }
 

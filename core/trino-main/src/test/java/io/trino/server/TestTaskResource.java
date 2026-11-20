@@ -69,8 +69,10 @@ final class TestTaskResource
     {
         TaskId taskId = new TaskId(new StageId("different_node_instance", 0), 0, 0);
 
-        assertThat(getTaskStatus(taskId, Optional.of("other-" + server.getCurrentNode().getInstanceId())).getStatusCode())
-                .isEqualTo(PRECONDITION_FAILED.code());
+        StatusResponse response = getTaskStatus(taskId, Optional.of("other-" + server.getCurrentNode().getInstanceId()));
+        assertThat(response.getStatusCode()).isEqualTo(PRECONDITION_FAILED.code());
+        // the caller learns the current instance, so it can redirect a task which never reached the previous one
+        assertThat(response.getHeader(TRINO_NODE_INSTANCE_ID_HEADER)).contains(server.getCurrentNode().getInstanceId());
         // the task must not be created on demand
         assertThat(server.getTaskManager().getAllTasks())
                 .extracting(SqlTask::getTaskId)

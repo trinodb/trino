@@ -42,6 +42,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.execution.buffer.SerializedPagesDecoder;
 import io.trino.server.remotetask.Backoff;
+import io.trino.server.remotetask.NodeInstanceMismatchException;
 import io.trino.server.remotetask.RetryableResponseException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -136,7 +137,6 @@ public final class HttpPageBufferClient
     private final boolean acknowledgePages;
     private final TaskId remoteTaskId;
     private final URI location;
-    private final String nodeInstanceId;
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
@@ -153,6 +153,8 @@ public final class HttpPageBufferClient
     private boolean scheduled;
     @GuardedBy("this")
     private boolean completed;
+    @GuardedBy("this")
+    private String nodeInstanceId;
     @GuardedBy("this")
     private String taskInstanceId;
     private volatile long lastRequestStartNanos;
@@ -371,11 +373,12 @@ public final class HttpPageBufferClient
     private synchronized void sendGetResults()
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
+        String requestNodeInstanceId = nodeInstanceId;
         lastRequestStartNanos = ticker.read();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
-                        .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
+                        .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, requestNodeInstanceId)
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE, maxResponseContentLength));
 
@@ -426,7 +429,7 @@ public final class HttpPageBufferClient
                         // The next request will also make sure the token is acknowledged.
                         // This is to fast release the pages on the buffer side.
                         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId).setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+                        httpClient.executeAsync(prepareGet().setHeader(TRINO_NODE_INSTANCE_ID_HEADER, requestNodeInstanceId).setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
                         {
                             @Override
                             public Void handleException(Request request, Exception exception)
@@ -508,6 +511,13 @@ public final class HttpPageBufferClient
                         case RETRY -> log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
                         default -> throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
                     }
+                }
+
+                if (t instanceof NodeInstanceMismatchException mismatch && canRedirectToRestartedNode(requestNodeInstanceId, mismatch)) {
+                    // the current instance of the remote node is up, so retry right away
+                    backoff.success();
+                    handleFailure(new RetryableResponseException(PRECONDITION_FAILED, uri), resultFuture);
+                    return;
                 }
 
                 t = rewriteException(t);
@@ -600,6 +610,26 @@ public final class HttpPageBufferClient
         // By design, clientCallback must not be called when holding a lock on HttpPageBufferClient.this.
         // This check enforce the requirement and help reason about this invariant locally.
         assert !Thread.holdsLock(lock) : "Cannot execute this method while holding a lock";
+    }
+
+    private synchronized boolean canRedirectToRestartedNode(String rejectedNodeInstanceId, NodeInstanceMismatchException mismatch)
+    {
+        // Pages already read from the previous instance of the server would be produced again, or lost.
+        // If nothing has been read, the source task either never ran on the previous instance and the coordinator
+        // creates it on the current one, or the coordinator fails it, as it may have produced pages for other readers,
+        // and aborts it on the current instance, so that this client fails as well.
+        if (!rejectedNodeInstanceId.equals(nodeInstanceId)) {
+            // should not happen, as a request is not sent before the previous one completes
+            return true;
+        }
+        if (token != 0 || mismatch.actualNodeInstanceId().isEmpty()) {
+            return false;
+        }
+        log.debug("Node instance %s is gone before any pages were read from %s. Redirecting to node instance %s", nodeInstanceId, location, mismatch.actualNodeInstanceId().get());
+        nodeInstanceId = mismatch.actualNodeInstanceId().get();
+        // the task on the current instance is a different one
+        taskInstanceId = null;
+        return true;
     }
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
@@ -715,9 +745,9 @@ public final class HttpPageBufferClient
                     throw new RetryableResponseException(SERVICE_UNAVAILABLE, uri);
                 }
 
-                // the request was addressed to a server instance which is no longer there, so the remote task is gone
+                // the request was addressed to a server instance which is no longer there, so the remote task is gone, unless it never ran there
                 if (response.getStatusCode() == PRECONDITION_FAILED.code()) {
-                    throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
+                    throw new NodeInstanceMismatchException(uri, response.getHeader(TRINO_NODE_INSTANCE_ID_HEADER));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
