@@ -204,17 +204,17 @@ public class SymbolMapper
             aggregations.put(map(entry.getKey()), map(entry.getValue()));
         }
 
-        return new AggregationNode(
-                newNodeId,
-                source,
-                aggregations.buildOrThrow(),
-                groupingSets(
+        return AggregationNode.builderFrom(node)
+                .setId(newNodeId)
+                .setSource(source)
+                .setAggregations(aggregations.buildOrThrow())
+                .setGroupingSets(groupingSets(
                         mapAndDistinct(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
-                        node.getGlobalGroupingSets()),
-                ImmutableList.of(),
-                node.getStep(),
-                node.getGroupIdSymbol().map(this::map));
+                        node.getGlobalGroupingSets()))
+                .setPreGroupedSymbols(mapAndDistinct(node.getPreGroupedSymbols()))
+                .setGroupIdSymbol(node.getGroupIdSymbol().map(this::map))
+                .build();
     }
 
     public Aggregation map(Aggregation aggregation)

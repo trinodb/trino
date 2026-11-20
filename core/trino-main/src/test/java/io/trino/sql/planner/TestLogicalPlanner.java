@@ -338,16 +338,33 @@ public class TestLogicalPlanner
                                         "stddev_pop", expression(new Call(sqrt, ImmutableList.of(new Reference(DOUBLE, "var_pop"))))),
                                 aggregation(
                                         ImmutableMap.of(
-                                                "variance", aggregationFunction("variance", ImmutableList.of("partial_variance")),
-                                                "var_pop", aggregationFunction("var_pop", ImmutableList.of("partial_var_pop"))),
+                                                "variance", aggregationFunction("variance", ImmutableList.of("partial")),
+                                                "var_pop", aggregationFunction("var_pop", ImmutableList.of("partial"))),
                                         aggregation -> aggregation.getStep() == FINAL && aggregation.getAggregations().size() == 2,
                                         anyTree(
                                                 aggregation(
-                                                        ImmutableMap.of(
-                                                                "partial_variance", aggregationFunction("variance", ImmutableList.of("input")),
-                                                                "partial_var_pop", aggregationFunction("var_pop", ImmutableList.of("input"))),
-                                                        aggregation -> aggregation.getStep() == PARTIAL && aggregation.getAggregations().size() == 2,
+                                                        ImmutableMap.of("partial", aggregationFunction("variance", ImmutableList.of("input"))),
+                                                        aggregation -> aggregation.getStep() == PARTIAL && aggregation.getAggregations().size() == 1,
                                                         source))))));
+    }
+
+    @Test
+    public void testAggregationsSharingPartialAggregation()
+    {
+        assertDistributedPlan("SELECT orderstatus, var_samp(totalprice), var_pop(totalprice) FROM orders GROUP BY orderstatus",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of(),
+                                node -> node.getStep() == FINAL &&
+                                        node.getAggregations().size() == 2 &&
+                                        node.getAggregations().values().stream().map(SymbolsExtractor::extractUnique).distinct().count() == 1,
+                                anyTree(
+                                        node(ExchangeNode.class,
+                                                aggregation(
+                                                        ImmutableMap.of(),
+                                                        node -> node.getStep() == PARTIAL && node.getAggregations().size() == 1,
+                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))
+                                                .with(ExchangeNode.class, exchange -> exchange.getScope() == REMOTE && exchange.getOutputSymbols().size() == 2)))));
     }
 
     @Test
