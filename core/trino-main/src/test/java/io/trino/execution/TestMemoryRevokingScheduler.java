@@ -280,6 +280,7 @@ public class TestMemoryRevokingScheduler
                 sqlTaskExecutionFactory,
                 executor,
                 _ -> {},
+                _ -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),

@@ -49,9 +49,12 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.function.InvocationConvention;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
+import io.trino.sql.planner.PlanFragment;
 import io.trino.util.EmbedVersion;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -72,16 +75,23 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static io.trino.execution.TaskTestUtils.LANGUAGE_FUNCTION_ID;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
+import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -119,7 +129,7 @@ public abstract class BaseTestSqlTaskManager
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = newTaskId();
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withNoMoreBufferIds());
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PLAN_FRAGMENT, PipelinedOutputBuffers.createInitial(PARTITIONED).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -173,7 +183,7 @@ public abstract class BaseTestSqlTaskManager
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = newTaskId();
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PLAN_FRAGMENT, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
             assertThat(taskInfo.stats().endTime()).isNull();
 
@@ -197,7 +207,7 @@ public abstract class BaseTestSqlTaskManager
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = newTaskId();
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PLAN_FRAGMENT, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
             assertThat(taskInfo.stats().endTime()).isNull();
 
@@ -238,13 +248,35 @@ public abstract class BaseTestSqlTaskManager
     }
 
     @Test
+    public void testLateTaskUpdateDoesNotRegisterLanguageFunctions()
+            throws InterruptedException, ExecutionException, TimeoutException
+    {
+        WorkerLanguageFunctionProvider languageFunctionProvider = createLanguageFunctionProvider();
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), new NodeMemoryConfig(), languageFunctionProvider)) {
+            TaskId taskId = newTaskId();
+            OutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
+
+            createTask(sqlTaskManager, taskId, PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION, outputBuffers);
+            assertLanguageFunctionRegistered(languageFunctionProvider, true);
+
+            pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.abortTask(taskId));
+            // the functions are unregistered by the onDone callback, which runs asynchronously
+            assertEventually(() -> assertLanguageFunctionRegistered(languageFunctionProvider, false));
+
+            // a task update arriving after the task completed must not register the functions again, as nothing would unregister them
+            updateTask(sqlTaskManager, taskId, PLAN_FRAGMENT_WITH_LANGUAGE_FUNCTION, outputBuffers);
+            assertLanguageFunctionRegistered(languageFunctionProvider, false);
+        }
+    }
+
+    @Test
     public void testRemoveOldTasks()
             throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)))) {
             TaskId taskId = newTaskId();
 
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PLAN_FRAGMENT, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
 
             taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.cancelTask(taskId));
@@ -269,7 +301,7 @@ public abstract class BaseTestSqlTaskManager
         NodeMemoryConfig memoryConfig = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode("3B");
 
-        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig, createLanguageFunctionProvider())) {
             TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);
             TaskId increaseLimitsId = new TaskId(new StageId("q2", 0), 1, 0);
 
@@ -319,16 +351,16 @@ public abstract class BaseTestSqlTaskManager
 
     private SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
     {
-        return createSqlTaskManager(config, new NodeMemoryConfig());
+        return createSqlTaskManager(config, new NodeMemoryConfig(), createLanguageFunctionProvider());
     }
 
-    private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, NodeMemoryConfig nodeMemoryConfig)
+    private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, NodeMemoryConfig nodeMemoryConfig, WorkerLanguageFunctionProvider languageFunctionProvider)
     {
         return new SqlTaskManager(
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
+                languageFunctionProvider,
                 new MockLocationFactory(),
                 taskExecutor,
                 new NodeInfo("test"),
@@ -357,20 +389,43 @@ public abstract class BaseTestSqlTaskManager
                 false);
     }
 
-    private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
+    private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, PlanFragment fragment, OutputBuffers outputBuffers)
     {
         sqlTaskManager.getQueryContext(taskId.queryId())
                 .addTaskContext(new TaskStateMachine(taskId, directExecutor()), ImmutableMap.of(), testSessionBuilder().build(), () -> {}, false, false);
+        return updateTask(sqlTaskManager, taskId, fragment, outputBuffers);
+    }
+
+    private static TaskInfo updateTask(SqlTaskManager sqlTaskManager, TaskId taskId, PlanFragment fragment, OutputBuffers outputBuffers)
+    {
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,
                 Span.getInvalid(),
-                Optional.of(PLAN_FRAGMENT),
+                Optional.of(fragment),
                 ImmutableMap.of(),
                 ImmutableList.of(),
                 outputBuffers,
                 ImmutableMap.of(),
                 false);
+    }
+
+    private static WorkerLanguageFunctionProvider createLanguageFunctionProvider()
+    {
+        return new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager());
+    }
+
+    private static void assertLanguageFunctionRegistered(WorkerLanguageFunctionProvider languageFunctionProvider, boolean registered)
+    {
+        ThrowingCallable specialize = () -> languageFunctionProvider.specialize(LANGUAGE_FUNCTION_ID, new InvocationConvention(ImmutableList.of(), NULLABLE_RETURN, true, true), createTestingFunctionManager());
+        if (registered) {
+            assertThatCode(specialize).doesNotThrowAnyException();
+        }
+        else {
+            assertThatThrownBy(specialize)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageStartingWith("Unknown function implementation");
+        }
     }
 
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
