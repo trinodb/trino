@@ -36,10 +36,15 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BlobMetadata;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
@@ -47,6 +52,7 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.ManifestEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
@@ -76,11 +82,13 @@ import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThread
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
@@ -114,6 +122,7 @@ public final class TableStatisticsReader
         return makeTableStatistics(
                 typeManager,
                 icebergTable,
+                SchemaParser.fromJson(tableHandle.getTableSchemaJson()),
                 tableHandle.getSnapshotId(),
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
@@ -125,6 +134,7 @@ public final class TableStatisticsReader
     public static TableStatistics makeTableStatistics(
             TypeManager typeManager,
             Table icebergTable,
+            Schema schema,
             OptionalLong snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
@@ -155,6 +165,20 @@ public final class TableStatisticsReader
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
+        // Iceberg tracks column sizes only for primitive fields, so the size of a nested column (row, array, map)
+        // is derived from the statistics of its leaf fields while reading manifests
+        MetricsConfig metricsConfig = MetricsConfig.forTable(icebergTable);
+        Map<Integer, List<LeafField>> nestedColumnLeaves = columnIds.stream()
+                .map(schema::findField)
+                .filter(Objects::nonNull)
+                .filter(field -> field.type().isNestedType())
+                // Writers record no size for variant fields, so a sum over the other leaves would underestimate the size
+                .filter(field -> TypeUtil.find(field.type(), org.apache.iceberg.types.Type::isVariantType) == null)
+                // Writers record no value counts for leaf fields with metrics mode none, for example beyond the
+                // first columns of a wide table, so a sum over the leaves would underestimate the size
+                .filter(field -> !hasLeafWithoutMetrics(metricsConfig, field))
+                .collect(toImmutableMap(Types.NestedField::fieldId, field -> leafFields(field, typeManager)));
+
         PartitionFieldPredicate partitionFieldPredicate = PartitionFieldPredicate.fromPredicate(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
         Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !column.isMetadataColumn()));
@@ -180,7 +204,7 @@ public final class TableStatisticsReader
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        for (Types.NestedField column : icebergTable.schema().columns()) {
+        for (Types.NestedField column : schema.columns()) {
             if (columnIds.contains(column.fieldId())) {
                 columnsBuilder.add(column);
                 columnTypesBuilder.add(toTrinoType(column.type(), typeManager));
@@ -193,7 +217,7 @@ public final class TableStatisticsReader
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
         if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
             for (ManifestFile manifestFile : filteredManifests) {
-                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
+                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, nestedColumnLeaves, partitionFieldPredicate, pathDomain);
             }
         }
         else {
@@ -203,7 +227,7 @@ public final class TableStatisticsReader
             List<Callable<Void>> tasks = filteredManifests.stream()
                     .map(manifestFile -> (Callable<Void>) () -> {
                         IcebergStatistics.Builder statisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
-                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
+                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, nestedColumnLeaves, partitionFieldPredicate, pathDomain);
                         synchronized (icebergStatisticsBuilder) {
                             icebergStatisticsBuilder.merge(statisticsBuilder);
                         }
@@ -249,33 +273,22 @@ public final class TableStatisticsReader
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
-            if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
+            if (nestedColumnLeaves.containsKey(fieldId)) {
+                Long nestedColumnSize = summary.nestedColumnSizes().get(fieldId);
+                if (nestedColumnSize != null) {
+                    columnBuilder.setDataSize(Estimate.of(nestedColumnSize));
+                }
+            }
+            else if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
                 long columnSize = fixedType.length();
                 columnBuilder.setDataSize(Estimate.of(columnSize));
             }
             else if (summary.columnSizes() != null) {
                 Long columnSize = summary.columnSizes().get(fieldId);
-                if (columnSize != null) {
-                    // columnSize is the size on disk and Trino column stats is size in memory.
-                    // The relation between the two is type and data dependent.
-                    // However, Trino currently does not use data size statistics for fixed-width types
-                    // (it's not needed for them), so do not report it at all, to avoid reporting some bogus value.
-                    if (!(columnHandle.getBaseType() instanceof FixedWidthType)) {
-                        if (columnHandle.getBaseType() == VARCHAR) {
-                            // Tested using item table from TPCDS benchmark
-                            // compared column size of item_desc column stored inside files
-                            // with length of values in that column reported by trino
-                            columnSize = (long) (columnSize * 2.7);
-                        }
-                        else if (columnHandle.getBaseType() == VARBINARY) {
-                            // Tested using VARBINARY columns with random, both in length and content, data
-                            // compared column size stored inside parquet files with length of bytes written to it
-                            // Data used for testing came from alpha numeric characters so it was not very real life like scenario
-                            // In the future better heuristic could be used here
-                            columnSize = (long) (columnSize * 1.4);
-                        }
-                        columnBuilder.setDataSize(Estimate.of(columnSize));
-                    }
+                // Trino currently does not use data size statistics for fixed-width types
+                // (it's not needed for them), so do not report it at all, to avoid reporting some bogus value.
+                if (columnSize != null && !(columnHandle.getBaseType() instanceof FixedWidthType)) {
+                    columnBuilder.setDataSize(Estimate.of(inMemoryDataSize(columnHandle.getBaseType(), columnSize)));
                 }
             }
             Object min = summary.minValues().get(fieldId);
@@ -378,11 +391,12 @@ public final class TableStatisticsReader
             ManifestFile manifestFile,
             Expression filter,
             Set<Integer> columnIds,
+            Map<Integer, List<LeafField>> nestedColumnLeaves,
             PartitionFieldPredicate partitionFieldPredicate,
             Domain pathDomain)
     {
-        try (CloseableIterable<DataFile> dataFiles = readManifest(icebergTable, manifestFile, filter, columnIds)) {
-            for (DataFile dataFile : dataFiles) {
+        try (CloseableIterable<ContentFile<DataFile>> dataFiles = readManifest(icebergTable, manifestFile, filter)) {
+            for (ContentFile<DataFile> dataFile : dataFiles) {
                 PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
                 if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(spec, dataFile.partition())) {
                     continue;
@@ -392,7 +406,9 @@ public final class TableStatisticsReader
                 }
 
                 // Filtering by $file_modified_time is skipped to avoid making filesystem calls on each matched data file
-                statisticsBuilder.acceptDataFile(dataFile, spec);
+                statisticsBuilder.acceptDataFile(dataFile.copyWithStats(columnIds), spec);
+                // Only the sizes of nested columns are kept, not the statistics of their leaf fields
+                nestedColumnLeaves.forEach((fieldId, leaves) -> statisticsBuilder.acceptNestedColumnSize(fieldId, nestedColumnSize(dataFile, leaves)));
             }
         }
         catch (IOException e) {
@@ -400,22 +416,85 @@ public final class TableStatisticsReader
         }
     }
 
-    private static CloseableIterable<DataFile> readManifest(Table icebergTable, ManifestFile manifestFile, Expression filter, Set<Integer> columnIds)
+    private static CloseableIterable<ContentFile<DataFile>> readManifest(Table icebergTable, ManifestFile manifestFile, Expression filter)
     {
-        return CloseableIterable.transform(
-                liveEntries(
-                        ManifestFiles.read(manifestFile, icebergTable.io(), icebergTable.specs())
-                                .select(ImmutableSet.of(
-                                        "partition",
-                                        "file_path",
-                                        "column_sizes",
-                                        "value_counts",
-                                        "null_value_counts",
-                                        "nan_value_counts",
-                                        "lower_bounds",
-                                        "upper_bounds",
-                                        "record_count"))
-                                .filterRows(filter)),
-                dataFile -> dataFile.copyWithStats(columnIds));
+        return liveEntries(
+                ManifestFiles.read(manifestFile, icebergTable.io(), icebergTable.specs())
+                        .select(ImmutableSet.of(
+                                "partition",
+                                "file_path",
+                                "column_sizes",
+                                "value_counts",
+                                "null_value_counts",
+                                "nan_value_counts",
+                                "lower_bounds",
+                                "upper_bounds",
+                                "record_count"))
+                        .filterRows(filter));
+    }
+
+    private static OptionalLong nestedColumnSize(ContentFile<?> dataFile, List<LeafField> leaves)
+    {
+        Map<Integer, Long> columnSizes = dataFile.columnSizes();
+        if (columnSizes == null) {
+            // Some file formats (e.g. ORC) do not report column sizes, and a sum over the other files would cover only part of the data
+            return OptionalLong.empty();
+        }
+        Map<Integer, Long> valueCounts = requireNonNullElse(dataFile.valueCounts(), ImmutableMap.of());
+        long size = 0;
+        for (LeafField leaf : leaves) {
+            // Each value of a field in a row, array or map block has a null flag, and an offset for a variable width type
+            long valueCount = valueCounts.getOrDefault(leaf.fieldId(), 0L);
+            if (leaf.type() instanceof FixedWidthType fixedWidthType) {
+                size += valueCount * (1 + fixedWidthType.getFixedSize());
+            }
+            else {
+                size += valueCount * (1 + Integer.BYTES) + inMemoryDataSize(leaf.type(), columnSizes.getOrDefault(leaf.fieldId(), 0L));
+            }
+        }
+        return OptionalLong.of(size);
+    }
+
+    /**
+     * Converts the size on disk of a variable width column to the size in memory used by Trino column statistics.
+     * The relation between the two is type and data dependent.
+     */
+    private static long inMemoryDataSize(Type type, long columnSize)
+    {
+        if (type == VARCHAR) {
+            // Tested using item table from TPCDS benchmark
+            // compared column size of item_desc column stored inside files
+            // with length of values in that column reported by trino
+            return (long) (columnSize * 2.7);
+        }
+        if (type == VARBINARY) {
+            // Tested using VARBINARY columns with random, both in length and content, data
+            // compared column size stored inside parquet files with length of bytes written to it
+            // Data used for testing came from alpha numeric characters so it was not very real life like scenario
+            // In the future better heuristic could be used here
+            return (long) (columnSize * 1.4);
+        }
+        return columnSize;
+    }
+
+    private static List<LeafField> leafFields(Types.NestedField nestedField, TypeManager typeManager)
+    {
+        return primitiveFieldTypes(nestedField)
+                .map(entry -> new LeafField(entry.getKey(), toTrinoType(entry.getValue(), typeManager)))
+                .collect(toImmutableList());
+    }
+
+    private static boolean hasLeafWithoutMetrics(MetricsConfig metricsConfig, Types.NestedField nestedField)
+    {
+        return primitiveFieldTypes(nestedField)
+                .anyMatch(leaf -> metricsConfig.columnMode(leaf.getKey()).equals(MetricsModes.None.get()));
+    }
+
+    private record LeafField(int fieldId, Type type)
+    {
+        private LeafField
+        {
+            requireNonNull(type, "type is null");
+        }
     }
 }
