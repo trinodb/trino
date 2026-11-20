@@ -56,6 +56,7 @@ public final class TestTimeZoneKey
         assertThat(TimeZoneKey.getTimeZoneKey("UT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("UCT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Universal")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Greenwich")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT0")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT+0")).isSameAs(UTC_KEY);
@@ -74,6 +75,8 @@ public final class TestTimeZoneKey
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/UT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/UCT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/Universal")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Etc/Greenwich")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Etc/Zulu")).isSameAs(UTC_KEY);
     }
 
     @Test

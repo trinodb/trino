@@ -81,7 +81,9 @@ public final class TimeZoneKey
             "Greenwich",
             "Universal",
             "Etc/Universal",
-            "Etc/UCT");
+            "Etc/UCT",
+            "Etc/Greenwich",
+            "Etc/Zulu");
 
     private static final List<String> UTC_OFFSET_PREFIXES = List.of(
             "Etc/GMT",
