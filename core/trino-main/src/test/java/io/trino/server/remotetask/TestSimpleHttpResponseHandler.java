@@ -19,8 +19,11 @@ import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -56,12 +59,27 @@ public class TestSimpleHttpResponseHandler
     public void testNodeInstanceMismatchIsFatal()
     {
         RecordingCallback callback = new RecordingCallback();
-        handler(callback).onSuccess(new JsonResponse<>(412, ImmutableListMultimap.of(), new byte[0]));
+        handler(callback, _ -> false).onSuccess(new JsonResponse<>(412, ImmutableListMultimap.of(TRINO_NODE_INSTANCE_ID_HEADER, "restarted"), new byte[0]));
 
         assertThat(callback.value).isNull();
         assertThat(callback.failure).isNull();
         assertThat(callback.fatal)
-                .isInstanceOfSatisfying(TrinoException.class, exception -> assertThat(exception.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode()));
+                .isInstanceOfSatisfying(NodeInstanceMismatchException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
+                    assertThat(exception.actualNodeInstanceId()).contains("restarted");
+                });
+    }
+
+    @Test
+    public void testNodeInstanceMismatchIsRetried()
+    {
+        RecordingCallback callback = new RecordingCallback();
+        handler(callback, _ -> true).onSuccess(new JsonResponse<>(412, ImmutableListMultimap.of(), new byte[0]));
+
+        assertThat(callback.value).isNull();
+        assertThat(callback.failure)
+                .isInstanceOfSatisfying(NodeInstanceMismatchException.class, exception -> assertThat(exception.actualNodeInstanceId()).isEqualTo(Optional.empty()));
+        assertThat(callback.fatal).isNull();
     }
 
     @Test
@@ -104,7 +122,14 @@ public class TestSimpleHttpResponseHandler
 
     private static SimpleHttpResponseHandler<String> handler(RecordingCallback callback)
     {
-        return new SimpleHttpResponseHandler<>(callback, TASK_URI, new RemoteTaskStats());
+        return handler(callback, _ -> {
+            throw new AssertionError("unexpected node instance mismatch");
+        });
+    }
+
+    private static SimpleHttpResponseHandler<String> handler(RecordingCallback callback, Predicate<NodeInstanceMismatchException> retryOnNodeInstanceMismatch)
+    {
+        return new SimpleHttpResponseHandler<>(callback, TASK_URI, retryOnNodeInstanceMismatch, new RemoteTaskStats());
     }
 
     private static class RecordingCallback

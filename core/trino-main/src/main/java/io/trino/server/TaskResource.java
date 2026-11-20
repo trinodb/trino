@@ -441,6 +441,8 @@ public class TaskResource
         // the restart no matter how much it knew about the task before.
         if (expectedNodeInstanceId != null && !expectedNodeInstanceId.equals(nodeInstanceId)) {
             throw new WebApplicationException(status(Status.PRECONDITION_FAILED)
+                    // lets the caller redirect the request when it knows the task never reached the previous instance
+                    .header(TRINO_NODE_INSTANCE_ID, nodeInstanceId)
                     .type(MediaType.TEXT_PLAIN)
                     .entity("Request is addressed to node instance %s, but this is node instance %s".formatted(expectedNodeInstanceId, nodeInstanceId))
                     .build());

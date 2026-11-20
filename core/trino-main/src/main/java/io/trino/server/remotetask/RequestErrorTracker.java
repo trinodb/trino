@@ -158,6 +158,7 @@ class RequestErrorTracker
                         failure instanceof TimeoutException ||
                         failure instanceof CancellationException ||
                         failure instanceof ClosedChannelException ||
-                        failure instanceof RetryableResponseException);
+                        failure instanceof RetryableResponseException ||
+                        failure instanceof NodeInstanceMismatchException);
     }
 }
