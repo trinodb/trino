@@ -1105,8 +1105,9 @@ final class TestFakerQueries
                 new DistributionTestCase("timestamp(3)", "2020-01-01 00:00:00.000", "2020-01-01 00:00:00.099"),
                 new DistributionTestCase("timestamp(6)", "2020-01-01 00:00:00.000000", "2020-01-01 00:00:00.000099"));
 
+        // the ratio of the two most frequent values falls outside the checked bounds for a few in 10,000 seeds, so fix the seed
         for (DistributionTestCase testCase : testCases) {
-            try (TestTable table = newTrinoTable("zipf_distribution", "(%s) WITH (default_limit = 10000)".formatted(testCase.columnSchema("zipf")))) {
+            try (TestTable table = newTrinoTable("zipf_distribution", "(%s) WITH (default_limit = 10000, seed = 0)".formatted(testCase.columnSchema("zipf")))) {
                 assertQuery(
                         """
                         SELECT
@@ -1559,8 +1560,9 @@ final class TestFakerQueries
             }
         }
 
+        // two random values of a narrow type, like tinyint, can be equal, so fix the seed to generate two distinct values
         for (TestDataType testCase : testCases) {
-            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s %s) WITH (null_probability = 0, default_limit = 2)".formatted(testCase.name(), testCase.type()));
+            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s %s) WITH (null_probability = 0, default_limit = 2, seed = 0)".formatted(testCase.name(), testCase.type()));
                     TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, sequence_detection_enabled = false) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
