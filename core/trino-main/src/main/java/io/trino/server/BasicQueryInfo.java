@@ -54,6 +54,7 @@ public class BasicQueryInfo
     private final ErrorCode errorCode;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+    private final Integer queuePosition;
 
     @JsonCreator
     public BasicQueryInfo(
@@ -70,7 +71,8 @@ public class BasicQueryInfo
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("queryType") Optional<QueryType> queryType,
-            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
+            @JsonProperty("queuePosition") @Nullable Integer queuePosition)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -86,6 +88,7 @@ public class BasicQueryInfo
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.queuePosition = queuePosition;
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -103,7 +106,8 @@ public class BasicQueryInfo
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
                 queryInfo.getQueryType(),
-                queryInfo.getRetryPolicy());
+                queryInfo.getRetryPolicy(),
+                queryInfo.getQueuePosition());
     }
 
     @JsonProperty
@@ -190,6 +194,13 @@ public class BasicQueryInfo
     public RetryPolicy getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    @Nullable
+    @JsonProperty
+    public Integer getQueuePosition()
+    {
+        return queuePosition;
     }
 
     @Override
