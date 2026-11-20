@@ -1285,6 +1285,23 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testStreamingAggregationOnEquivalentFilterColumn()
+    {
+        // "orders" is naturally grouped on orderkey, and orderkey = custkey for every row that passes the filter,
+        // so grouping on custkey can be streamed as well
+        assertDistributedPlan("SELECT custkey, count(*) FROM orders WHERE orderkey = custkey GROUP BY custkey",
+                anyTree(
+                        aggregation(
+                                singleGroupingSet("custkey"),
+                                ImmutableMap.of(Optional.empty(), aggregationFunction("count", ImmutableList.of())),
+                                ImmutableList.of("custkey"), // streaming
+                                Optional.empty(),
+                                SINGLE,
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("custkey", "custkey"))))));
+    }
+
+    @Test
     public void testStreamingAggregationOverJoin()
     {
         // "orders" table is naturally grouped on orderkey
