@@ -23,7 +23,9 @@ import io.airlift.units.DataSize;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -48,8 +50,8 @@ public class IcebergTableHandle
     private final OptionalInt specId;
     // Map of spec id to partition spec JSON for all specs in the table
     private final Map<Integer, String> partitionSpecJsons;
-    // Current table schema, which the partition specs are bound to. Present only when it differs from tableSchemaJson
-    private final Optional<String> partitionSpecSchemaJson;
+    // Map of spec id to the types of its partition values, typed from the current table schema
+    private final Map<Integer, List<Type>> partitionValueTypes;
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
@@ -89,7 +91,7 @@ public class IcebergTableHandle
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
             @JsonProperty("specId") OptionalInt specId,
             @JsonProperty("partitionSpecJsons") Map<Integer, String> partitionSpecJsons,
-            @JsonProperty("partitionSpecSchemaJson") Optional<String> partitionSpecSchemaJson,
+            @JsonProperty("partitionValueTypes") Map<Integer, List<Type>> partitionValueTypes,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -107,7 +109,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -131,7 +133,7 @@ public class IcebergTableHandle
             String tableSchemaJson,
             OptionalInt specId,
             Map<Integer, String> partitionSpecJsons,
-            Optional<String> partitionSpecSchemaJson,
+            Map<Integer, List<Type>> partitionValueTypes,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -153,11 +155,14 @@ public class IcebergTableHandle
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
         this.specId = requireNonNull(specId, "specId is null");
         this.partitionSpecJsons = ImmutableMap.copyOf(requireNonNull(partitionSpecJsons, "partitionSpecJsons is null"));
-        this.partitionSpecSchemaJson = requireNonNull(partitionSpecSchemaJson, "partitionSpecSchemaJson is null");
+        this.partitionValueTypes = ImmutableMap.copyOf(requireNonNull(partitionValueTypes, "partitionValueTypes is null"));
         checkArgument(
                 specId.isEmpty() || partitionSpecJsons.containsKey(specId.orElseThrow()),
                 "specId %s is present but partitionSpecJsons does not contain this id",
                 specId);
+        checkArgument(
+                partitionSpecJsons.keySet().equals(partitionValueTypes.keySet()),
+                "partitionSpecJsons and partitionValueTypes have different spec ids");
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
@@ -217,9 +222,9 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getPartitionSpecSchemaJson()
+    public Map<Integer, List<Type>> getPartitionValueTypes()
     {
-        return partitionSpecSchemaJson;
+        return partitionValueTypes;
     }
 
     @JsonProperty
@@ -323,7 +328,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -349,7 +354,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -375,7 +380,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -401,7 +406,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -436,7 +441,7 @@ public class IcebergTableHandle
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(specId, that.specId) &&
                 Objects.equals(partitionSpecJsons, that.partitionSpecJsons) &&
-                Objects.equals(partitionSpecSchemaJson, that.partitionSpecSchemaJson) &&
+                Objects.equals(partitionValueTypes, that.partitionValueTypes) &&
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
@@ -461,7 +466,7 @@ public class IcebergTableHandle
                 tableSchemaJson,
                 specId,
                 partitionSpecJsons,
-                partitionSpecSchemaJson,
+                partitionValueTypes,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,

@@ -109,6 +109,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValueTypes;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.predicate.FloatingPointValueSet.nanValue;
@@ -885,7 +886,7 @@ public class TestIcebergSplitSource
                 SchemaParser.toJson(nationTable.schema()),
                 nationTable.spec() == null ? OptionalInt.empty() : OptionalInt.of(nationTable.spec().specId()),
                 transformValues(nationTable.specs(), PartitionSpecParser::toJson),
-                Optional.empty(),
+                transformValues(nationTable.specs(), spec -> getPartitionValueTypes(spec, TESTING_TYPE_MANAGER)),
                 1,
                 unenforcedPredicate,
                 TupleDomain.all(),

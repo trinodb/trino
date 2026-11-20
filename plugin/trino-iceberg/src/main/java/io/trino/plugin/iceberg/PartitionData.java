@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
@@ -32,7 +31,6 @@ import java.util.UUID;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -103,15 +101,15 @@ public class PartitionData
         }
     }
 
-    public static PartitionData fromBlocks(List<Block> partitionValues, Type[] types, TypeManager typeManager)
+    public static PartitionData fromBlocks(List<Block> partitionValues, List<io.trino.spi.type.Type> types)
     {
-        if (types.length == 0) {
+        if (types.isEmpty()) {
             return new PartitionData(new Object[0]);
         }
 
-        Object[] values = new Object[types.length];
-        for (int i = 0; i < types.length; i++) {
-            io.trino.spi.type.Type trinoType = toTrinoType(types[i], typeManager);
+        Object[] values = new Object[types.size()];
+        for (int i = 0; i < types.size(); i++) {
+            io.trino.spi.type.Type trinoType = types.get(i);
             Object value = readNativeValue(trinoType, partitionValues.get(i), 0);
             if (value == null) {
                 values[i] = null;

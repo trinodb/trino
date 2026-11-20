@@ -91,6 +91,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.min;
@@ -162,7 +163,8 @@ class TestIcebergPageSourceProvider
                 ImmutableList.of(regionkeyHandle, nameHandle),
                 tableSchema,
                 PartitionSpec.unpartitioned(),
-                new PartitionData(new Object[] {}),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of(equalityDelete),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),
@@ -214,7 +216,8 @@ class TestIcebergPageSourceProvider
                 ImmutableList.of(regionkeyHandle),
                 tableSchema,
                 PartitionSpec.builderFor(tableSchema).identity("regionkey").build(),
-                new PartitionData(new Object[] {1L}),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(writeNativeValue(BIGINT, 1L)),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),
@@ -259,7 +262,8 @@ class TestIcebergPageSourceProvider
                 ImmutableList.of(regionkeyHandle),
                 tableSchema,
                 PartitionSpec.unpartitioned(),
-                new PartitionData(new Object[] {}),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),

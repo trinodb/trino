@@ -38,7 +38,6 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
@@ -68,7 +67,6 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.encryption.EncryptedInputFile;
 import org.apache.iceberg.encryption.EncryptionManager;
@@ -124,17 +122,16 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionBlockValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.FloatingPointValueSet.nanValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.clamp;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
@@ -918,7 +915,7 @@ public class IcebergSplitSource
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 partitionSpec.specId(),
-                getPartitionBlockValues(task, partitionSpec, typeManager),
+                getPartitionBlockValues(partitionSpec, tableHandle.getPartitionValueTypes().get(partitionSpec.specId()), task.file().partition()),
                 taskWithDomain.deleteFiles(),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
@@ -926,20 +923,6 @@ public class IcebergSplitSource
                 task.file().dataSequenceNumber() == null ? OptionalLong.empty() : OptionalLong.of(task.file().dataSequenceNumber()),
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()),
                 taskWithDomain.parquetFileDecryptionData());
-    }
-
-    private static List<Block> getPartitionBlockValues(FileScanTask task, PartitionSpec spec, TypeManager typeManager)
-    {
-        StructLike partition = task.file().partition();
-        List<PartitionField> fields = spec.fields();
-
-        ImmutableList.Builder<Block> partitionValues = ImmutableList.builder();
-        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
-            Type icebergType = spec.partitionType().field(fields.get(fieldIndex).fieldId()).type();
-            Object partitionValue = convertIcebergValueToTrino(icebergType, partition.get(fieldIndex, Object.class));
-            partitionValues.add(writeNativeValue(toTrinoType(icebergType, typeManager), partitionValue));
-        }
-        return partitionValues.build();
     }
 
     private static void verifyDeletionVectorReferencesDataFile(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)
