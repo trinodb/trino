@@ -43,6 +43,7 @@ import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -100,6 +101,14 @@ public class IcebergSplitManager
         }
 
         IcebergMetadata icebergMetadata = transactionManager.get(transaction, session.getIdentity());
+        OptionalLong incrementalRefreshFromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot();
+        if (incrementalRefreshFromSnapshot.isPresent() && incrementalRefreshFromSnapshot.orElseThrow() == table.getSnapshotId().orElseThrow()) {
+            if (table.isRecordScannedFiles()) {
+                return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
+            }
+            return emptySplitSource();
+        }
+
         Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
         InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
         Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
@@ -146,7 +155,7 @@ public class IcebergSplitManager
                             .metricsReporter(metricsReporter);
                 }
             }
-            // The interval is empty, unavailable, or contains modifications, so rebuild at the selected snapshot.
+            // The interval is unavailable or contains modifications, so rebuild at the selected snapshot.
             icebergMetadata.disableIncrementalRefresh();
         }
 

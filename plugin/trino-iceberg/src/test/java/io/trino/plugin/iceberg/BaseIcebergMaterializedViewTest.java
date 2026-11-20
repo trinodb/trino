@@ -50,6 +50,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
@@ -707,6 +708,70 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(storageMetadata.snapshots()).hasSize(6).containsAll(storageSnapshots);
 
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
+    }
+
+    @Test
+    public void testRefreshOnPinnedSourceDoesNotRewriteStorage()
+    {
+        String viewName = "pinned_source_mv" + randomNameSuffix();
+        try (TestTable source = newTrinoTable("pinned_source", "AS SELECT 1 AS value")) {
+            long pinnedSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + source.getName() + "$snapshots\"");
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " GRACE PERIOD INTERVAL '1' DAY " +
+                    "AS SELECT value FROM " + source.getName() + " FOR VERSION AS OF " + pinnedSnapshotId);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+            List<Snapshot> storageSnapshotsAfterFirstRefresh = getStorageTableMetadata(viewName).snapshots();
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            // Advance the source past the pinned snapshot. The view still reads the pinned snapshot.
+            assertUpdate("INSERT INTO " + source.getName() + " VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            // The pinned snapshot is unchanged, so the incremental interval is empty and the refreshes write no rows.
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 0);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 0);
+
+            List<Snapshot> storageSnapshots = getStorageTableMetadata(viewName).snapshots();
+            assertThat(storageSnapshots).startsWith(storageSnapshotsAfterFirstRefresh.toArray(Snapshot[]::new));
+            List<Snapshot> refreshSnapshots = storageSnapshots.subList(storageSnapshotsAfterFirstRefresh.size(), storageSnapshots.size());
+            assertThat(refreshSnapshots).hasSize(2);
+            assertThat(refreshSnapshots).allSatisfy(snapshot -> {
+                assertThat(snapshot.operation()).isEqualTo(DataOperations.APPEND);
+                assertThat(snapshot.summary().getOrDefault("added-data-files", "0")).isEqualTo("0");
+                assertThat(snapshot.summary().get("total-data-files"))
+                        .isEqualTo(storageSnapshotsAfterFirstRefresh.getLast().summary().get("total-data-files"));
+            });
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+        }
+    }
+
+    @Test
+    public void testRefreshOnUnpinnedSourceStillRewritesStorage()
+    {
+        // a materialized view over a non-pinned source must keep refreshing when the source changes.
+        String viewName = "unpinned_source_mv" + randomNameSuffix();
+        try (TestTable source = newTrinoTable("unpinned_source", "AS SELECT 1 AS value")) {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " GRACE PERIOD INTERVAL '1' DAY " +
+                    "AS SELECT value FROM " + source.getName());
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+            List<Snapshot> storageSnapshotsAfterFirstRefresh = getStorageTableMetadata(viewName).snapshots();
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            assertUpdate("INSERT INTO " + source.getName() + " VALUES 2", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+
+            // The source changed, so the storage table must have advanced.
+            assertThat(getStorageTableMetadata(viewName).snapshots())
+                    .hasSizeGreaterThan(storageSnapshotsAfterFirstRefresh.size());
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1, 2");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
@@ -1884,9 +1949,10 @@ public abstract class BaseIcebergMaterializedViewTest
                 assertUpdate("INSERT INTO " + source.getName() + " VALUES 2", 1);
                 assertThat(query("SELECT value FROM %s FOR VERSION AS OF %s".formatted(source.getName(), snapshotId))).matches("VALUES 1");
 
-                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                // The pinned snapshot is unchanged, so the refreshes have nothing to write
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 0);
                 assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
-                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+                assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 0);
                 assertThat(query("TABLE " + materializedViewName)).matches("VALUES 1");
             }
             finally {
