@@ -14,7 +14,7 @@
 package io.trino.plugin.datasketches.theta;
 
 import io.airlift.slice.Slice;
-import io.trino.plugin.datasketches.state.SketchState;
+import io.trino.plugin.datasketches.state.UnionState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -34,7 +34,7 @@ public final class Union
     private Union() {}
 
     @InputFunction
-    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue)
+    public static void input(@AggregationState UnionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue)
     {
         state.setNominalEntries(DEFAULT_NOMINAL_ENTRIES);
         state.setSeed(DEFAULT_UPDATE_SEED);
@@ -42,14 +42,14 @@ public final class Union
     }
 
     @CombineFunction
-    public static void combine(@AggregationState SketchState state, SketchState otherState)
+    public static void combine(@AggregationState UnionState state, UnionState otherState)
     {
         UnionWithParams.combine(state, otherState);
     }
 
     @SqlNullable
     @OutputFunction(StandardTypes.VARBINARY)
-    public static void output(@AggregationState SketchState state, BlockBuilder out)
+    public static void output(@AggregationState UnionState state, BlockBuilder out)
     {
         UnionWithParams.output(state, out);
     }
