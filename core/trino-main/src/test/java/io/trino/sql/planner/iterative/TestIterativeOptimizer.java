@@ -17,11 +17,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.MockConnectorColumnHandle;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.EffectivePredicateExtractor;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -33,12 +43,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES;
+import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -52,6 +70,69 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestIterativeOptimizer
 {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEffectivePredicateProviderLifetimeAndTableProperties(boolean phaseUsesTableProperties)
+    {
+        Session defaultSession = testSessionBuilder()
+                .setCatalog("mock")
+                .setSchema("default")
+                .build();
+        try (PlanTester planTester = PlanTester.create(defaultSession)) {
+            planTester.createCatalog("mock", MockConnectorFactory.builder()
+                    .withGetColumns(_ -> ImmutableList.of(new ColumnMetadata("c", BIGINT)))
+                    .withGetTableProperties((_, _) -> new ConnectorTableProperties(
+                            TupleDomain.withColumnDomains(ImmutableMap.of(new MockConnectorColumnHandle("c", BIGINT), Domain.singleValue(BIGINT, 42L))),
+                            Optional.empty(),
+                            Optional.empty(),
+                            ImmutableList.of()))
+                    .build(), ImmutableMap.of());
+
+            List<EffectivePredicateProvider> providers = new ArrayList<>();
+            List<Session> factorySessions = new ArrayList<>();
+            Rule<TableScanNode> inspectPredicates = new InspectEffectivePredicates(planTester.getPlannerContext(), phaseUsesTableProperties, providers);
+
+            IterativeOptimizer optimizer = new IterativeOptimizer(
+                    "InspectEffectivePredicates",
+                    planTester.getPlannerContext(),
+                    new RuleStatsRecorder(),
+                    planTester.getStatsCalculator(),
+                    planTester.getCostCalculator(),
+                    _ -> false,
+                    ImmutableList.of(),
+                    ImmutableSet.of(inspectPredicates),
+                    session -> {
+                        factorySessions.add(session);
+                        return new EffectivePredicateExtractor(planTester.getPlannerContext(), phaseUsesTableProperties && isPredicatePushdownUseTableProperties(session));
+                    })
+                    .withName("RenamedInspectEffectivePredicates");
+
+            List<EffectivePredicateProvider> previousProviders = new ArrayList<>();
+            for (boolean sessionUsesTableProperties : ImmutableList.of(false, true, false)) {
+                providers.clear();
+                factorySessions.clear();
+                Session session = Session.builder(defaultSession)
+                        .setSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.toString(sessionUsesTableProperties))
+                        .build();
+                planTester.inTransaction(session, transactionSession -> planTester.createPlan(
+                        transactionSession,
+                        "SELECT c FROM t UNION ALL SELECT c FROM t",
+                        ImmutableList.of(optimizer),
+                        OPTIMIZED,
+                        NOOP,
+                        createPlanOptimizersStatsCollector()));
+                assertThat(factorySessions).hasSize(1);
+                assertThat(isPredicatePushdownUseTableProperties(factorySessions.getFirst())).isEqualTo(sessionUsesTableProperties);
+                assertThat(providers).hasSize(2);
+                assertThat(providers.getLast()).isSameAs(providers.getFirst());
+                for (EffectivePredicateProvider previous : previousProviders) {
+                    assertThat(providers.getFirst()).isNotSameAs(previous);
+                }
+                previousProviders.add(providers.getFirst());
+            }
+        }
+    }
+
     @Test
     @Timeout(10)
     public void optimizerQueryRulesStatsCollect()
@@ -116,6 +197,41 @@ public class TestIterativeOptimizer
                             createPlanOptimizersStatsCollector())))
                     .hasErrorCode(OPTIMIZER_TIMEOUT)
                     .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
+        }
+    }
+
+    private static class InspectEffectivePredicates
+            implements Rule<TableScanNode>
+    {
+        private final PlannerContext plannerContext;
+        private final boolean phaseUsesTableProperties;
+        private final List<EffectivePredicateProvider> providers;
+
+        public InspectEffectivePredicates(PlannerContext plannerContext, boolean phaseUsesTableProperties, List<EffectivePredicateProvider> providers)
+        {
+            this.plannerContext = plannerContext;
+            this.phaseUsesTableProperties = phaseUsesTableProperties;
+            this.providers = providers;
+        }
+
+        @Override
+        public Pattern<TableScanNode> getPattern()
+        {
+            return tableScan();
+        }
+
+        @Override
+        public Result apply(TableScanNode node, Captures captures, Context context)
+        {
+            EffectivePredicateProvider provider = context.getEffectivePredicateProvider();
+            assertThat(context.getEffectivePredicateProvider()).isSameAs(provider);
+            providers.add(provider);
+            TupleDomain<?> expected = phaseUsesTableProperties && isPredicatePushdownUseTableProperties(context.getSession())
+                    ? TupleDomain.withColumnDomains(ImmutableMap.of(node.getOutputSymbols().getFirst(), Domain.singleValue(BIGINT, 42L)))
+                    : TupleDomain.all();
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, context.getSession(), provider.getEffectivePredicate(node)).tupleDomain())
+                    .isEqualTo(expected);
+            return Result.empty();
         }
     }
 

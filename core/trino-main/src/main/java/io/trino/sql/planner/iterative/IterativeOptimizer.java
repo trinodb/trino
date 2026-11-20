@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -36,6 +37,9 @@ import io.trino.matching.Pattern;
 import io.trino.spi.TrinoException;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.CachingEffectivePredicateProvider;
+import io.trino.sql.planner.EffectivePredicateExtractor;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
@@ -50,11 +54,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Suppliers.memoize;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -77,6 +83,7 @@ public class IterativeOptimizer
     private final RuleIndex ruleIndex;
     private final Predicate<Session> useLegacyRules;
     private final PlannerContext plannerContext;
+    private final Function<Session, EffectivePredicateExtractor> effectivePredicateExtractorFactory;
 
     public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
@@ -85,7 +92,14 @@ public class IterativeOptimizer
 
     public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
+        this(name, plannerContext, stats, statsCalculator, costCalculator, useLegacyRules, legacyRules, newRules, _ -> new EffectivePredicateExtractor(plannerContext, false));
+    }
+
+    /// The factory configures predicate extraction once for each optimizer invocation.
+    public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules, Function<Session, EffectivePredicateExtractor> effectivePredicateExtractorFactory)
+    {
         this.name = requireNonNull(name, "name is null");
+        this.effectivePredicateExtractorFactory = requireNonNull(effectivePredicateExtractorFactory, "effectivePredicateExtractorFactory is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -126,7 +140,12 @@ public class IterativeOptimizer
                 context.session(),
                 context.warningCollector(),
                 context.tableStatsProvider(),
-                context.runtimeInfoProvider());
+                context.runtimeInfoProvider(),
+                () -> new CachingEffectivePredicateProvider(
+                        effectivePredicateExtractorFactory.apply(context.session()),
+                        context.session(),
+                        context.symbolAllocator(),
+                        memo));
         exploreGroup(memo.getRootGroup(), optimizerContext, changedPlanNodeIds);
         context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
         return new Result(memo.extract(), ImmutableSet.copyOf(changedPlanNodeIds));
@@ -134,7 +153,7 @@ public class IterativeOptimizer
 
     public IterativeOptimizer withName(String name)
     {
-        return new IterativeOptimizer(name, plannerContext, stats, statsCalculator, costCalculator, useLegacyRules, legacyRules, rules);
+        return new IterativeOptimizer(name, plannerContext, stats, statsCalculator, costCalculator, useLegacyRules, legacyRules, rules, effectivePredicateExtractorFactory);
     }
 
     public String getName()
@@ -142,7 +161,7 @@ public class IterativeOptimizer
         return name;
     }
 
-    // Used for diagnostics.
+    // Used for diagnostics and to combine this optimizer's rules with another stage's
     public Set<Rule<?>> getRules()
     {
         return rules;
@@ -291,6 +310,12 @@ public class IterativeOptimizer
             }
 
             @Override
+            public EffectivePredicateProvider getEffectivePredicateProvider()
+            {
+                return context.effectivePredicateProvider.get();
+            }
+
+            @Override
             public PlanNodeIdAllocator getIdAllocator()
             {
                 return context.idAllocator;
@@ -346,6 +371,7 @@ public class IterativeOptimizer
         private final WarningCollector warningCollector;
         private final TableStatsProvider tableStatsProvider;
         private final RuntimeInfoProvider runtimeStatsProvider;
+        private final Supplier<EffectivePredicateProvider> effectivePredicateProvider;
 
         private final PlanOptimizersStatsCollector iterativeOptimizerStatsCollector;
 
@@ -359,7 +385,8 @@ public class IterativeOptimizer
                 Session session,
                 WarningCollector warningCollector,
                 TableStatsProvider tableStatsProvider,
-                RuntimeInfoProvider runtimeStatsProvider)
+                RuntimeInfoProvider runtimeStatsProvider,
+                Supplier<EffectivePredicateProvider> effectivePredicateProvider)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -374,6 +401,8 @@ public class IterativeOptimizer
             this.iterativeOptimizerStatsCollector = createPlanOptimizersStatsCollector();
             this.tableStatsProvider = tableStatsProvider;
             this.runtimeStatsProvider = runtimeStatsProvider;
+            // only predicate-pushdown rules use effective predicates
+            this.effectivePredicateProvider = memoize(requireNonNull(effectivePredicateProvider, "effectivePredicateProvider is null"));
         }
 
         public void checkTimeoutNotExhausted()

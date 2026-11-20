@@ -28,6 +28,9 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.CachingEffectivePredicateProvider;
+import io.trino.sql.planner.EffectivePredicateExtractor;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -187,6 +190,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false), RuntimeInfoProvider.noImplementation());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
+        EffectivePredicateProvider effectivePredicateProvider = new CachingEffectivePredicateProvider(new EffectivePredicateExtractor(planTester.getPlannerContext(), false), session, symbolAllocator, memo);
 
         return new Rule.Context()
         {
@@ -194,6 +198,12 @@ public class RuleAssert
             public Lookup getLookup()
             {
                 return lookup;
+            }
+
+            @Override
+            public EffectivePredicateProvider getEffectivePredicateProvider()
+            {
+                return effectivePredicateProvider;
             }
 
             @Override

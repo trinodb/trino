@@ -38,7 +38,6 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMergeTableHandle;
-import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -500,60 +499,56 @@ public class PostgreSqlClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
-            if (getArrayMapping(session) == AS_ARRAY) {
-                arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
-            }
-            try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
-                int allColumns = 0;
-                List<JdbcColumnHandle> columns = new ArrayList<>();
-                while (resultSet.next()) {
-                    allColumns++;
-                    String columnName = resultSet.getString("COLUMN_NAME");
-                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                            getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                            Optional.of(resultSet.getString("TYPE_NAME")),
-                            getInteger(resultSet, "COLUMN_SIZE"),
-                            getInteger(resultSet, "DECIMAL_DIGITS"),
-                            Optional.ofNullable(arrayColumnDimensions.get(columnName)),
-                            Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
-                    // skip unsupported column types
-                    if (columnMapping.isPresent()) {
-                        boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                        Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
-                        columns.add(JdbcColumnHandle.builder()
-                                .setColumnName(columnName)
-                                .setJdbcTypeHandle(typeHandle)
-                                .setColumnType(columnMapping.get().getType())
-                                .setTimeZone(containsTimestampWithTimeZone(columnMapping.get().getType()) ? Optional.of(UTC_KEY) : Optional.empty())
-                                .setNullable(nullable)
-                                .setComment(comment)
-                                .build());
-                    }
-                    if (columnMapping.isEmpty()) {
-                        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                        verify(unsupportedTypeHandling == IGNORE,
-                                "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
-                                unsupportedTypeHandling,
-                                typeHandle);
-                    }
-                }
-                if (columns.isEmpty()) {
-                    // A table may have no supported columns. In rare cases a table might have no columns at all.
-                    throw new TableNotFoundException(
-                            schemaTableName,
-                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
-                }
-                return ImmutableList.copyOf(columns);
-            }
+        Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
+        if (getArrayMapping(session) == AS_ARRAY) {
+            arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+        try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
+            int allColumns = 0;
+            List<JdbcColumnHandle> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                allColumns++;
+                String columnName = resultSet.getString("COLUMN_NAME");
+                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                        Optional.of(resultSet.getString("TYPE_NAME")),
+                        getInteger(resultSet, "COLUMN_SIZE"),
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
+                        Optional.ofNullable(arrayColumnDimensions.get(columnName)),
+                        Optional.empty());
+                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                // skip unsupported column types
+                if (columnMapping.isPresent()) {
+                    boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                    Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
+                    columns.add(JdbcColumnHandle.builder()
+                            .setColumnName(columnName)
+                            .setJdbcTypeHandle(typeHandle)
+                            .setColumnType(columnMapping.get().getType())
+                            .setTimeZone(containsTimestampWithTimeZone(columnMapping.get().getType()) ? Optional.of(UTC_KEY) : Optional.empty())
+                            .setNullable(nullable)
+                            .setComment(comment)
+                            .build());
+                }
+                if (columnMapping.isEmpty()) {
+                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                    verify(unsupportedTypeHandling == IGNORE,
+                            "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
+                            unsupportedTypeHandling,
+                            typeHandle);
+                }
+            }
+            if (columns.isEmpty()) {
+                // A table may have no supported columns. In rare cases a table might have no columns at all.
+                throw new TableNotFoundException(
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+            }
+            return ImmutableList.copyOf(columns);
         }
     }
 
@@ -1297,7 +1292,7 @@ public class PostgreSqlClient
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::columnName, identity()));
 
-            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
+            for (JdbcColumnHandle column : getColumns(session, connection, table)) {
                 ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
                 if (result == null) {
                     continue;
