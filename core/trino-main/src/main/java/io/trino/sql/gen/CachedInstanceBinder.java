@@ -14,9 +14,14 @@
 package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeBlock;
+import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
+import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
@@ -26,6 +31,8 @@ import java.util.Map.Entry;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
+import static io.trino.sql.gen.BytecodeUtils.bindConnectorSession;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +41,7 @@ public final class CachedInstanceBinder
     private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
     private final Map<FieldDefinition, MethodHandle> initializers = new HashMap<>();
+    private final Map<CatalogHandle, FieldDefinition> connectorSessionFields = new HashMap<>();
     private int nextId;
 
     public CachedInstanceBinder(ClassDefinition classDefinition, CallSiteBinder callSiteBinder)
@@ -53,6 +61,24 @@ public final class CachedInstanceBinder
         initializers.put(field, methodHandle);
         nextId++;
         return field;
+    }
+
+    /**
+     * Returns a node that loads the session bound to {@code catalogHandle} from a field. It is bound on first use,
+     * because the session is not available to every generated constructor.
+     */
+    public BytecodeNode loadConnectorSession(Scope scope, CatalogHandle catalogHandle)
+    {
+        FieldDefinition field = connectorSessionFields.computeIfAbsent(
+                catalogHandle,
+                _ -> classDefinition.declareField(a(PRIVATE), "__connectorSession" + connectorSessionFields.size(), ConnectorSession.class));
+
+        Variable thisVariable = scope.getThis();
+        return new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(isNull(thisVariable.getField(field)))
+                        .ifTrue(thisVariable.setField(field, bindConnectorSession(callSiteBinder, catalogHandle, scope.getVariable("session")))))
+                .append(thisVariable.getField(field));
     }
 
     public void generateInitializations(Variable thisVariable, BytecodeBlock block)

@@ -33,8 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.FunctionManager.isConnectorFunction;
 import static io.trino.sql.gen.BytecodeUtils.generateFullInvocation;
 import static io.trino.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
@@ -126,7 +128,7 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder);
+        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder, loadSession(resolvedFunction));
     }
 
     public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<Expression> arguments)
@@ -137,7 +139,16 @@ public class BytecodeGeneratorContext
 
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
-        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
+        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder, loadSession(resolvedFunction));
+    }
+
+    // A connector function reads the session bound to its catalog, which is cached in a field of the generated class
+    private Supplier<BytecodeNode> loadSession(ResolvedFunction resolvedFunction)
+    {
+        if (isConnectorFunction(resolvedFunction)) {
+            return () -> cachedInstanceBinder.loadConnectorSession(scope, resolvedFunction.catalogHandle());
+        }
+        return () -> scope.getVariable("session");
     }
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(Expression argument)

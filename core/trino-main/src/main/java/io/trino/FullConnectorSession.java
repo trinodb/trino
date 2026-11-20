@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class FullConnectorSession
@@ -72,6 +72,22 @@ public class FullConnectorSession
 
     public Session getSession()
     {
+        return session;
+    }
+
+    public CatalogHandle getCatalogHandle()
+    {
+        return catalogHandle;
+    }
+
+    /**
+     * Rebinds {@code session} to {@code catalogHandle}, so a connector function reads the session properties of its own catalog.
+     */
+    public static ConnectorSession toConnectorSession(ConnectorSession session, CatalogHandle catalogHandle)
+    {
+        if (session instanceof FullConnectorSession fullConnectorSession) {
+            return fullConnectorSession.getSession().toConnectorSession(catalogHandle);
+        }
         return session;
     }
 
@@ -126,7 +142,7 @@ public class FullConnectorSession
     public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property '%s.%s' does not exist".formatted(catalogName, propertyName));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorSession is not bound to a catalog, cannot read session property '%s'".formatted(propertyName));
         }
 
         return sessionPropertyManager.decodeCatalogPropertyValue(catalogHandle, catalogName, propertyName, properties.get(propertyName), type);
