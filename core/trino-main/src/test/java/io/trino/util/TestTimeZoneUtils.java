@@ -62,7 +62,7 @@ public class TestTimeZoneUtils
         }
     }
 
-    public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
+    private static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
         long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
@@ -82,7 +82,7 @@ public class TestTimeZoneUtils
         assertDateTimeZoneEquals(zoneId, unpackedZone);
     }
 
-    public static void assertDateTimeZoneEquals(String zoneId, DateTimeZone actualTimeZone)
+    private static void assertDateTimeZoneEquals(String zoneId, DateTimeZone actualTimeZone)
     {
         DateTimeZone expectedDateTimeZone;
         if (isUtcZoneId(zoneId)) {
