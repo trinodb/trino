@@ -46,7 +46,7 @@ The following table lists the configuration properties for the Ranger access con
 * - `ranger.extra-credentials.groups-key`
   - Optional extra credential key whose value contains group names to include
     in Ranger access requests, merged with groups from `Identity.getGroups()`.
-    Disabled by default.
+    Disabled by default. See the security warning below before enabling.
 * - `ranger.extra-credentials.groups-separator`
   - Separator used to split group names in the value of
     `ranger.extra-credentials.groups-key`. Defaults to `|`.
@@ -54,10 +54,14 @@ The following table lists the configuration properties for the Ranger access con
 
 :::{warning}
 `X-Trino-Extra-Credential` is a client request header. Only enable
-`ranger.extra-credentials.groups-key` when a trusted identity proxy
-authenticates the user, removes any client-supplied value for this key, and
-injects authenticated groups. Otherwise clients could claim privileged groups
-and bypass Ranger group-based policies.
+`ranger.extra-credentials.groups-key` when a trusted identity proxy sits in
+front of Trino and:
+
+* removes any client-supplied value for the configured key
+* injects authenticated group memberships for that key
+* prevents clients from reaching Trino directly and bypassing the proxy
+
+Otherwise clients can claim groups that grant Ranger permissions.
 :::
 
 ### ranger-trino-security.xml
