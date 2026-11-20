@@ -13,22 +13,20 @@
  */
 package io.trino.matching;
 
-import static java.util.Objects.requireNonNull;
-
-public record Match(Captures captures)
+enum EmptyMatchCursor
+        implements MatchCursor
 {
-    public static Match of(Captures captures)
+    INSTANCE;
+
+    @Override
+    public boolean matches()
     {
-        return new Match(captures);
+        return false;
     }
 
-    public Match
+    @Override
+    public Captures current()
     {
-        requireNonNull(captures, "captures is null");
-    }
-
-    public <T> T capture(Capture<T> capture)
-    {
-        return captures().get(capture);
+        throw new IllegalStateException("Cursor is not positioned on a match");
     }
 }

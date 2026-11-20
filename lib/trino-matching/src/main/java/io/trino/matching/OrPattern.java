@@ -14,7 +14,6 @@
 package io.trino.matching;
 
 import java.util.List;
-import java.util.stream.Stream;
 
 public final class OrPattern<T>
         extends Pattern<T>
@@ -30,12 +29,5 @@ public final class OrPattern<T>
     public List<Pattern<T>> getPatterns()
     {
         return patterns;
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        return patterns.stream()
-                .flatMap(pattern -> pattern.accept(object, captures, context));
     }
 }

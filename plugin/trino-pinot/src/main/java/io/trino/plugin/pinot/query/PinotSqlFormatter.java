@@ -16,7 +16,6 @@ package io.trino.plugin.pinot.query;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
-import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotException;
@@ -32,7 +31,6 @@ import org.apache.pinot.common.request.context.predicate.RangePredicate;
 import org.apache.pinot.segment.spi.AggregationFunctionType;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -243,12 +241,8 @@ public class PinotSqlFormatter
 
     private static <T> Optional<String> applyRule(Rule<T> rule, T object, Context context)
     {
-        Iterator<Match> iterator = rule.getPattern().match(object).iterator();
-        while (iterator.hasNext()) {
-            Match match = iterator.next();
-            return Optional.of(rule.formatToSql(object, match.captures(), context));
-        }
-        return Optional.empty();
+        return rule.getPattern().matchCursor(object).findFirst()
+                .map(captures -> rule.formatToSql(object, captures, context));
     }
 
     private static <T> Optional<String> applyRules(List<Rule<T>> rules, T object, Context context)

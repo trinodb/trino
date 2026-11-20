@@ -26,7 +26,8 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -44,7 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -162,15 +163,16 @@ public class RuleAssert
     {
         Capture<T> planNodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(planNodeCapture);
-        Optional<Match> match = pattern.match(planNode, context.getLookup())
-                .collect(toOptional());
+        MatchCursor cursor = pattern.matchCursor(planNode, context.getLookup());
+        Optional<Captures> match = cursor.findFirst();
+        checkState(!cursor.matches(), "Expected at most one match");
 
         Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.get().capture(planNodeCapture), match.get().captures(), context);
+            result = rule.apply(match.orElseThrow().get(planNodeCapture), match.orElseThrow(), context);
         }
 
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), result);
