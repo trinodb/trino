@@ -54,6 +54,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -1407,7 +1408,13 @@ public class TestParquetReader
 
         ParquetMetadata metadata = MetadataReader.parseFooter(new ParquetDataSourceId("test"), parquetFile.length(), footerBytes, Optional.empty(), Optional.empty());
 
-        assertThat(metadata.getBlocks().stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
+        // Binary statistics are decoded lazily and must outlive the supplied bytes.
+        footerBytes.clear();
+        List<BlockMetadata> blocks = metadata.getBlocks();
+        assertThat(blocks.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
+        assertThat(blocks.stream()
+                .mapToInt(block -> ((IntStatistics) block.columns().getFirst().getStatistics()).getMax())
+                .max()).hasValue(9);
     }
 
     private void assertReadValues(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
