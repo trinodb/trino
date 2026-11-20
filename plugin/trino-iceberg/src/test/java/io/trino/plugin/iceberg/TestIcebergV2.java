@@ -51,9 +51,11 @@ import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -81,6 +83,8 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -132,15 +136,20 @@ import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.Files.localOutput;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static org.apache.iceberg.TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
 import static org.apache.iceberg.expressions.Expressions.bucket;
 import static org.apache.iceberg.expressions.Expressions.ref;
 import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWriteBuilder;
+import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -304,6 +313,57 @@ public class TestIcebergV2
 
             icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
             assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "false, false",
+            "false, true",
+            "true, false",
+            "true, true",
+    })
+    public void testEntriesTableWithPositionDeleteBounds(boolean filePathMetrics, boolean positionMetrics)
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_entries_position_delete_bounds_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            String dataFilePath = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1");
+
+            FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+            EncryptedOutputFile encryptedFile = encryptedOutput(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()), EncryptionKeyMetadata.EMPTY);
+            FileWriterBuilder<PositionDeleteWriter<Object>, ?> writerBuilder = positionDeleteWriteBuilder(PARQUET, encryptedFile);
+            PositionDeleteWriter<Object> writer = writerBuilder
+                    .spec(PartitionSpec.unpartitioned())
+                    .metricsConfig(MetricsConfig.from(ImmutableMap.of(
+                            DEFAULT_WRITE_METRICS_MODE, "none",
+                            METRICS_MODE_COLUMN_CONF_PREFIX + DELETE_FILE_PATH.name(), filePathMetrics ? "full" : "none",
+                            METRICS_MODE_COLUMN_CONF_PREFIX + DELETE_FILE_POS.name(), positionMetrics ? "full" : "none"), pathPosSchema(), SortOrder.unsorted()))
+                    .build();
+            try (Closeable ignored = writer) {
+                writer.write(PositionDelete.create().set(dataFilePath, 0L));
+            }
+
+            ImmutableMap.Builder<Integer, String> expectedBounds = ImmutableMap.builder();
+            if (filePathMetrics) {
+                expectedBounds.put(DELETE_FILE_PATH.fieldId(), dataFilePath);
+            }
+            if (positionMetrics) {
+                expectedBounds.put(DELETE_FILE_POS.fieldId(), "0");
+            }
+            Map<Integer, String> bounds = expectedBounds.buildOrThrow();
+            DeleteFile deleteFile = writer.toDeleteFile();
+            assertThat(deleteFile.lowerBounds()).containsOnlyKeys(bounds.keySet());
+            assertThat(deleteFile.upperBounds()).containsOnlyKeys(bounds.keySet());
+            icebergTable.newRowDelta().addDeletes(deleteFile).commit();
+
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
+            for (String suffix : ImmutableList.of("$entries", "$all_entries")) {
+                MaterializedRow entry = getOnlyElement(computeActual("SELECT data_file.lower_bounds, data_file.upper_bounds FROM \"" + tableName + suffix + "\" WHERE data_file.content = " + POSITION_DELETES.id()).getMaterializedRows());
+                assertThat(entry.getField(0)).isEqualTo(bounds);
+                assertThat(entry.getField(1)).isEqualTo(bounds);
+            }
         }
     }
 

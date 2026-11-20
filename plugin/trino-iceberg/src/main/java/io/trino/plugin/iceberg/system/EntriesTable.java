@@ -342,15 +342,17 @@ public class EntriesTable
         }
 
         blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-            INTEGER.writeLong(keyBuilder, DELETE_FILE_POS.fieldId());
             ByteBuffer pos = values.get(DELETE_FILE_POS.fieldId());
-            checkArgument(pos != null, "delete file pos is null");
-            VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.LongType.get(), Conversions.fromByteBuffer(Types.LongType.get(), pos)));
+            if (pos != null) {
+                INTEGER.writeLong(keyBuilder, DELETE_FILE_POS.fieldId());
+                VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.LongType.get(), Conversions.fromByteBuffer(Types.LongType.get(), pos)));
+            }
 
-            INTEGER.writeLong(keyBuilder, DELETE_FILE_PATH.fieldId());
             ByteBuffer path = values.get(DELETE_FILE_PATH.fieldId());
-            checkArgument(path != null, "delete file path is null");
-            VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.StringType.get(), Conversions.fromByteBuffer(Types.StringType.get(), path)));
+            if (path != null) {
+                INTEGER.writeLong(keyBuilder, DELETE_FILE_PATH.fieldId());
+                VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.StringType.get(), Conversions.fromByteBuffer(Types.StringType.get(), path)));
+            }
         });
     }
 
