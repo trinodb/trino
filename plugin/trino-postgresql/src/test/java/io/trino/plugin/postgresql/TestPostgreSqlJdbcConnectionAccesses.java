@@ -112,7 +112,7 @@ public class TestPostgreSqlJdbcConnectionAccesses
         assertJdbcConnections("DROP TABLE copy_of_nation", 2, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
-        assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
+        assertJdbcConnections("SHOW STATS FOR nation", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 7, Optional.empty());
 
         testJdbcMergeConnectionCreations();

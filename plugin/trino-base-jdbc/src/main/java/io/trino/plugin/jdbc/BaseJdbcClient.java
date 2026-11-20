@@ -313,8 +313,32 @@ public abstract class BaseJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            return getColumns(session, connection, schemaTableName, remoteTableName);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    /// The columns of a table handle, listed over an open connection when the handle does not carry them.
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+            throws SQLException
+    {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
+        JdbcNamedRelationHandle relation = tableHandle.getRequiredNamedRelation();
+        return getColumns(session, connection, relation.getSchemaTableName(), relation.getRemoteTableName());
+    }
+
+    /// Lists the columns of a table over an open connection.
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+            throws SQLException
+    {
+        try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
             Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, schemaTableName, remoteTableName);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
@@ -360,9 +384,6 @@ public abstract class BaseJdbcClient
                         format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
             }
             return ImmutableList.copyOf(columns);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
