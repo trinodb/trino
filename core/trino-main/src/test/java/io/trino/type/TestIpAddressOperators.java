@@ -139,6 +139,85 @@ public class TestIpAddressOperators
     }
 
     @Test
+    public void testIntegerToIpAddressCast()
+    {
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "0"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "1"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.0.1");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "255"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.0.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "256"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.1.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "65535"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.255.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "65536"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.1.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "16777215"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.255.255.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "16777216"))
+                .hasType(IPADDRESS)
+                .isEqualTo("1.0.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "167772160"))
+                .hasType(IPADDRESS)
+                .isEqualTo("10.0.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "2130706433"))
+                .hasType(IPADDRESS)
+                .isEqualTo("127.0.0.1");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "2147483647"))
+                .hasType(IPADDRESS)
+                .isEqualTo("127.255.255.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(-2147483648 AS INTEGER)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("128.0.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "-16777216"))
+                .hasType(IPADDRESS)
+                .isEqualTo("255.0.0.0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "-1"))
+                .hasType(IPADDRESS)
+                .isEqualTo("255.255.255.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(NULL AS INTEGER)"))
+                .hasType(IPADDRESS)
+                .isNull(IPADDRESS);
+    }
+
+    @Test
     public void testIpAddressToVarcharCast()
     {
         assertThat(assertions.expression("cast(a as VARCHAR)")

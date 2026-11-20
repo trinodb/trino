@@ -79,6 +79,24 @@ public final class IpAddressOperators
         }
     }
 
+    @ScalarOperator(value = CAST, neverFails = true)
+    @SqlType(StandardTypes.IPADDRESS)
+    public static Slice castFromIntegerToIpAddress(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        // Interpret all 32 bits as an unsigned IPv4 address.
+        byte[] address = new byte[4];
+        address[0] = (byte) (value >>> 24);
+        address[1] = (byte) (value >>> 16);
+        address[2] = (byte) (value >>> 8);
+        address[3] = (byte) value;
+
+        byte[] bytes = new byte[16];
+        bytes[10] = (byte) 0xFF;
+        bytes[11] = (byte) 0xFF;
+        arraycopy(address, 0, bytes, 12, 4);
+        return wrappedBuffer(bytes);
+    }
+
     // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.IPADDRESS)
