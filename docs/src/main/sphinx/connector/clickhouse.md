@@ -258,6 +258,10 @@ to the following table:
 * - `UUID`
   - `UUID`
   -
+* - `Map(String, String)`
+  - `MAP(VARCHAR, VARCHAR)`
+  - Read only. Keys and values can be `LowCardinality`, and values can be
+    `Nullable`. For a duplicate key, the last value is returned.
 :::
 
 No other types are supported.
