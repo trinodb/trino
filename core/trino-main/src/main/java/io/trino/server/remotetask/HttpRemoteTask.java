@@ -275,7 +275,8 @@ public final class HttpRemoteTask
             this.nodeId = node.getNodeIdentifier();
             this.nodeInstanceId = node.getInstanceId();
             this.speculative = new AtomicBoolean(speculative);
-            this.planFragment = planFragment;
+            // workers don't read the stats and costs
+            this.planFragment = planFragment.withoutStatsAndCosts();
             this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;

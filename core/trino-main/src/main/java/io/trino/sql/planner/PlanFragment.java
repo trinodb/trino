@@ -303,6 +303,25 @@ public class PlanFragment
                 languageFunctions);
     }
 
+    public PlanFragment withoutStatsAndCosts()
+    {
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                partitionCount,
+                partitionedSources,
+                partitionedSourcesSet,
+                partitionedSourceNodes,
+                remoteSourceNodes,
+                outputPartitioningScheme,
+                outputSkewedBucketCount,
+                StatsAndCosts.empty(),
+                activeCatalogs,
+                languageFunctions);
+    }
+
     @Override
     public String toString()
     {
