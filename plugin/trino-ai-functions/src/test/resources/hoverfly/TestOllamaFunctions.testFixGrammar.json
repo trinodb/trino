@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nI are happy. What you doing?\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nI are happy. What you doing?\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -55,7 +55,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThe sky ain't blue.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThe sky ain't blue.\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -90,7 +90,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThis sentence have some mistake\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThis sentence have some mistake\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -125,7 +125,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nShe dont know what to did.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nShe dont know what to did.\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -160,7 +160,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nHe go to school every days.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nHe go to school every days.\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {

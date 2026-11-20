@@ -76,14 +76,7 @@ public final class TupleDomain<T>
 
     private TupleDomain(Optional<Map<T, Domain>> domains)
     {
-        requireNonNull(domains, "domains is null");
-
-        this.domains = domains.flatMap(map -> {
-            if (containsNoneDomain(map)) {
-                return Optional.empty();
-            }
-            return Optional.of(Collections.unmodifiableMap(normalizeAndCopy(map)));
-        });
+        this.domains = requireNonNull(domains, "domains is null");
     }
 
     public static <T> TupleDomain<T> withColumnDomains(Map<T, Domain> domains)
@@ -92,7 +85,26 @@ public final class TupleDomain<T>
         if (domains.isEmpty()) {
             return all();
         }
-        return new TupleDomain<>(Optional.of(domains));
+        Map<T, Domain> normalized = new LinkedHashMap<>();
+        for (Entry<T, Domain> entry : domains.entrySet()) {
+            Domain domain = entry.getValue();
+            if (domain.isNone()) {
+                return none();
+            }
+            if (!domain.isAll()) {
+                normalized.put(entry.getKey(), domain);
+            }
+        }
+        return withNormalizedColumnDomains(normalized);
+    }
+
+    // Takes ownership of a freshly created map containing neither ALL nor NONE domains.
+    private static <T> TupleDomain<T> withNormalizedColumnDomains(Map<T, Domain> domains)
+    {
+        if (domains.isEmpty()) {
+            return all();
+        }
+        return new TupleDomain<>(Optional.of(Collections.unmodifiableMap(domains)));
     }
 
     @SuppressWarnings("unchecked")
@@ -189,18 +201,6 @@ public final class TupleDomain<T>
                 .collect(toUnmodifiableList()));
     }
 
-    private static <T> boolean containsNoneDomain(Map<T, Domain> domains)
-    {
-        return domains.values().stream().anyMatch(Domain::isNone);
-    }
-
-    private static <T> Map<T, Domain> normalizeAndCopy(Map<T, Domain> domains)
-    {
-        return domains.entrySet().stream()
-                .filter(entry -> !entry.getValue().isAll())
-                .collect(toLinkedMap(Entry::getKey, Entry::getValue));
-    }
-
     /**
      * Returns true if any tuples would satisfy this TupleDomain
      */
@@ -251,7 +251,21 @@ public final class TupleDomain<T>
      */
     public <U extends T> TupleDomain<T> intersect(TupleDomain<U> other)
     {
-        return intersect(List.of(this, other));
+        requireNonNull(other, "other is null");
+        if (isNone() || other.isAll() || equals(other)) {
+            return this;
+        }
+        if (other.isNone() || isAll()) {
+            return upcast(other);
+        }
+
+        Map<T, Domain> intersected = new LinkedHashMap<>(domains.orElseThrow());
+        for (Entry<U, Domain> entry : other.domains.orElseThrow().entrySet()) {
+            if (intersected.merge(entry.getKey(), entry.getValue(), Domain::intersect).isNone()) {
+                return none();
+            }
+        }
+        return withNormalizedColumnDomains(intersected);
     }
 
     public static <T> TupleDomain<T> intersect(List<? extends TupleDomain<? extends T>> domains)
@@ -262,6 +276,10 @@ public final class TupleDomain<T>
 
         if (domains.size() == 1) {
             return upcast(domains.get(0));
+        }
+
+        if (domains.size() == 2) {
+            return TupleDomain.<T>upcast(domains.get(0)).intersect(domains.get(1));
         }
 
         if (domains.stream().anyMatch(TupleDomain::isNone)) {
@@ -287,21 +305,13 @@ public final class TupleDomain<T>
         Map<T, Domain> intersected = new LinkedHashMap<>(candidates.get(0).getDomains().get());
         for (int i = 1; i < candidates.size(); i++) {
             for (Entry<? extends T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
-                Domain intersectionDomain = intersected.get(entry.getKey());
-                if (intersectionDomain == null) {
-                    intersected.put(entry.getKey(), entry.getValue());
-                }
-                else {
-                    Domain intersect = intersectionDomain.intersect(entry.getValue());
-                    if (intersect.isNone()) {
-                        return TupleDomain.none();
-                    }
-                    intersected.put(entry.getKey(), intersect);
+                if (intersected.merge(entry.getKey(), entry.getValue(), Domain::intersect).isNone()) {
+                    return none();
                 }
             }
         }
 
-        return withColumnDomains(intersected);
+        return withNormalizedColumnDomains(intersected);
     }
 
     @SuppressWarnings("unchecked")
@@ -407,9 +417,12 @@ public final class TupleDomain<T>
         // finally, do the column-wise union
         Map<T, Domain> result = new LinkedHashMap<>(domainsByColumn.size());
         for (Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
-            result.put(entry.getKey(), Domain.union(entry.getValue()));
+            Domain union = Domain.union(entry.getValue());
+            if (!union.isAll()) {
+                result.put(entry.getKey(), union);
+            }
         }
-        return withColumnDomains(result);
+        return withNormalizedColumnDomains(result);
     }
 
     /// Returns the union when it can be represented exactly, or an empty optional when
@@ -431,8 +444,9 @@ public final class TupleDomain<T>
         }
 
         // If one TupleDomain is a superset of all others, it is the exact union
-        if (maximal(nonNoneDomains).isPresent()) {
-            return Optional.of(columnWiseUnion(nonNoneDomains));
+        Optional<TupleDomain<T>> maximal = maximal(nonNoneDomains);
+        if (maximal.isPresent()) {
+            return maximal;
         }
 
         // The column-wise union is equivalent to the strict union if all TupleDomains
@@ -472,6 +486,11 @@ public final class TupleDomain<T>
         Map<T, Domain> thisDomains = this.domains.orElseThrow();
         Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
 
+        if (otherDomains.size() > thisDomains.size()) {
+            Map<T, Domain> temporary = thisDomains;
+            thisDomains = otherDomains;
+            otherDomains = temporary;
+        }
         for (Entry<T, Domain> entry : otherDomains.entrySet()) {
             Domain commonColumnDomain = thisDomains.get(entry.getKey());
             if (commonColumnDomain != null) {
@@ -543,12 +562,20 @@ public final class TupleDomain<T>
     public TupleDomain<T> filter(BiPredicate<T, Domain> predicate)
     {
         requireNonNull(predicate, "predicate is null");
-        return transformDomains((key, domain) -> {
-            if (!predicate.test(key, domain)) {
-                return Domain.all(domain.getType());
+        if (isNone() || isAll()) {
+            return this;
+        }
+        Map<T, Domain> original = domains.orElseThrow();
+        Map<T, Domain> filtered = null;
+        for (Entry<T, Domain> entry : original.entrySet()) {
+            if (!predicate.test(entry.getKey(), entry.getValue())) {
+                if (filtered == null) {
+                    filtered = new LinkedHashMap<>(original);
+                }
+                filtered.remove(entry.getKey());
             }
-            return domain;
-        });
+        }
+        return filtered == null ? this : withNormalizedColumnDomains(filtered);
     }
 
     public <U> TupleDomain<U> transformKeys(Function<T, U> function)
@@ -572,7 +599,7 @@ public final class TupleDomain<T>
             }
         }
 
-        return TupleDomain.withColumnDomains(result);
+        return withNormalizedColumnDomains(result);
     }
 
     public TupleDomain<T> simplify()
@@ -592,13 +619,30 @@ public final class TupleDomain<T>
             return this;
         }
 
-        return withColumnDomains(domains.get().entrySet().stream()
-                .collect(toLinkedMap(
-                        Entry::getKey,
-                        entry -> {
-                            Domain newDomain = transformation.apply(entry.getKey(), entry.getValue());
-                            return requireNonNull(newDomain, "newDomain is null");
-                        })));
+        Map<T, Domain> original = domains.orElseThrow();
+        Map<T, Domain> transformed = null;
+        boolean none = false;
+        for (Entry<T, Domain> entry : original.entrySet()) {
+            Domain newDomain = requireNonNull(transformation.apply(entry.getKey(), entry.getValue()), "newDomain is null");
+            none |= newDomain.isNone();
+            // Invoke the transformation for every column, even after a NONE result.
+            if (none || newDomain == entry.getValue()) {
+                continue;
+            }
+            if (transformed == null) {
+                transformed = new LinkedHashMap<>(original);
+            }
+            if (newDomain.isAll()) {
+                transformed.remove(entry.getKey());
+            }
+            else {
+                transformed.put(entry.getKey(), newDomain);
+            }
+        }
+        if (none) {
+            return none();
+        }
+        return transformed == null ? this : withNormalizedColumnDomains(transformed);
     }
 
     public Predicate<Map<T, NullableValue>> asPredicate()

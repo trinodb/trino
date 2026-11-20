@@ -295,7 +295,7 @@ public abstract class AbstractMapAggregationState
 
         long hash = keyHashCode(groupId, keyBlock, keyPosition);
 
-        byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+        byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
         int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
@@ -432,7 +432,7 @@ public abstract class AbstractMapAggregationState
                 }
 
                 long hash = keyHashCode(groupId, oldRecords, oldIndex);
-                byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+                byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
                 int bucket = bucket((int) (hash >> 7));
 
                 int step = 1;

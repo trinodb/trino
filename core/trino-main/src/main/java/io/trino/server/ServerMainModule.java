@@ -506,6 +506,7 @@ public class ServerMainModule
     {
         return new InternalNode(
                 nodeInfo.getNodeId(),
+                nodeInfo.getInstanceId(),
                 internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
                 nodeVersion,
                 serverConfig.isCoordinator());

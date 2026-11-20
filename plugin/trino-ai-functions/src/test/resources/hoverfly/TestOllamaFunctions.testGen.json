@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"What is the capital of France?\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"What is the capital of France?\"}],\"seed\":0}"
         } ]
       },
       "response" : {

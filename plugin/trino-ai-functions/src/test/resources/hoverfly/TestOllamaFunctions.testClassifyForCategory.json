@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new dress\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"clothing\\\",\\\"shoes\\\",\\\"accessories\\\",\\\"furniture\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new dress\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -55,7 +55,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new chair\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"clothing\\\",\\\"shoes\\\",\\\"accessories\\\",\\\"furniture\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new chair\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -90,7 +90,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new bag\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"llama3.3\",\"messages\":[{\"role\":\"user\",\"content\":\"Classify the text below into one of the following JSON encoded labels: [\\\"clothing\\\",\\\"shoes\\\",\\\"accessories\\\",\\\"furniture\\\"]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new bag\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {

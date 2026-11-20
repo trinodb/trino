@@ -148,6 +148,7 @@ final class TestIcebergMergeSink
         return new IcebergMergeSink(
                 3,
                 LocationProviders.locationsFor("memory:///table", ImmutableMap.of()),
+                new DefaultIcebergFileNameProvider(),
                 new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcReaderConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
                 new MemoryFileSystemFactory().create(SESSION),
                 JsonCodec.jsonCodec(CommitTaskData.class),

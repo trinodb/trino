@@ -145,6 +145,11 @@ class AzureLocation
         return location.toString();
     }
 
+    public Location blobLocation(String blobName)
+    {
+        return Location.of(baseLocation() + blobName);
+    }
+
     public Location baseLocation()
     {
         return Location.of("%s://%s%s.dfs.%s/".formatted(

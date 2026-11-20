@@ -36,6 +36,7 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
@@ -155,6 +156,7 @@ public class TestSqlStage
                 TEST_SESSION,
                 true,
                 new NodeTaskMap(new FinalizerService()),
+                TestingInternalNodeManager.createDefault(),
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
@@ -199,6 +201,7 @@ public class TestSqlStage
                 TEST_SESSION,
                 true,
                 new NodeTaskMap(new FinalizerService()),
+                TestingInternalNodeManager.createDefault(),
                 executor,
                 SdkTracerProvider.builder()
                         .addSpanProcessor(SimpleSpanProcessor.create(InMemorySpanExporter.create()))
@@ -262,6 +265,7 @@ public class TestSqlStage
                 TEST_SESSION,
                 true,
                 new NodeTaskMap(new FinalizerService()),
+                TestingInternalNodeManager.createDefault(),
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
@@ -280,9 +284,79 @@ public class TestSqlStage
         stage.finish();
     }
 
+    @Test
+    public void testTaskIsCreatedOnCurrentNodeInstance()
+    {
+        InternalNode currentNode = new InternalNode("node", "current-instance", URI.create("http://node/"), NodeVersion.UNKNOWN, false);
+        // the node was selected before the worker was restarted
+        InternalNode staleNode = new InternalNode("node", "previous-instance", URI.create("http://node/"), NodeVersion.UNKNOWN, false);
+
+        AtomicReference<InternalNode> taskNode = new AtomicReference<>();
+        RemoteTaskFactory capturingFactory = new RemoteTaskFactory()
+        {
+            private final RemoteTaskFactory delegate = new MockRemoteTaskFactory(executor, scheduledExecutor);
+
+            @Override
+            public RemoteTask createRemoteTask(
+                    Session session,
+                    Span stageSpan,
+                    TaskId taskId,
+                    InternalNode node,
+                    boolean speculative,
+                    PlanFragment fragment,
+                    Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+                    Multimap<PlanNodeId, Split> initialSplits,
+                    OutputBuffers outputBuffers,
+                    PartitionedSplitCountTracker partitionedSplitCountTracker,
+                    Set<DynamicFilterId> outboundDynamicFilterIds,
+                    Optional<DataSize> estimatedMemory,
+                    boolean summarizeTaskInfo)
+            {
+                taskNode.set(node);
+                return delegate.createRemoteTask(session, stageSpan, taskId, node, speculative, fragment, tableCredentials, initialSplits, outputBuffers, partitionedSplitCountTracker, outboundDynamicFilterIds, estimatedMemory, summarizeTaskInfo);
+            }
+        };
+
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
+        SqlStage stage = createSqlStage(
+                dummyMetadata(),
+                new StageId(new QueryId("query"), 0),
+                createScanPlanFragment(),
+                ImmutableMap.of(),
+                capturingFactory,
+                TEST_SESSION,
+                true,
+                nodeTaskMap,
+                TestingInternalNodeManager.createDefault(currentNode),
+                executor,
+                noopTracer(),
+                Span.getInvalid(),
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
+
+        stage.createTask(
+                staleNode,
+                0,
+                0,
+                Optional.empty(),
+                OptionalInt.empty(),
+                PipelinedOutputBuffers.createInitial(ARBITRARY),
+                ImmutableListMultimap.of(TABLE_SCAN_NODE_ID, SPLIT.split()),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false);
+
+        assertThat(taskNode.get()).isEqualTo(currentNode);
+        // splits are accounted to the node the node scheduler looks up
+        assertThat(nodeTaskMap.getPartitionedSplitsOnNode(currentNode).getCount()).isEqualTo(1);
+        assertThat(nodeTaskMap.getPartitionedSplitsOnNode(staleNode).getCount()).isEqualTo(0);
+
+        stage.finish();
+    }
+
     private void createTestTask(SqlStage stage, int partition)
     {
-        InternalNode node = new InternalNode("node" + partition, URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode("node" + partition, "node" + partition + "-instance", URI.create("http://node/" + partition), NodeVersion.UNKNOWN, false);
         stage.createTask(
                 node,
                 partition,
@@ -311,6 +385,7 @@ public class TestSqlStage
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
+                TestingInternalNodeManager.createDefault(),
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
@@ -335,6 +410,7 @@ public class TestSqlStage
                     }
                     InternalNode node = new InternalNode(
                             "source" + i,
+                            "source" + i + "-instance",
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);

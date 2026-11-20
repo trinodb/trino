@@ -55,7 +55,7 @@ final class TestTypeOperators
 
                 for (Long leftArgument : testArguments) {
                     for (Long rightArgument : testArguments) {
-                        if (!leftConvention.isNullable() && leftArgument == null || !rightConvention.isNullable() && rightArgument == null) {
+                        if ((!leftConvention.isNullable() && leftArgument == null) || (!rightConvention.isNullable() && rightArgument == null)) {
                             continue;
                         }
                         boolean expected = Objects.equals(leftArgument, rightArgument);

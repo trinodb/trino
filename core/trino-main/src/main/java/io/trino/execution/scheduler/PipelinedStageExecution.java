@@ -115,7 +115,7 @@ public class PipelinedStageExecution
     private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final InternalNodeManager nodeManager;
-    private final Optional<int[]> bucketToPartition;
+    private final int[] bucketToPartition;
     private final OptionalInt skewedBucketCount;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
@@ -142,7 +142,7 @@ public class PipelinedStageExecution
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
             Executor executor,
-            Optional<int[]> bucketToPartition,
+            int[] bucketToPartition,
             OptionalInt skewedBucketCount,
             int attempt)
     {
@@ -173,7 +173,7 @@ public class PipelinedStageExecution
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             InternalNodeManager nodeManager,
-            Optional<int[]> bucketToPartition,
+            int[] bucketToPartition,
             OptionalInt skewedBucketCount,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
             int attempt)
@@ -303,7 +303,7 @@ public class PipelinedStageExecution
                 node,
                 partition,
                 attempt,
-                bucketToPartition,
+                Optional.of(bucketToPartition),
                 skewedBucketCount,
                 outputBuffers,
                 initialSplits,
@@ -585,7 +585,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().self();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().partitionId())).build();
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString(), sourceTask.getNodeInstanceId())));
     }
 
     private static class PipelinedStageStateMachine

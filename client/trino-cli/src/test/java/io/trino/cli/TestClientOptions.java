@@ -22,9 +22,13 @@ import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
@@ -38,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClientOptions
 {
+    @TempDir
+    private Path tempDirectory;
+
     @Test
     public void testDefaults()
     {
@@ -208,6 +215,42 @@ public class TestClientOptions
         Console console = createConsole("--output-format=JSON");
         ClientOptions options = console.clientOptions;
         assertThat(options.outputFormat).isEqualTo(OutputFormat.JSON);
+    }
+
+    @Test
+    public void testAgentOptions()
+    {
+        assertThat(createConsole().clientOptions.agent).isEmpty();
+        assertThat(createConsole("--agent").clientOptions.agent).contains(true);
+        assertThat(createConsole("--no-agent").clientOptions.agent).contains(false);
+
+        ClientOptions options = createConsole("--agent-max-rows=5", "--agent-max-bytes=6", "--agent-max-cell-width=7").clientOptions;
+        assertThat(options.agentMaxRows).isEqualTo(5);
+        assertThat(options.agentMaxBytes).isEqualTo(6);
+        assertThat(options.agentMaxCellWidth).isEqualTo(7);
+    }
+
+    @Test
+    public void testAgentOptionsFromConfigurationFile()
+            throws Exception
+    {
+        // a format in the configuration file is not specified on the command line, while agent can be turned off there
+        Path configFile = tempDirectory.resolve("agent-config.properties");
+        Files.writeString(configFile, "output-format=JSON\nagent=false\n");
+        Console console = new Console();
+        CommandLine commandLine = createCommandLine(console);
+        ValidatingPropertiesDefaultProvider.attach(commandLine, configFile.toFile());
+        commandLine.parseArgs();
+        assertThat(commandLine.getParseResult().hasMatchedOption("--output-format")).isFalse();
+        assertThat(console.clientOptions.outputFormat).isEqualTo(ClientOptions.OutputFormat.JSON);
+        assertThat(console.clientOptions.agent).contains(false);
+
+        Console explicit = new Console();
+        CommandLine explicitCommandLine = createCommandLine(explicit);
+        ValidatingPropertiesDefaultProvider.attach(explicitCommandLine, configFile.toFile());
+        explicitCommandLine.parseArgs("--output-format=CSV", "--agent");
+        assertThat(explicitCommandLine.getParseResult().hasMatchedOption("--output-format")).isTrue();
+        assertThat(explicit.clientOptions.agent).contains(true);
     }
 
     @Test
@@ -400,6 +443,10 @@ public class TestClientOptions
             case "theme":
             case "maxBufferedRows":
             case "maxQueuedRows":
+            case "agent":
+            case "agentMaxRows":
+            case "agentMaxBytes":
+            case "agentMaxCellWidth":
                 return true;
         }
 

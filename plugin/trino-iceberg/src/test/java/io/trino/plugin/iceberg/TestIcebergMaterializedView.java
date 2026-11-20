@@ -209,14 +209,14 @@ public class TestIcebergMaterializedView
 
         // The MV is initially stale
         assertThat(getExplainPlan("TABLE mv_on_iceberg2", ExplainType.Type.IO))
-                .contains("\"table\" : \"common_base_table\"");
+                .contains("\"table\":\"common_base_table\"");
         assertThat(query("TABLE mv_on_iceberg2"))
                 .matches("VALUES BIGINT '10'");
 
         // After REFRESH, the MV is fresh
         assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_on_iceberg2", 1);
         assertThat(getExplainPlan("TABLE mv_on_iceberg2", ExplainType.Type.IO))
-                .contains("\"table\" : \"mv_on_iceberg2$materialized_view_storage")
+                .contains("\"table\":\"mv_on_iceberg2$materialized_view_storage")
                 .doesNotContain("common_base_table");
         assertThat(query("TABLE mv_on_iceberg2"))
                 .matches("VALUES BIGINT '10'");
@@ -224,7 +224,7 @@ public class TestIcebergMaterializedView
         // After INSERT to the base table, the MV is still fresh, because it currently does not detect changes to tables in other catalog.
         assertUpdate(secondIceberg, "INSERT INTO common_base_table VALUES 7", 1);
         assertThat(getExplainPlan("TABLE mv_on_iceberg2", ExplainType.Type.IO))
-                .contains("\"table\" : \"mv_on_iceberg2$materialized_view_storage")
+                .contains("\"table\":\"mv_on_iceberg2$materialized_view_storage")
                 .doesNotContain("common_base_table");
         assertThat(query("TABLE mv_on_iceberg2"))
                 .matches("VALUES BIGINT '10'");
@@ -232,7 +232,7 @@ public class TestIcebergMaterializedView
         // After REFRESH, the MV is fresh again
         assertUpdate(defaultIceberg, "REFRESH MATERIALIZED VIEW mv_on_iceberg2", 1);
         assertThat(getExplainPlan("TABLE mv_on_iceberg2", ExplainType.Type.IO))
-                .contains("\"table\" : \"mv_on_iceberg2$materialized_view_storage")
+                .contains("\"table\":\"mv_on_iceberg2$materialized_view_storage")
                 .doesNotContain("common_base_table");
         assertThat(query("TABLE mv_on_iceberg2"))
                 .matches("VALUES BIGINT '17'");

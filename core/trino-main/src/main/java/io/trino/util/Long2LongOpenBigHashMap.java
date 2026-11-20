@@ -1013,10 +1013,9 @@ public class Long2LongOpenBigHashMap
         @Override
         public boolean contains(final Object o)
         {
-            if (!(o instanceof Map.Entry)) {
+            if (!(o instanceof Map.Entry<?, ?> e)) {
                 return false;
             }
-            final Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
             if (e.getKey() == null || !(e.getKey() instanceof Long)) {
                 return false;
             }
@@ -1054,10 +1053,9 @@ public class Long2LongOpenBigHashMap
         @Override
         public boolean remove(final Object o)
         {
-            if (!(o instanceof Map.Entry)) {
+            if (!(o instanceof Map.Entry<?, ?> e)) {
                 return false;
             }
-            final Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
             if (e.getKey() == null || !(e.getKey() instanceof Long)) {
                 return false;
             }

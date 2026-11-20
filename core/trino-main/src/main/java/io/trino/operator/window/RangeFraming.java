@@ -93,9 +93,9 @@ public class RangeFraming
         }
 
         // frame defined by peer group
-        if (frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == CURRENT_ROW ||
-                frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == UNBOUNDED_FOLLOWING ||
-                frameInfo.getStartType() == UNBOUNDED_PRECEDING && frameInfo.getEndType() == CURRENT_ROW) {
+        if ((frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == CURRENT_ROW) ||
+                (frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == UNBOUNDED_FOLLOWING) ||
+                (frameInfo.getStartType() == UNBOUNDED_PRECEDING && frameInfo.getEndType() == CURRENT_ROW)) {
             // same peer group as recent row
             if (currentPosition == partitionStart || pagesIndex.positionIdenticalToPosition(peerGroupHashStrategy, currentPosition - 1, currentPosition)) {
                 return recentRange;

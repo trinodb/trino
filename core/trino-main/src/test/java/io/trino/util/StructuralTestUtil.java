@@ -91,25 +91,25 @@ public final class StructuralTestUtil
         if (element == null) {
             blockBuilder.appendNull();
         }
-        else if (type instanceof ArrayType arrayType && element instanceof Iterable<?>) {
+        else if (type instanceof ArrayType arrayType && element instanceof Iterable<?> iterable) {
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : iterable) {
                     appendToBlockBuilder(arrayType.getElementType(), subElement, elementBuilder);
                 }
             });
         }
-        else if (type instanceof RowType rowType && element instanceof Iterable<?>) {
+        else if (type instanceof RowType rowType && element instanceof Iterable<?> iterable) {
             ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                 int field = 0;
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : iterable) {
                     appendToBlockBuilder(rowType.getFields().get(field).getType(), subElement, fieldBuilders.get(field));
                     field++;
                 }
             });
         }
-        else if (type instanceof MapType mapType && element instanceof Map<?, ?>) {
+        else if (type instanceof MapType mapType && element instanceof Map<?, ?> map) {
             ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     appendToBlockBuilder(mapType.getKeyType(), entry.getKey(), keyBuilder);
                     appendToBlockBuilder(mapType.getValueType(), entry.getValue(), valueBuilder);
                 }

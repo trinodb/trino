@@ -179,7 +179,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         "WHERE l2.suppkey BETWEEN 1 AND 10",
                 Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE, multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 10L, true)), false))));
     }
 
     @Test

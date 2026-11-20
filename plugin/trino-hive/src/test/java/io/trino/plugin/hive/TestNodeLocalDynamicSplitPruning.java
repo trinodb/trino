@@ -32,7 +32,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
@@ -90,6 +92,14 @@ class TestNodeLocalDynamicSplitPruning
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
+            assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
+        }
+
+        try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getBucketRangeTupleDomain(10L, 12L)))) {
+            assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
+        }
+
+        try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getBucketRangeTupleDomain(0L, 2L)))) {
             assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
         }
     }
@@ -184,6 +194,13 @@ class TestNodeLocalDynamicSplitPruning
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         BUCKET_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 1L)));
+    }
+
+    private static TupleDomain<ColumnHandle> getBucketRangeTupleDomain(long low, long high)
+    {
+        return TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        BUCKET_HIVE_COLUMN_HANDLE, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, low, true, high, true)), false)));
     }
 
     private static TupleDomain<ColumnHandle> getTupleDomainForPartitionSplitPruning()

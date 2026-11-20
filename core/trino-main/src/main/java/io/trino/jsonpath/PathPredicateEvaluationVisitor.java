@@ -193,9 +193,9 @@ class PathPredicateEvaluationVisitor
         }
 
         // try to find a quick error, i.e. a pair of left and right items which are of non-comparable categories
-        if (leftHasNonScalar && rightHasNonScalar ||
-                leftHasNonScalar && rightHasScalar ||
-                leftHasScalar && rightHasNonScalar) {
+        if ((leftHasNonScalar && rightHasNonScalar) ||
+                (leftHasNonScalar && rightHasScalar) ||
+                (leftHasScalar && rightHasNonScalar)) {
             return null;
         }
 
@@ -206,8 +206,8 @@ class PathPredicateEvaluationVisitor
             found = true;
         }
         if (node.operator() == NOT_EQUAL) {
-            if (leftHasJsonNull && (rightHasScalar || rightHasNonScalar) ||
-                    rightHasJsonNull && (leftHasScalar || leftHasNonScalar)) {
+            if ((leftHasJsonNull && (rightHasScalar || rightHasNonScalar)) ||
+                    (rightHasJsonNull && (leftHasScalar || leftHasNonScalar))) {
                 found = true;
             }
         }

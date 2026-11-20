@@ -51,6 +51,7 @@ public class MongoClientConfig
     private String implicitRowFieldPrefix = "_pos";
     private boolean projectionPushDownEnabled = true;
     private boolean allowLocalScheduling;
+    private boolean insertOrdered;
     private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
 
     @NotNull
@@ -270,6 +271,21 @@ public class MongoClientConfig
     public MongoClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
     {
         this.allowLocalScheduling = allowLocalScheduling;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isInsertOrdered()
+    {
+        return insertOrdered;
+    }
+
+    @Deprecated
+    @Config("mongodb.insert-ordered")
+    @ConfigDescription("Insert documents in order and stop at the first failed document. Unordered inserts let mongos write to multiple shards in parallel")
+    public MongoClientConfig setInsertOrdered(boolean insertOrdered)
+    {
+        this.insertOrdered = insertOrdered;
         return this;
     }
 

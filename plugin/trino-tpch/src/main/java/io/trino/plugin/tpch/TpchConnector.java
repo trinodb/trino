@@ -30,15 +30,17 @@ public class TpchConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
+    private final TpchTransactionManager transactionManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
     @Inject
-    public TpchConnector(LifeCycleManager lifeCycleManager, ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorPageSourceProvider pageSourceProvider)
+    public TpchConnector(LifeCycleManager lifeCycleManager, TpchTransactionManager transactionManager, ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorPageSourceProvider pageSourceProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
@@ -48,7 +50,19 @@ public class TpchConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
-        return TpchTransactionHandle.INSTANCE;
+        return transactionManager.beginTransaction();
+    }
+
+    @Override
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        transactionManager.commit(transaction);
+    }
+
+    @Override
+    public void rollback(ConnectorTransactionHandle transaction)
+    {
+        transactionManager.rollback(transaction);
     }
 
     @Override

@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.System.nanoTime;
@@ -300,6 +301,10 @@ public final class JdbcPageSource
             if (connection != null && resultSet != null) {
                 jdbcClient.abortReadConnection(connection, resultSet);
                 resultSetFuture.cancel(true);
+            }
+            else if (connection != null && resultSetFuture != null && !resultSetFuture.isDone()) {
+                // Query is still executing. Closing the statement would wait on a driver lock held by the blocked reader.
+                connection.abort(directExecutor());
             }
         }
         catch (SQLException | RuntimeException e) {

@@ -319,8 +319,8 @@ public final class FormatTestUtils
 
     private static Object unwrapLazy(LazyObjectBase lazyObject)
     {
-        if (lazyObject instanceof LazyPrimitive) {
-            return ((LazyPrimitive<?, ?>) lazyObject).getWritableObject();
+        if (lazyObject instanceof LazyPrimitive<?, ?> lazyPrimitive) {
+            return lazyPrimitive.getWritableObject();
         }
         if (lazyObject instanceof LazyBinaryArray lazyBinaryArray) {
             return lazyBinaryArray.getList();

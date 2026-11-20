@@ -238,8 +238,8 @@ public class DistinctAggregationStrategyChooser
     {
         if (searchFrom(source, lookup)
                 .where(node -> !(node instanceof TableScanNode
-                        || node instanceof FilterNode filterNode && isDeterministic(filterNode.getPredicate())
-                        || node instanceof ProjectNode projectNode && projectNode.getAssignments().expressions().stream().allMatch(DeterminismEvaluator::isDeterministic)
+                        || (node instanceof FilterNode filterNode && isDeterministic(filterNode.getPredicate()))
+                        || (node instanceof ProjectNode projectNode && projectNode.getAssignments().expressions().stream().allMatch(DeterminismEvaluator::isDeterministic))
                         || node instanceof UnionNode))
                 .findFirst()
                 .isPresent()) {

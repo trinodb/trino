@@ -142,7 +142,8 @@ properties:
   - Delegation token cache maximum size.
   - `1000`
 * - `hive.metastore.thrift.client.ssl.enabled`
-  - Use SSL when connecting to metastore.
+  - Use SSL when connecting to metastore. The metastore certificate must be
+    valid for the host in `hive.metastore.uri`.
   - `false`
 * - `hive.metastore.thrift.client.ssl.key`
   - Path to private key and client certification (key store).

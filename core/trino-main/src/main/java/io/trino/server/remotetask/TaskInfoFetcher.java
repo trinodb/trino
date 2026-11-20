@@ -55,6 +55,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -65,6 +66,7 @@ public class TaskInfoFetcher
     private static final SpoolingOutputStats.Snapshot ALREADY_RETRIEVED_MARKER = new SpoolingOutputStats.Snapshot(Slices.EMPTY_SLICE, 0);
 
     private final TaskId taskId;
+    private final String nodeInstanceId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final StateMachine<TaskInfo> taskInfo;
@@ -101,6 +103,7 @@ public class TaskInfoFetcher
             Consumer<Throwable> onFail,
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
+            String nodeInstanceId,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
@@ -118,6 +121,7 @@ public class TaskInfoFetcher
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.taskStatus().taskId();
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
@@ -246,6 +250,7 @@ public class TaskInfoFetcher
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 

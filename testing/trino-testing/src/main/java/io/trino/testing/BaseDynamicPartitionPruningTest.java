@@ -52,6 +52,7 @@ import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.SUPPLIER;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
+import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedRangeDomainString;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -180,7 +181,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())
-                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
+                .isEqualTo(getSimplifiedRangeDomainString(1L, 100L, BIGINT));
     }
 
     @Test
@@ -229,7 +230,7 @@ public abstract class BaseDynamicPartitionPruningTest
         List<DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
         assertThat(domainStats).map(DynamicFilterDomainStats::getSimplifiedDomain)
                 .containsExactlyInAnyOrder(
-                        getSimplifiedDomainString(2L, 3L, 2, BIGINT),
+                        getSimplifiedRangeDomainString(2L, 3L, BIGINT),
                         getSimplifiedDomainString(2L, 2L, 1, BIGINT));
     }
 
@@ -324,7 +325,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())
-                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
+                .isEqualTo(getSimplifiedRangeDomainString(1L, 100L, BIGINT));
     }
 
     @Test
@@ -410,7 +411,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())
-                .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
+                .isEqualTo(getSimplifiedRangeDomainString(1L, 100L, BIGINT));
     }
 
     @Test

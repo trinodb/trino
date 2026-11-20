@@ -267,6 +267,10 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            if (!isBloomFilterSupported(effectivePredicateDomain.getType())) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -592,6 +596,10 @@ public class TupleDomainParquetPredicate
         if (maxValues.isEmpty()) {
             return Domain.all(type);
         }
+        if (nullPages.stream().allMatch(isNullPage -> isNullPage)) {
+            // Null counts are optional, so only null pages tell that every value is null
+            return Domain.onlyNull(type);
+        }
 
         boolean hasNullValue = true;
         if (nullCounts.isPresent()) {
@@ -754,6 +762,20 @@ public class TupleDomainParquetPredicate
         }
 
         return true;
+    }
+
+    private static boolean isBloomFilterSupported(Type type)
+    {
+        return type == TINYINT ||
+                type == SMALLINT ||
+                type == INTEGER ||
+                type == DATE ||
+                type == BIGINT ||
+                type == DOUBLE ||
+                type == REAL ||
+                type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
+                type instanceof UuidType;
     }
 
     private static Optional<Collection<Object>> extractDiscreteValues(int domainCompactionThreshold, ValueSet valueSet)

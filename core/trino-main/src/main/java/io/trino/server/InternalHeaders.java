@@ -26,6 +26,9 @@ public final class InternalHeaders
     public static final String TRINO_MAX_SIZE = "X-Trino-Max-Size";
     public static final HeaderName TRINO_MAX_SIZE_HEADER = HeaderName.of(TRINO_MAX_SIZE);
 
+    public static final String TRINO_NODE_INSTANCE_ID = "X-Trino-Node-Instance-Id";
+    public static final HeaderName TRINO_NODE_INSTANCE_ID_HEADER = HeaderName.of(TRINO_NODE_INSTANCE_ID);
+
     public static final String TRINO_TASK_INSTANCE_ID = "X-Trino-Task-Instance-Id";
     public static final HeaderName TRINO_TASK_INSTANCE_ID_HEADER = HeaderName.of(TRINO_TASK_INSTANCE_ID);
 

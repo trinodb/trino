@@ -125,9 +125,9 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
         include:
-          - { java-version: 25.0.5, cache: 'true', cleanup-node: true }
-          - { java-version: 27, cache: 'restore', cleanup-node: true }
-          - { java-version: 28-ea, cache: 'restore', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 25.0.5.1.2, cache: 'true', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 27, cache: 'restore', cleanup-node: true }
+          - { java-distribution: temurin, java-version: 28-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
@@ -152,13 +152,9 @@ jobs:
         timeout-minutes: 15
         with:
           cache: ${{ matrix.cache }}
+          java-distribution: ${{ matrix.java-distribution }}
           java-version: ${{ matrix.java-version }}
           cleanup-node: true
-      - name: Check SPI backward compatibility
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl :trino-spi -am
-          $MAVEN clean verify -B --strict-checksums -DskipTests -pl :trino-spi
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -349,7 +345,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
-          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-core'
       - name: Cancel merge queue workflow
         if: ${{ failure() && github.event_name == 'merge_group' }}

@@ -11,12 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.geospatial.epsg.generator;
+package io.trino.cli;
 
-import org.junit.jupiter.api.Test;
-
-public class TestDummy
+/**
+ * Thrown by an {@link OutputPrinter} when it has seen enough rows and the query should be cancelled.
+ */
+public class ResultLimitReachedException
+        extends RuntimeException
 {
-    @Test
-    public void buildRequiresTestToExist() {}
+    public ResultLimitReachedException(String message)
+    {
+        super(message);
+    }
 }

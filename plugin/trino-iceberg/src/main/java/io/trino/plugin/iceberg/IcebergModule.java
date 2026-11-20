@@ -147,6 +147,7 @@ public class IcebergModule
                 .in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setDefault().to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, IcebergFileNameProvider.class).setDefault().to(DefaultIcebergFileNameProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(IcebergCacheKeyProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(IcebergConnector.class).in(Scopes.SINGLETON);

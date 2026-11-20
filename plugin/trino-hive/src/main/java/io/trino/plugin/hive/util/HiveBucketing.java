@@ -50,7 +50,9 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Lists.cartesianProduct;
+import static com.google.common.primitives.Ints.saturatedCast;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -142,7 +144,7 @@ public final class HiveBucketing
         // The threshold is set to bucketCount * BUCKETS_EXPLORATION_LIMIT_FACTOR.
         // The threshold doesn't apply if the number of combinations is low, that is
         // within BUCKETS_EXPLORATION_GUARANTEED_LIMIT.
-        long explorationLimit = Math.max(bucketCount * BUCKETS_EXPLORATION_LIMIT_FACTOR, BUCKETS_EXPLORATION_GUARANTEED_LIMIT);
+        long explorationLimit = getBucketsExplorationLimit(bucketCount);
         if (explorationCount > explorationLimit) {
             return Optional.empty();
         }
@@ -224,7 +226,7 @@ public final class HiveBucketing
         List<HiveColumnHandle> dataColumns = hiveTable.getDataColumns().stream()
                 .collect(toImmutableList());
 
-        Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(effectivePredicate);
+        Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(expandBucketColumnRanges(effectivePredicate, hiveBucketProperty));
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
@@ -251,6 +253,35 @@ public final class HiveBucketing
             }
         }
         return Optional.of(new HiveBucketFilter(builder.build()));
+    }
+
+    // Replaces ranges on bucket columns with their values when there are few enough to explore
+    private static TupleDomain<ColumnHandle> expandBucketColumnRanges(TupleDomain<ColumnHandle> predicate, HiveBucketProperty hiveBucketProperty)
+    {
+        Optional<Map<ColumnHandle, Domain>> domains = predicate.getDomains();
+        if (domains.isEmpty()) {
+            return predicate;
+        }
+        Set<String> constrainedColumns = domains.get().keySet().stream()
+                .map(column -> ((HiveColumnHandle) column).getName())
+                .collect(toImmutableSet());
+        if (!constrainedColumns.containsAll(hiveBucketProperty.bucketedBy())) {
+            return predicate;
+        }
+        int valuesLimit = saturatedCast(getBucketsExplorationLimit(hiveBucketProperty.bucketCount()));
+        return predicate.transformDomains((column, domain) -> {
+            if (domain.isNullableDiscreteSet() || !hiveBucketProperty.bucketedBy().contains(((HiveColumnHandle) column).getName())) {
+                return domain;
+            }
+            return domain.getValues().tryExpandRanges(valuesLimit)
+                    .map(values -> Domain.create(ValueSet.copyOf(domain.getType(), values), domain.isNullAllowed()))
+                    .orElse(domain);
+        });
+    }
+
+    private static long getBucketsExplorationLimit(int bucketCount)
+    {
+        return Math.max(bucketCount * BUCKETS_EXPLORATION_LIMIT_FACTOR, BUCKETS_EXPLORATION_GUARANTEED_LIMIT);
     }
 
     private static Optional<Set<Integer>> getHiveBuckets(BucketingVersion bucketingVersion, HiveBucketProperty hiveBucketProperty, List<HiveColumnHandle> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)

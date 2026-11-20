@@ -5735,6 +5735,25 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    void testBucketFilteringByRange()
+    {
+        String tableName = "test_bucket_filtering_by_range_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (bucketed_by = ARRAY['key'], bucket_count = 10) AS SELECT key FROM UNNEST(sequence(0, 99)) t(key)", 100);
+        try {
+            // splits cover only the files of buckets holding the values
+            long bucketFiles = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE \"$bucket\" IN (SELECT \"$bucket\" FROM " + tableName + " WHERE key IN (10, 11, 12))");
+            assertQueryStats(
+                    getSession(),
+                    "SELECT * FROM " + tableName + " WHERE key IN (10, 11, 12)",
+                    queryStats -> assertThat((long) queryStats.getTotalDrivers()).isEqualTo(bucketFiles),
+                    results -> assertThat(results.getRowCount()).isEqualTo(3));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     void testPathConstraintSplitPruning()
     {
         String tableName = "test_path_constraint_split_pruning_" + randomNameSuffix();

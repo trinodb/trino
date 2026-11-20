@@ -298,6 +298,34 @@ public class TestJoin
     }
 
     @Test
+    public void testSubqueryPredicateOperandReferencingBothSidesOfOuterJoin()
+    {
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) JOIN (VALUES 1, 3) u(x) ON t.x + u.x IN (VALUES 2, 5)"))
+                .matches("VALUES (1, 1), (2, 3)");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) LEFT JOIN (VALUES 1, 3) u(x) ON t.x + u.x IN (VALUES 2, 5)"))
+                .failure().hasMessage("line 1:70: Subquery predicate in LEFT JOIN criteria involving both sides of the join is not supported");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) RIGHT JOIN (VALUES 1, 3) u(x) ON t.x + u.x IN (VALUES 2, 5)"))
+                .failure().hasMessage("line 1:71: Subquery predicate in RIGHT JOIN criteria involving both sides of the join is not supported");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) FULL JOIN (VALUES 1, 3) u(x) ON t.x + u.x IN (VALUES 2, 5)"))
+                .failure().hasMessage("line 1:70: Subquery predicate in FULL JOIN criteria involving both sides of the join is not supported");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) LEFT JOIN (VALUES 1, 3) u(x) ON t.x + u.x = ANY (VALUES 2, 5)"))
+                .failure().hasMessage("line 1:70: Subquery predicate in LEFT JOIN criteria involving both sides of the join is not supported");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) LEFT JOIN (VALUES 1, 3) u(x) ON u.x IN (VALUES 3) OR t.x = 1"))
+                .matches("VALUES (1, 1), (1, 3), (2, 3)");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) LEFT JOIN (VALUES 1, 3) u(x) ON t.x IN (VALUES 2) OR u.x = 1"))
+                .failure().hasMessage("line 1:66: Subquery predicate in LEFT JOIN criteria involving both sides of the join is not supported");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) RIGHT JOIN (VALUES 1, 3) u(x) ON t.x IN (VALUES 2) OR u.x = 1"))
+                .failure().hasMessage("line 1:67: Subquery predicate in RIGHT JOIN criteria involving both sides of the join is not supported");
+    }
+
+    @Test
     public void testQuantifiedComparisonInJoinCriteria()
     {
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON u.x > ALL (VALUES 1)"))
@@ -306,12 +334,8 @@ public class TestJoin
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) JOIN (VALUES 1, 3, NULL) u(x) ON t.x + u.x > ALL (VALUES 2)"))
                 .matches("VALUES (1, 3), (2, 1), (2, 3)");
 
-        // TODO: this should fail during analysis, but currently fails during planning
-        //   StatementAnalyzer.visitJoin needs to be updated to check whether the join criteria is an InPredicate or QualifiedComparison
-        //   with mixed references to both sides of the join. For that, the Expression needs to be analyzed against a hybrid scope made of both branches
-        //   of the join, instead of using the output scope of the Join node. This, in turn requires adding support for multiple scopes in ExpressionAnalyzer
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x + u.x > ALL (VALUES 1)"))
-                .nonTrinoExceptionFailure().hasMessageMatching("Invalid node. Expression dependencies .* not in source plan output .*");
+                .failure().hasMessage("line 1:83: Subquery predicate in RIGHT JOIN criteria involving both sides of the join is not supported");
     }
 
     @Test

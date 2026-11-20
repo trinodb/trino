@@ -52,7 +52,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.PushPredicateIntoTableScanWithoutProject;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -84,6 +84,7 @@ import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.tests.QueryTemplate;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.type.Reals;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -112,6 +113,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -300,6 +302,52 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))));
+    }
+
+    @Test
+    public void testStddevReplacedWithSqrtOfVariance()
+    {
+        assertStddevReplacedWithSqrtOfVariance("totalprice", tableScan("orders", ImmutableMap.of("input", "totalprice")));
+        assertStddevReplacedWithSqrtOfVariance("custkey", tableScan("orders", ImmutableMap.of("input", "custkey")));
+        assertStddevReplacedWithSqrtOfVariance(
+                "shippriority",
+                project(
+                        ImmutableMap.of("input", expression(new Cast(new Reference(INTEGER, "shippriority"), BIGINT))),
+                        tableScan("orders", ImmutableMap.of("shippriority", "shippriority"))));
+        assertStddevReplacedWithSqrtOfVariance(
+                "CAST(totalprice AS real)",
+                project(
+                        ImmutableMap.of("input", expression(new Cast(new Cast(new Reference(DOUBLE, "totalprice"), REAL), DOUBLE))),
+                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))));
+        assertStddevReplacedWithSqrtOfVariance(
+                "CAST(totalprice AS decimal(12, 2))",
+                project(
+                        ImmutableMap.of("input", expression(new Cast(new Cast(new Reference(DOUBLE, "totalprice"), createDecimalType(12, 2)), DOUBLE))),
+                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))));
+    }
+
+    private void assertStddevReplacedWithSqrtOfVariance(@Language("SQL") String value, PlanMatchPattern source)
+    {
+        ResolvedFunction sqrt = FUNCTIONS.resolveFunction("sqrt", fromTypes(DOUBLE));
+        assertPlan(
+                "SELECT stddev(%1$s), variance(%1$s), stddev_pop(%1$s), var_pop(%1$s) FROM orders".formatted(value),
+                anyTree(
+                        project(
+                                ImmutableMap.of(
+                                        "stddev", expression(new Call(sqrt, ImmutableList.of(new Reference(DOUBLE, "variance")))),
+                                        "stddev_pop", expression(new Call(sqrt, ImmutableList.of(new Reference(DOUBLE, "var_pop"))))),
+                                aggregation(
+                                        ImmutableMap.of(
+                                                "variance", aggregationFunction("variance", ImmutableList.of("partial_variance")),
+                                                "var_pop", aggregationFunction("var_pop", ImmutableList.of("partial_var_pop"))),
+                                        aggregation -> aggregation.getStep() == FINAL && aggregation.getAggregations().size() == 2,
+                                        anyTree(
+                                                aggregation(
+                                                        ImmutableMap.of(
+                                                                "partial_variance", aggregationFunction("variance", ImmutableList.of("input")),
+                                                                "partial_var_pop", aggregationFunction("var_pop", ImmutableList.of("input"))),
+                                                        aggregation -> aggregation.getStep() == PARTIAL && aggregation.getAggregations().size() == 2,
+                                                        source))))));
     }
 
     @Test
@@ -1359,7 +1407,7 @@ public class TestLogicalPlanner
     {
         if (optimizer instanceof IterativeOptimizer iterativeOptimizer) {
             return iterativeOptimizer.getRules().stream().anyMatch(rule -> {
-                if (rule instanceof PushPredicateIntoTableScan pushPredicateIntoTableScan) {
+                if (rule instanceof PushPredicateIntoTableScanWithoutProject pushPredicateIntoTableScan) {
                     return pushPredicateIntoTableScan.getPruneWithPredicateExpression();
                 }
                 return false;

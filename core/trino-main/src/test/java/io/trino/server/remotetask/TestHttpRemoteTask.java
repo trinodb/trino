@@ -98,8 +98,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -137,6 +139,7 @@ import static io.trino.metadata.TestingMetadataManager.createTestingMetadataMana
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -167,6 +170,7 @@ public class TestHttpRemoteTask
             .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10.0, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
+    private static final String NODE_INSTANCE_ID = "node-instance-id";
 
     @Test
     @Timeout(30)
@@ -174,6 +178,14 @@ public class TestHttpRemoteTask
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH);
+    }
+
+    @Test
+    @Timeout(30)
+    public void testNodeRestartedBeforeFirstResponse()
+            throws Exception
+    {
+        runTest(FailureScenario.NODE_RESTARTED);
     }
 
     @Test
@@ -637,6 +649,14 @@ public class TestHttpRemoteTask
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
             }
+            case NODE_RESTARTED -> {
+                assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
+                        .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
+                        .isTrue();
+                assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
+                // the task must not be re-created on the restarted node
+                assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(0);
+            }
             case REJECTED_EXECUTION -> {
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_ERROR.toErrorCode());
@@ -665,7 +685,7 @@ public class TestHttpRemoteTask
                 session,
                 Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
-                new InternalNode("node-id", URI.create("http://fake.invalid/"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node-id", NODE_INSTANCE_ID, URI.create("http://fake.invalid/"), NodeVersion.UNKNOWN, false),
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMap.of(),
@@ -812,6 +832,7 @@ public class TestHttpRemoteTask
         NO_FAILURE,
         TASK_MISMATCH,
         TASK_MISMATCH_WHEN_VERSION_IS_HIGH,
+        NODE_RESTARTED,
         REJECTED_EXECUTION,
         STUCK_TERMINATING,
     }
@@ -861,8 +882,10 @@ public class TestHttpRemoteTask
                 @PathParam("taskId") TaskId taskId,
                 @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
                 @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
+                @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
                 @Context UriInfo uriInfo)
         {
+            checkNodeInstance(expectedNodeInstanceId);
             lastActivityNanos.set(System.nanoTime());
             return buildTaskInfo();
         }
@@ -876,8 +899,10 @@ public class TestHttpRemoteTask
         public synchronized TaskInfo createOrUpdateTask(
                 @PathParam("taskId") TaskId taskId,
                 TaskUpdateRequest taskUpdateRequest,
+                @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
                 @Context UriInfo uriInfo)
         {
+            checkNodeInstance(expectedNodeInstanceId);
             for (SplitAssignment splitAssignment : taskUpdateRequest.splitAssignments()) {
                 taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (_, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
@@ -906,9 +931,11 @@ public class TestHttpRemoteTask
                 @PathParam("taskId") TaskId taskId,
                 @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
                 @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
+                @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
                 @Context UriInfo uriInfo)
                 throws InterruptedException
         {
+            checkNodeInstance(expectedNodeInstanceId);
             lastActivityNanos.set(System.nanoTime());
 
             wait(maxWait.roundTo(MILLISECONDS));
@@ -948,8 +975,10 @@ public class TestHttpRemoteTask
         public synchronized TaskInfo deleteTask(
                 @PathParam("taskId") TaskId taskId,
                 @QueryParam("abort") @DefaultValue("true") boolean abort,
+                @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
                 @Context UriInfo uriInfo)
         {
+            checkNodeInstance(expectedNodeInstanceId);
             lastActivityNanos.set(System.nanoTime());
 
             if (failureScenario == FailureScenario.STUCK_TERMINATING) {
@@ -961,6 +990,18 @@ public class TestHttpRemoteTask
                 taskState = abort ? TaskState.ABORTED : TaskState.CANCELED;
             }
             return buildTaskInfo();
+        }
+
+        private void checkNodeInstance(String expectedNodeInstanceId)
+        {
+            String nodeInstanceId = NODE_INSTANCE_ID;
+            if (failureScenario == FailureScenario.NODE_RESTARTED) {
+                nodeInstanceId = "restarted-" + NODE_INSTANCE_ID;
+            }
+            if (!nodeInstanceId.equals(expectedNodeInstanceId)) {
+                lastActivityNanos.set(System.nanoTime());
+                throw new WebApplicationException(Response.status(Response.Status.PRECONDITION_FAILED).build());
+            }
         }
 
         public void setInitialTaskInfo(TaskInfo initialTaskInfo)
@@ -975,7 +1016,7 @@ public class TestHttpRemoteTask
                     // This way, the version number can't be reached if it is reset to 0.
                     version = 1_000_000;
                 }
-                case TASK_MISMATCH, REJECTED_EXECUTION, STUCK_TERMINATING, NO_FAILURE -> {}
+                case TASK_MISMATCH, NODE_RESTARTED, REJECTED_EXECUTION, STUCK_TERMINATING, NO_FAILURE -> {}
                 default -> throw new UnsupportedOperationException();
             }
         }
@@ -1050,7 +1091,7 @@ public class TestHttpRemoteTask
                         throw new RejectedExecutionException();
                     }
                 }
-                case STUCK_TERMINATING, NO_FAILURE -> {}
+                case NODE_RESTARTED, STUCK_TERMINATING, NO_FAILURE -> {}
                 default -> throw new UnsupportedOperationException();
             }
 

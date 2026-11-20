@@ -132,6 +132,53 @@ public class TestLocalDynamicFilterConsumer
     }
 
     @Test
+    public void testConsecutiveValues()
+    {
+        TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMap.of(new DynamicFilterId("123"), 0),
+                ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
+                ImmutableList.of(collector),
+                DataSize.of(100, KILOBYTE));
+
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 12L)))));
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 11L))));
+        filter.setPartitionCount(2);
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.create(ValueSet.ofRanges(range(INTEGER, 10L, true, 12L, true)), false)));
+    }
+
+    @Test
+    public void testConsecutiveValuesWithOtherFilters()
+    {
+        DynamicFilterId consecutiveFilter = new DynamicFilterId("123");
+        DynamicFilterId gapFilter = new DynamicFilterId("456");
+        DynamicFilterId allFilter = new DynamicFilterId("789");
+        TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMap.of(consecutiveFilter, 0, gapFilter, 1, allFilter, 2),
+                ImmutableMap.of(consecutiveFilter, INTEGER, gapFilter, INTEGER, allFilter, INTEGER),
+                ImmutableList.of(collector),
+                DataSize.of(100, KILOBYTE));
+        filter.setPartitionCount(2);
+
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                consecutiveFilter, Domain.multipleValues(INTEGER, ImmutableList.of(10L, 12L)),
+                gapFilter, Domain.singleValue(INTEGER, 1L),
+                allFilter, Domain.all(INTEGER))));
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                consecutiveFilter, Domain.create(ValueSet.of(INTEGER, 11L), true),
+                gapFilter, Domain.singleValue(INTEGER, 3L),
+                allFilter, Domain.singleValue(INTEGER, 5L))));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
+                consecutiveFilter, Domain.create(ValueSet.ofRanges(range(INTEGER, 10L, true, 12L, true)), true),
+                gapFilter, Domain.multipleValues(INTEGER, ImmutableList.of(1L, 3L)),
+                allFilter, Domain.all(INTEGER)));
+    }
+
+    @Test
     public void testAllDomain()
     {
         DynamicFilterId filter1 = new DynamicFilterId("123");

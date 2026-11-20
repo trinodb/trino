@@ -113,7 +113,7 @@ public class BenchmarkBinPackingNodeAllocator
             MemoryInfo memoryInfo = buildWorkerMemoryInfo(DataSize.ofBytes(0), ImmutableMap.of());
             for (int i = 0; i < nodeCount; i++) {
                 String nodeIdentifier = "node" + i;
-                nodes.add(new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1:" + (8000 + i)), NodeVersion.UNKNOWN, false));
+                nodes.add(new InternalNode(nodeIdentifier, nodeIdentifier + "-instance", URI.create("local://127.0.0.1:" + (8000 + i)), NodeVersion.UNKNOWN, false));
                 workerMemoryInfos.put(nodeIdentifier, Optional.of(memoryInfo));
             }
             TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(ImmutableSet.copyOf(nodes));

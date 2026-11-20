@@ -210,6 +210,46 @@ public abstract class AbstractTestS3FileSystem
     }
 
     @Test
+    void testListKeysWithLeadingSlash()
+            throws IOException
+    {
+        try (S3Client s3Client = createS3Client()) {
+            List<String> keys = List.of("/leading-slash/file", "/leading-slash/nested/file");
+            for (String key : keys) {
+                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                        .bucket(bucket())
+                        .key(key)
+                        .applyMutation(builder -> {
+                            if (useServerSideEncryptionWithCustomerKey()) {
+                                builder.sseCustomerAlgorithm(AES256.toString());
+                                builder.sseCustomerKey(encoded(randomEncryptionKey));
+                                builder.sseCustomerKeyMD5(md5Checksum(randomEncryptionKey));
+                            }
+                        })
+                        .build();
+                s3Client.putObject(putObjectRequest, RequestBody.fromBytes("abc".getBytes(UTF_8)));
+            }
+            try {
+                Location directory = Location.of("s3://%s//leading-slash/".formatted(bucket()));
+
+                assertThat(toList(getFileSystem().listFiles(directory)))
+                        .extracting(FileEntry::location)
+                        .containsExactlyInAnyOrder(
+                                Location.of("s3://%s//leading-slash/file".formatted(bucket())),
+                                Location.of("s3://%s//leading-slash/nested/file".formatted(bucket())));
+
+                assertThat(getFileSystem().listDirectories(directory))
+                        .containsExactly(Location.of("s3://%s//leading-slash/nested/".formatted(bucket())));
+            }
+            finally {
+                for (String key : keys) {
+                    s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+                }
+            }
+        }
+    }
+
+    @Test
     void testExistingDirectoryWithTrailingSlash()
             throws IOException
     {

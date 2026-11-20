@@ -3543,7 +3543,7 @@ class StatementAnalyzer
                 }
             }
 
-            if (node instanceof Intersect || node instanceof Except || node instanceof Union && node.isDistinct()) {
+            if (node instanceof Intersect || node instanceof Except || (node instanceof Union && node.isDistinct())) {
                 for (Type type : outputFieldTypes) {
                     if (!type.isComparable()) {
                         throw semanticException(
