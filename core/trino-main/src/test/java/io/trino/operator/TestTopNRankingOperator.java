@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.memory.MemoryPool;
 import io.trino.operator.TopNRankingOperator.TopNRankingOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -25,6 +28,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -37,12 +41,15 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.operator.OperatorAssertion.finishOperator;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -296,6 +303,95 @@ public class TestTopNRankingOperator
             }
         }
         assertThat(count).isEqualTo(1_000 * 500);
+    }
+
+    @Test
+    public void testNeedsInputResumesYieldedWork()
+            throws Exception
+    {
+        OperatorFactory operatorFactory = new TopNRankingOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ROW_NUMBER,
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                Ints.asList(0),
+                3,
+                false,
+                10,
+                Optional.empty(),
+                hashStrategyCompiler,
+                orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                blockTypeOperators);
+        DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.of(1, GIGABYTE))
+                .build()
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        MemoryPool memoryPool = driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool();
+        TaskId otherTaskId = new TaskId(new StageId("other_query", 0), 0, 0);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            assertThat(operator.needsInput()).isTrue();
+
+            // another task holds the memory that the hash table growth needs
+            memoryPool.reserve(otherTaskId, "test", memoryPool.getFreeBytes());
+            operator.addInput(getOnlyElement(createPages(BIGINT, 1, 6_000)));
+            assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
+
+            memoryPool.free(otherTaskId, "test", memoryPool.getTaskMemoryReservations().get(otherTaskId));
+            assertThat(operator.needsInput()).isTrue();
+
+            long rowCount = finishOperator(operator).stream()
+                    .mapToLong(Page::getPositionCount)
+                    .sum();
+            assertThat(rowCount).isEqualTo(6_000);
+        }
+    }
+
+    @Test
+    public void testNeedsInputWaitsForMemoryOfResumedWork()
+            throws Exception
+    {
+        OperatorFactory operatorFactory = new TopNRankingOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ROW_NUMBER,
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                Ints.asList(0),
+                3,
+                false,
+                10,
+                Optional.empty(),
+                hashStrategyCompiler,
+                orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                blockTypeOperators);
+        DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.of(1, GIGABYTE))
+                .build()
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        MemoryPool memoryPool = driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool();
+        TaskId otherTaskId = new TaskId(new StageId("other_query", 0), 0, 0);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            // another task holds the memory that the hash table growth needs
+            memoryPool.reserve(otherTaskId, "test", memoryPool.getFreeBytes());
+            operator.addInput(getOnlyElement(createPages(BIGINT, 1, 6_000)));
+
+            // each round frees only the memory that the operator already waits for
+            while (!operator.needsInput()) {
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
+                memoryPool.free(otherTaskId, "test", 1 - memoryPool.getFreeBytes());
+            }
+            assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
+        }
     }
 
     @Test
