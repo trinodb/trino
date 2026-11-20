@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.SortedSet;
 
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
@@ -160,6 +161,22 @@ public final class TestTimeZoneKey
 
         assertThat(TimeZoneKey.getTimeZoneKey("+0735")).isSameAs(TimeZoneKey.getTimeZoneKeyForOffset(7 * 60 + 35));
         assertThat(TimeZoneKey.getTimeZoneKey("-0735")).isSameAs(TimeZoneKey.getTimeZoneKeyForOffset(-(7 * 60 + 35)));
+    }
+
+    @Test
+    public void testPrefixedOffsetZones()
+    {
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            if (!(timeZoneKey.getZoneId() instanceof ZoneOffset offset)) {
+                continue;
+            }
+            for (String prefix : List.of("GMT", "UTC", "UT", "Etc/UTC", "Etc/UT")) {
+                String zoneId = prefix + offset.getId();
+                assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).as(zoneId).isSameAs(timeZoneKey);
+            }
+            String zoneId = "Etc/GMT" + ZoneOffset.ofTotalSeconds(-offset.getTotalSeconds()).getId();
+            assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).as(zoneId).isSameAs(timeZoneKey);
+        }
     }
 
     @Test
