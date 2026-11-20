@@ -181,7 +181,7 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final Session session;
         private final boolean dynamicFiltering;
-        private final EffectivePredicateExtractor effectivePredicateExtractor;
+        private final Function<PlanNode, Expression> effectivePredicate;
         private final boolean allowUnsafePushdown;
 
         private Rewriter(
@@ -203,9 +203,10 @@ public class PredicatePushDown
             this.session = requireNonNull(session, "session is null");
             this.dynamicFiltering = dynamicFiltering;
 
-            this.effectivePredicateExtractor = new EffectivePredicateExtractor(
+            this.effectivePredicate = new EffectivePredicateExtractor(
                     plannerContext,
-                    useTableProperties && isPredicatePushdownUseTableProperties(session));
+                    useTableProperties && isPredicatePushdownUseTableProperties(session))
+                    .memoizing(session, symbolAllocator);
             optimizer = plannerContext.getExpressionOptimizer();
             this.allowUnsafePushdown = SystemSessionProperties.isUnsafePushdownAllowed(session);
         }
@@ -436,8 +437,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicate.apply(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicate.apply(node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -705,8 +706,8 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicate.apply(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicate.apply(node.getRight());
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -1296,8 +1297,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getFilteringSource()));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicate.apply(node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicate.apply(node.getFilteringSource()));
             Expression joinExpression = comparison(
                     metadata,
                     getCharVarcharCoercion(session),

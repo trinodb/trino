@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +101,18 @@ public class EffectivePredicateExtractor
 
     public Expression extract(Session session, SymbolAllocator symbolAllocator, PlanNode node)
     {
-        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties), null);
+        return new Visitor(plannerContext, session, symbolAllocator, useTableProperties).extract(node);
+    }
+
+    /**
+     * Returns an extractor that remembers the predicate of every node it has visited, so a
+     * repeated request for a node, or for a node below one already visited, does not walk its
+     * subtree again. Nodes are matched by identity, so the plan nodes passed in must not change
+     * while the returned function is in use.
+     */
+    public Function<PlanNode, Expression> memoizing(Session session, SymbolAllocator symbolAllocator)
+    {
+        return new Visitor(plannerContext, session, symbolAllocator, useTableProperties)::extract;
     }
 
     private static class Visitor
@@ -112,6 +124,7 @@ public class EffectivePredicateExtractor
         private final SymbolAllocator symbolAllocator;
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
+        private final Map<PlanNode, Expression> predicates = new IdentityHashMap<>();
 
         public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
         {
@@ -121,6 +134,16 @@ public class EffectivePredicateExtractor
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.useTableProperties = useTableProperties;
             this.domainTranslator = new DomainTranslator(metadata);
+        }
+
+        public Expression extract(PlanNode node)
+        {
+            Expression predicate = predicates.get(node);
+            if (predicate == null) {
+                predicate = node.accept(this, null);
+                predicates.put(node, predicate);
+            }
+            return predicate;
         }
 
         @Override
@@ -155,7 +178,7 @@ public class EffectivePredicateExtractor
                 return TRUE;
             }
 
-            Expression underlyingPredicate = node.getSource().accept(this, context);
+            Expression underlyingPredicate = extract(node.getSource());
 
             return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys());
         }
@@ -163,7 +186,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitFilter(FilterNode node, Void context)
         {
-            Expression underlyingPredicate = node.getSource().accept(this, context);
+            Expression underlyingPredicate = extract(node.getSource());
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
@@ -206,7 +229,7 @@ public class EffectivePredicateExtractor
             // If symbol `s` was present is the source plan and was included in underlying predicate, the predicate is no more valid.
             // Also, if symbol `s` is present in a project assignment's value, e.g. `s1 -> s + 1`, this assignment should't be used to derive equality.
 
-            Expression underlyingPredicate = node.getSource().accept(this, context);
+            Expression underlyingPredicate = extract(node.getSource());
 
             List<Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
                     .filter(SYMBOL_MATCHES_EXPRESSION.negate())
@@ -237,25 +260,25 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitTopN(TopNNode node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitLimit(LimitNode node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitDistinctLimit(DistinctLimitNode node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
@@ -277,19 +300,19 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitSort(SortNode node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitWindow(WindowNode node, Void context)
         {
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitPatternRecognition(PatternRecognitionNode node, Void context)
         {
-            Expression sourcePredicate = node.getSource().accept(this, context);
+            Expression sourcePredicate = extract(node.getSource());
             return pullExpressionThroughSymbols(sourcePredicate, node.getOutputSymbols());
         }
 
@@ -303,7 +326,7 @@ public class EffectivePredicateExtractor
         public Expression visitUnnest(UnnestNode node, Void context)
         {
             return switch (node.getJoinType()) {
-                case INNER, LEFT -> pullExpressionThroughSymbols(node.getSource().accept(this, context), node.getOutputSymbols());
+                case INNER, LEFT -> pullExpressionThroughSymbols(extract(node.getSource()), node.getOutputSymbols());
                 case RIGHT, FULL -> TRUE;
             };
         }
@@ -311,8 +334,8 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitJoin(JoinNode node, Void context)
         {
-            Expression leftPredicate = node.getLeft().accept(this, context);
-            Expression rightPredicate = node.getRight().accept(this, context);
+            Expression leftPredicate = extract(node.getLeft());
+            Expression rightPredicate = extract(node.getRight());
 
             List<Expression> joinConjuncts = node.getCriteria().stream()
                     .map(clause -> clause.toExpression(metadata, getCharVarcharCoercion(session)))
@@ -488,14 +511,14 @@ public class EffectivePredicateExtractor
         public Expression visitSemiJoin(SemiJoinNode node, Void context)
         {
             // Filtering source does not change the effective predicate over the output symbols
-            return node.getSource().accept(this, context);
+            return extract(node.getSource());
         }
 
         @Override
         public Expression visitSpatialJoin(SpatialJoinNode node, Void context)
         {
-            Expression leftPredicate = node.getLeft().accept(this, context);
-            Expression rightPredicate = node.getRight().accept(this, context);
+            Expression leftPredicate = extract(node.getLeft());
+            Expression rightPredicate = extract(node.getRight());
 
             return switch (node.getType()) {
                 case INNER -> combineConjuncts(ImmutableList.<Expression>builder()
@@ -514,7 +537,7 @@ public class EffectivePredicateExtractor
             // Find the predicates that can be pulled up from each source
             List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression underlyingPredicate = node.getSources().get(i).accept(this, null);
+                Expression underlyingPredicate = extract(node.getSources().get(i));
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
