@@ -54,12 +54,26 @@ public final class TestingMetadataManager
         private TypeManager typeManager = TESTING_TYPE_MANAGER;
         private GlobalFunctionCatalog globalFunctionCatalog;
         private LanguageFunctionManager languageFunctionManager;
+        private CatalogManager catalogManager = NO_CATALOGS;
+        private SystemSecurityMetadata systemSecurityMetadata;
 
         private Builder() {}
 
         public Builder withTransactionManager(TransactionManager transactionManager)
         {
             this.transactionManager = transactionManager;
+            return this;
+        }
+
+        public Builder withCatalogManager(CatalogManager catalogManager)
+        {
+            this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+            return this;
+        }
+
+        public Builder withSystemSecurityMetadata(SystemSecurityMetadata systemSecurityMetadata)
+        {
+            this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
             return this;
         }
 
@@ -106,15 +120,20 @@ public final class TestingMetadataManager
 
             TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of()));
 
+            SystemSecurityMetadata systemSecurityMetadata = this.systemSecurityMetadata;
+            if (systemSecurityMetadata == null) {
+                systemSecurityMetadata = new SecurityMetadata();
+            }
+
             return new MetadataManager(
                     new AllowAllAccessControl(),
-                    new SecurityMetadata(),
+                    systemSecurityMetadata,
                     transactionManager,
                     globalFunctionCatalog,
                     languageFunctionManager,
                     tableFunctionRegistry,
                     typeManager,
-                    NO_CATALOGS);
+                    catalogManager);
         }
     }
 
