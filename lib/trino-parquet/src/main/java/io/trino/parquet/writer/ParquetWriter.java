@@ -359,12 +359,16 @@ public class ParquetWriter
         CompressionStats compressionStats = columnWriters.stream()
                 .map(ColumnWriter::getCompressionStats)
                 .reduce(CompressionStats.EMPTY, CompressionStats::add);
-        updateRowGroups(columnMetaDataBuilder.build(), outputStream.longSize(), compressionStats);
+        RowGroup rowGroup = updateRowGroups(columnMetaDataBuilder.build(), outputStream.longSize(), compressionStats);
 
         // flush pages
         for (BufferData bufferData : bufferDataList) {
             bufferData.getData()
                     .forEach(data -> data.writeData(outputStream));
+        }
+
+        for (int i = 0; i < bufferDataList.size(); i++) {
+            bufferDataList.get(i).writePageIndexes(rowGroup.getColumns().get(i), outputStream);
         }
 
         bloomFilterGroups.add(bufferDataList.stream().map(BufferData::getBloomFilter).collect(toImmutableList()));
@@ -420,15 +424,17 @@ public class ParquetWriter
         }
     }
 
-    private void updateRowGroups(List<ColumnMetaData> columnMetaData, long fileOffset, CompressionStats compressionStats)
+    private RowGroup updateRowGroups(List<ColumnMetaData> columnMetaData, long fileOffset, CompressionStats compressionStats)
     {
         long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
         previousCompressionStats = previousCompressionStats.add(compressionStats);
         List<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
-        fileFooter.addRowGroup(new RowGroup(columnChunks, totalBytes, rows)
+        RowGroup rowGroup = new RowGroup(columnChunks, totalBytes, rows)
                 .setTotal_compressed_size(totalCompressedBytes)
-                .setFile_offset(fileOffset));
+                .setFile_offset(fileOffset);
+        fileFooter.addRowGroup(rowGroup);
+        return rowGroup;
     }
 
     private void updateEstimatedBufferedBytes()

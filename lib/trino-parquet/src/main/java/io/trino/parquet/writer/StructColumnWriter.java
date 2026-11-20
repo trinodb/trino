@@ -62,7 +62,7 @@ public class StructColumnWriter
         for (int i = 0; i < columnWriters.size(); ++i) {
             ColumnWriter columnWriter = columnWriters.get(i);
             Block field = fields.get(i);
-            columnWriter.writeBlock(new ColumnChunk(field, defLevelWriterProviders, repLevelWriterProviders));
+            columnWriter.writeBlock(new ColumnChunk(field, columnChunk.getRowCount(), defLevelWriterProviders, repLevelWriterProviders));
         }
     }
 
