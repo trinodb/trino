@@ -22,6 +22,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -29,11 +31,35 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import java.net.URI;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
+
 final class S3FileSystemUtils
 {
     private S3FileSystemUtils() {}
 
-    public static S3Presigner createS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    public static S3GetObjectPresigner createS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    {
+        if (settings.lifetimeValidation()) {
+            return createValidatingS3PreSigner(settings, s3Client);
+        }
+        S3Presigner presigner = createLegacyS3PreSigner(settings, s3Client);
+        return new S3GetObjectPresigner()
+        {
+            @Override
+            public PresignedGetObjectRequest presignGetObject(GetObjectPresignRequest request)
+            {
+                return presigner.presignGetObject(request);
+            }
+
+            @Override
+            public void close()
+            {
+                presigner.close();
+            }
+        };
+    }
+
+    private static S3Presigner createLegacyS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
     {
         S3Presigner.Builder s3 = S3Presigner.builder();
         s3.s3Client(s3Client);
@@ -61,6 +87,23 @@ final class S3FileSystemUtils
         }
 
         return s3.build();
+    }
+
+    private static S3PresignedUriGenerator createValidatingS3PreSigner(S3PresignerSettings settings, S3Client s3Client)
+    {
+        var clientConfig = s3Client.serviceClientConfiguration();
+        checkState(clientConfig.credentialsProvider() instanceof AwsCredentialsProvider, "Unsupported S3 credentials provider");
+        S3Presigner.Builder builder = S3Presigner.builder()
+                .s3Client(s3Client)
+                .region(clientConfig.region())
+                // Every request uses a validated credential snapshot. Do not resolve another identity.
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .disableS3ExpressSessionAuth(true)
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(settings.pathStyleAccess())
+                        .build());
+        clientConfig.endpointOverride().ifPresent(builder::endpointOverride);
+        return new S3PresignedUriGenerator(builder.build(), (AwsCredentialsProvider) clientConfig.credentialsProvider());
     }
 
     static StsClient createStsClient(Optional<String> endpoint, Optional<String> region, Optional<AwsCredentialsProvider> credentialsProvider)

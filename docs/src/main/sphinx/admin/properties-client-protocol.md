@@ -205,6 +205,36 @@ expires and is pruned.
 Maximum available time for the client to retrieve spooled segment using the
 pre-signed URI.
 
+(prop-spooling-presigned-uri-lifetime)=
+### `s3.presigned-uri.lifetime-validation.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Applies when [](/object-storage/file-system-s3) is activated with
+`fs.s3.enabled`. This is an S3 file system property, configured alongside the
+other `s3.*` properties.
+
+S3 presigned URIs signed with temporary credentials expire when those
+credentials expire, even if the URI specifies a later expiration time.
+Set `s3.presigned-uri.lifetime-validation.enabled=true` to avoid this. Trino
+then refreshes renewable signing credentials when necessary. If a fresh session
+is too short, signing fails instead of returning a URI with a shorter usable
+lifetime. Temporary credentials without a known expiration time, including
+session tokens supplied through extra credentials, cannot be used for presigning.
+
+With validation enabled, configure `fs.segment.direct.ttl` so that the TTL fits
+into the credential session duration, which is set with `s3.role-session-duration`.
+Increasing the session duration cannot bypass AWS role limits. Alternatively,
+use the `COORDINATOR_PROXY` or `WORKER_PROXY` retrieval mode of
+`protocol.spooling.retrieval-mode`, which does not require a presigned storage URI.
+
+By default, Trino signs with credentials derived from the S3 file system
+configuration. With this property enabled, Trino uses the S3 client's credentials.
+
+Credential revocation or permission changes can still invalidate a URI
+before its expiration.
+
 ### `fs.segment.encryption`
 
 - **Type:** [](prop-type-boolean)
