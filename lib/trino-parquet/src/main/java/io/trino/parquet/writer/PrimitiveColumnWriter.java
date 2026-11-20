@@ -33,7 +33,6 @@ import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.DataPageHeader;
@@ -98,7 +97,7 @@ public class PrimitiveColumnWriter
     private final Map<org.apache.parquet.format.Encoding, Integer> dataPagesWithEncoding = new HashMap<>();
     private final Map<org.apache.parquet.format.Encoding, Integer> dictionaryPagesWithEncoding = new HashMap<>();
     private final Statistics<?> columnStatistics;
-    private final Optional<BloomFilter> bloomFilter;
+    private final Optional<FoldingBloomFilter> bloomFilter;
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long dictionaryPageCompressedSize;
@@ -128,7 +127,7 @@ public class PrimitiveColumnWriter
             CompressionBuffers compressionBuffers,
             int pageSizeThreshold,
             int pageValueCountLimit,
-            Optional<BloomFilter> bloomFilter)
+            Optional<FoldingBloomFilter> bloomFilter)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -199,7 +198,7 @@ public class PrimitiveColumnWriter
         return ImmutableList.of(new BufferData(
                 dataStreams.data(),
                 dataStreams.dictionaryPageSize(),
-                isOnlyDictionaryEncodingPages ? Optional.empty() : dataStreams.bloomFilter(),
+                isOnlyDictionaryEncodingPages ? Optional.empty() : bloomFilter.map(FoldingBloomFilter::fold),
                 columnMetaData));
     }
 
@@ -334,7 +333,7 @@ public class PrimitiveColumnWriter
         getDataStreamsCalled = true;
 
         outputs.add(createDataOutput(compressedOutputStream));
-        return new DataStreams(outputs.build(), dictionaryPageSize, bloomFilter);
+        return new DataStreams(outputs.build(), dictionaryPageSize);
     }
 
     private ParquetDataOutput compress(BytesInput bytesInput)
@@ -453,5 +452,5 @@ public class PrimitiveColumnWriter
         return header;
     }
 
-    private record DataStreams(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter) {}
+    private record DataStreams(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize) {}
 }
