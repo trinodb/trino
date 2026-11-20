@@ -22,6 +22,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.memory.MemoryPool;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
@@ -70,6 +73,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -84,6 +88,7 @@ import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
+import static io.trino.operator.OperatorAssertion.finishOperator;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
@@ -608,6 +613,80 @@ public class TestHashAggregationOperator
             }
         }
         assertThat(count).isEqualTo(6_000 * 600);
+    }
+
+    @Test
+    public void testNeedsInputResumesYieldedWork()
+            throws Exception
+    {
+        OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                SINGLE,
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                OptionalInt.of(1),
+                1,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                hashStrategyCompiler,
+                Optional.empty());
+        DriverContext driverContext = createDriverContext(DataSize.of(1, GIGABYTE).toBytes());
+        MemoryPool memoryPool = driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool();
+        TaskId otherTaskId = new TaskId(new StageId("other_query", 0), 0, 0);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            assertThat(operator.needsInput()).isTrue();
+
+            // another task holds the memory that the hash table growth needs
+            memoryPool.reserve(otherTaskId, "test", memoryPool.getFreeBytes());
+            operator.addInput(getOnlyElement(createPages(BIGINT, 1, 6_000)));
+            assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
+            assertThat(operator.needsInput()).isFalse();
+
+            memoryPool.free(otherTaskId, "test", memoryPool.getTaskMemoryReservations().get(otherTaskId));
+            assertThat(operator.needsInput()).isTrue();
+
+            long groupCount = finishOperator(operator).stream()
+                    .mapToLong(Page::getPositionCount)
+                    .sum();
+            assertThat(groupCount).isEqualTo(6_000);
+        }
+    }
+
+    @Test
+    public void testNeedsInputWaitsForMemoryOfResumedWork()
+            throws Exception
+    {
+        OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                SINGLE,
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                OptionalInt.of(1),
+                1,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                hashStrategyCompiler,
+                Optional.empty());
+        DriverContext driverContext = createDriverContext(DataSize.of(1, GIGABYTE).toBytes());
+        MemoryPool memoryPool = driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool();
+        TaskId otherTaskId = new TaskId(new StageId("other_query", 0), 0, 0);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            // another task holds the memory that the hash table growth needs
+            memoryPool.reserve(otherTaskId, "test", memoryPool.getFreeBytes());
+            operator.addInput(getOnlyElement(createPages(VARCHAR, 1, 6_000)));
+
+            // each round frees only the memory that the operator already waits for
+            while (!operator.needsInput()) {
+                memoryPool.free(otherTaskId, "test", 1 - memoryPool.getFreeBytes());
+            }
+            assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
+        }
     }
 
     @Test
