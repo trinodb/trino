@@ -304,10 +304,26 @@ public final class SortedRangeSet
             dictionaryIndex++;
         }
 
+        Block dictionaryValues = block;
+        if (dictionaryIndex < dictionary.length) {
+            dictionary = Arrays.copyOf(dictionary, dictionaryIndex);
+            // Drop unused values when fewer than half of the input positions remain.
+            // Each distinct value has two dictionary indexes for its range bounds.
+            if (dictionaryIndex < block.getPositionCount()) {
+                int[] positions = new int[dictionaryIndex / 2];
+                for (int index = 0; index < positions.length; index++) {
+                    positions[index] = dictionary[index * 2];
+                    dictionary[index * 2] = index;
+                    dictionary[index * 2 + 1] = index;
+                }
+                dictionaryValues = block.copyPositions(positions, 0, positions.length);
+            }
+        }
+
         return new SortedRangeSet(
                 type,
                 allInclusive(dictionaryIndex),
-                DictionaryBlock.create(dictionaryIndex, block, dictionary),
+                DictionaryBlock.create(dictionaryIndex, dictionaryValues, dictionary),
                 DISCRETE);
     }
 
