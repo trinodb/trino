@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -38,7 +39,18 @@ public class TopNOperator
             int n,
             PageWithPositionComparator comparator)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
+        return createOperatorFactory(operatorId, planNodeId, types, n, comparator, Optional.empty());
+    }
+
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            List<? extends Type> types,
+            int n,
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> filter)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator, filter));
     }
 
     private static class Factory
@@ -48,6 +60,7 @@ public class TopNOperator
         private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final int n;
+        private final Optional<TopNDynamicFilter> filter;
         private final PageWithPositionComparator comparator;
         private boolean closed;
 
@@ -56,12 +69,14 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
-                PageWithPositionComparator comparator)
+                PageWithPositionComparator comparator,
+                Optional<TopNDynamicFilter> filter)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
+            this.filter = requireNonNull(filter, "filter is null");
             this.comparator = requireNonNull(comparator, "comparator is null");
         }
 
@@ -76,7 +91,8 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
-                    comparator);
+                    comparator,
+                    filter);
         }
 
         @Override
@@ -106,7 +122,7 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator, filter);
         }
     }
 
@@ -117,7 +133,8 @@ public class TopNOperator
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> filter)
     {
         if (n == 0) {
             pages = WorkProcessor.of();
@@ -129,7 +146,8 @@ public class TopNOperator
                                     operatorContext.aggregateUserMemoryContext(),
                                     types,
                                     n,
-                                    comparator)));
+                                    comparator,
+                                    filter)));
         }
     }
 

@@ -140,12 +140,17 @@ public class GroupedTopNRowNumberAccumulator
         return heapSize;
     }
 
+    boolean isFull(int groupId)
+    {
+        return groupId < groupIdToHeapBuffer.getTotalGroups() && calculateRootRowNumber(groupId) == topN;
+    }
+
     private long calculateRootRowNumber(int groupId)
     {
         return groupIdToHeapBuffer.getHeapSize(groupId);
     }
 
-    private long peekRootRowId(int groupId)
+    long peekRootRowId(int groupId)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkArgument(heapRootNodeIndex != UNKNOWN_INDEX, "No root to peek");

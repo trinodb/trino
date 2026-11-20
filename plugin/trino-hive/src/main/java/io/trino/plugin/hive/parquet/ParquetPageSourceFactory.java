@@ -34,8 +34,10 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.crypto.FileDecryptionProperties;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
@@ -52,8 +54,10 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -94,6 +98,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -107,6 +112,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isParquetVectorizedDeco
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
+import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.canUseStatistics;
 import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -184,6 +190,27 @@ public class ParquetPageSourceFactory
             AcidTransaction transaction,
             MemoryContext memoryContext)
     {
+        return createPageSource(session, path, start, length, estimatedFileSize, fileModifiedTime, schema, columns, effectivePredicate, acidInfo, bucketNumber, originalFile, transaction, memoryContext, DynamicFilter.EMPTY);
+    }
+
+    @Override
+    public Optional<ConnectorPageSource> createPageSource(
+            ConnectorSession session,
+            Location path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Schema schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction,
+            MemoryContext memoryContext,
+            DynamicFilter dynamicFilter)
+    {
         if (!isParquetSerde(schema.serializationLibraryName())) {
             return Optional.empty();
         }
@@ -207,7 +234,8 @@ public class ParquetPageSourceFactory
                 fileDecryptionProperties,
                 domainCompactionThreshold,
                 OptionalLong.of(estimatedFileSize),
-                memoryContext));
+                memoryContext,
+                dynamicFilter));
     }
 
     /**
@@ -228,6 +256,26 @@ public class ParquetPageSourceFactory
             int domainCompactionThreshold,
             OptionalLong estimatedFileSize,
             MemoryContext externalMemoryContext)
+    {
+        return createPageSource(inputFile, start, length, columns, disjunctTupleDomains, useColumnNames, timeZone, stats, options, parquetWriteValidation, fileDecryptionProperties, domainCompactionThreshold, estimatedFileSize, externalMemoryContext, DynamicFilter.EMPTY);
+    }
+
+    static ConnectorPageSource createPageSource(
+            TrinoInputFile inputFile,
+            long start,
+            long length,
+            List<HiveColumnHandle> columns,
+            List<TupleDomain<HiveColumnHandle>> disjunctTupleDomains,
+            boolean useColumnNames,
+            DateTimeZone timeZone,
+            FileFormatDataSourceStats stats,
+            ParquetReaderOptions options,
+            Optional<ParquetWriteValidation> parquetWriteValidation,
+            Optional<FileDecryptionProperties> fileDecryptionProperties,
+            int domainCompactionThreshold,
+            OptionalLong estimatedFileSize,
+            MemoryContext externalMemoryContext,
+            DynamicFilter dynamicFilter)
     {
         MessageType fileSchema;
         MessageType requestedSchema;
@@ -279,21 +327,39 @@ public class ParquetPageSourceFactory
 
             ParquetDataSourceId dataSourceId = dataSource.getId();
             ParquetDataSource finalDataSource = dataSource;
-            ParquetReaderProvider parquetReaderProvider = (fields, appendRowNumberColumn) -> new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    fields,
-                    appendRowNumberColumn,
-                    rowGroups,
-                    finalDataSource,
-                    timeZone,
-                    memoryContext,
-                    options,
-                    exception -> handleException(dataSourceId, exception),
-                    // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
-                    // are not present in the Parquet files which are read with disjunct predicates.
-                    parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.getFirst()) : Optional.empty(),
-                    parquetWriteValidation,
-                    parquetMetadata.getDecryptionContext());
+            ParquetReaderProvider parquetReaderProvider = (fields, appendRowNumberColumn) -> {
+                ParquetReader reader = new ParquetReader(
+                        Optional.ofNullable(fileMetaData.getCreatedBy()),
+                        fields,
+                        appendRowNumberColumn,
+                        rowGroups,
+                        finalDataSource,
+                        timeZone,
+                        memoryContext,
+                        options,
+                        exception -> handleException(dataSourceId, exception),
+                        // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
+                        // are not present in the Parquet files which are read with disjunct predicates.
+                        parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.getFirst()) : Optional.empty(),
+                        parquetWriteValidation,
+                        parquetMetadata.getDecryptionContext());
+                if (!options.isIgnoreStatistics() && dynamicFilter.shouldRefreshDuringScan() && parquetWriteValidation.isEmpty()) {
+                    Map<ColumnHandle, ColumnDescriptor> filterColumns = new HashMap<>();
+                    for (ColumnHandle covered : dynamicFilter.getColumnsCovered()) {
+                        HiveColumnHandle column = (HiveColumnHandle) covered;
+                        // Hive can coerce the partition's column after reading the file.
+                        if (columns.contains(column)) {
+                            getPredicateColumnDescriptor(column, descriptorsByPath, fileSchema, useColumnNames)
+                                    .filter(descriptor -> canUseStatistics(descriptor.getPrimitiveType(), column.getType()))
+                                    .ifPresent(descriptor -> filterColumns.put(column, descriptor));
+                        }
+                    }
+                    if (!filterColumns.isEmpty()) {
+                        reader.setRowGroupFilter(group -> matchesStatistics(dynamicFilter.getCurrentPredicate(), filterColumns, group.prunedBlockMetadata(), dataSourceId, timeZone));
+                    }
+                }
+                return reader;
+            };
             return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (Exception e) {
@@ -313,6 +379,30 @@ public class ParquetPageSourceFactory
             String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e.getMessage());
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static boolean matchesStatistics(
+            TupleDomain<ColumnHandle> predicate,
+            Map<ColumnHandle, ColumnDescriptor> filterColumns,
+            PrunedBlockMetadata metadata,
+            ParquetDataSourceId dataSourceId,
+            DateTimeZone timeZone)
+            throws ParquetCorruptionException
+    {
+        if (predicate.isNone()) {
+            return false;
+        }
+        for (Entry<ColumnHandle, Domain> entry : predicate.getDomains().orElseThrow().entrySet()) {
+            ColumnDescriptor descriptor = filterColumns.get(entry.getKey());
+            if (descriptor != null) {
+                ColumnChunkMetadata chunk = metadata.getColumnChunkMetaData(descriptor);
+                Domain range = getDomain(descriptor, entry.getValue().getType(), chunk.getValueCount(), chunk.getStatistics(), dataSourceId, timeZone);
+                if (!entry.getValue().overlaps(range)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public static ParquetDataSource createDataSource(
@@ -428,44 +518,38 @@ public class ParquetPageSourceFactory
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            HiveColumnHandle columnHandle = entry.getKey();
-            // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (columnHandle.getHiveType().getCategory() != PRIMITIVE || columnHandle.getColumnType() != REGULAR) {
-                continue;
-            }
-
-            ColumnDescriptor descriptor;
-
-            Optional<org.apache.parquet.schema.Type> baseColumnType = getBaseColumnParquetType(columnHandle, fileSchema, useColumnNames);
-            // Parquet file has fewer column than partition
-            if (baseColumnType.isEmpty()) {
-                continue;
-            }
-
-            if (baseColumnType.get().isPrimitive()) {
-                descriptor = descriptorsByPath.get(ImmutableList.of(baseColumnType.get().getName()));
-            }
-            else {
-                if (columnHandle.getHiveColumnProjectionInfo().isEmpty()) {
-                    continue;
-                }
-                Optional<List<Type>> subfieldTypes = dereferenceSubFieldTypes(baseColumnType.get().asGroupType(), columnHandle.getHiveColumnProjectionInfo().get());
-                // failed to look up subfields from the file schema
-                if (subfieldTypes.isEmpty()) {
-                    continue;
-                }
-
-                descriptor = descriptorsByPath.get(ImmutableList.<String>builder()
-                        .add(baseColumnType.get().getName())
-                        .addAll(subfieldTypes.get().stream().map(Type::getName).collect(toImmutableList()))
-                        .build());
-            }
-
-            if (descriptor != null) {
-                predicate.put(descriptor, entry.getValue());
-            }
+            getPredicateColumnDescriptor(entry.getKey(), descriptorsByPath, fileSchema, useColumnNames)
+                    .ifPresent(descriptor -> predicate.put(descriptor, entry.getValue()));
         }
         return TupleDomain.withColumnDomains(predicate.buildOrThrow());
+    }
+
+    private static Optional<ColumnDescriptor> getPredicateColumnDescriptor(
+            HiveColumnHandle column,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            MessageType fileSchema,
+            boolean useColumnNames)
+    {
+        // Parquet only stores statistics for primitive columns.
+        if (column.getHiveType().getCategory() != PRIMITIVE || column.getColumnType() != REGULAR) {
+            return Optional.empty();
+        }
+
+        Optional<Type> baseType = getBaseColumnParquetType(column, fileSchema, useColumnNames);
+        if (baseType.isEmpty()) {
+            return Optional.empty();
+        }
+        if (baseType.get().isPrimitive()) {
+            return Optional.ofNullable(descriptorsByPath.get(ImmutableList.of(baseType.get().getName())));
+        }
+        if (column.getHiveColumnProjectionInfo().isEmpty()) {
+            return Optional.empty();
+        }
+        return dereferenceSubFieldTypes(baseType.get().asGroupType(), column.getHiveColumnProjectionInfo().orElseThrow())
+                .map(subfields -> descriptorsByPath.get(ImmutableList.<String>builder()
+                        .add(baseType.get().getName())
+                        .addAll(subfields.stream().map(Type::getName).collect(toImmutableList()))
+                        .build()));
     }
 
     public interface ParquetReaderProvider

@@ -105,6 +105,110 @@ public class TestParquetPageSkipping
     }
 
     @Test
+    public void testTopNPrunesRowGroups()
+    {
+        String table = "test_topn_" + randomNameSuffix();
+        Session writeSession = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_writer_row_group_max_row_count", "1000")
+                .build();
+        try {
+            assertUpdate(
+                    writeSession,
+                    """
+                    CREATE TABLE %s WITH (format = 'PARQUET', bucketed_by = ARRAY['bucket'], bucket_count = 1, sorted_by = ARRAY['key'])
+                    AS SELECT CAST(x AS bigint) AS key, 0 AS bucket FROM UNNEST(sequence(1, 8000)) t(x)
+                    """.formatted(table),
+                    8000);
+            assertQuery("SELECT count(DISTINCT \"$path\") FROM " + table, "VALUES 1");
+            String sql = "SELECT key FROM " + table + " ORDER BY key LIMIT 3";
+            Session disabled = Session.builder(getSession()).setSystemProperty("enable_dynamic_filtering", "false").build();
+            assertQueryStats(
+                    disabled,
+                    sql,
+                    stats -> assertThat(stats.getPhysicalInputPositions()).isEqualTo(8000),
+                    result -> assertThat(result.getOnlyColumn()).containsExactly(1L, 2L, 3L));
+            assertQueryStats(getSession(),
+                    sql,
+                    stats -> assertThat(stats.getPhysicalInputPositions()).isEqualTo(1000),
+                    result -> assertThat(result.getOnlyColumn()).containsExactly(1L, 2L, 3L));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testTopNPrunesRowGroupsForScalarTypes()
+    {
+        String table = "test_topn_types_" + randomNameSuffix();
+        Session writer = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_writer_row_group_max_row_count", "1000")
+                .build();
+        try {
+            assertUpdate(
+                    writer,
+                    """
+                    CREATE TABLE %s WITH (format = 'PARQUET', bucketed_by = ARRAY['bucket'], bucket_count = 1, sorted_by = ARRAY['id'])
+                    AS SELECT x AS id, 0 AS bucket, x > 4000 AS flag, CAST(x / 100 AS tinyint) AS tiny,
+                        CAST(x AS smallint) AS small, CAST(x AS real) AS r, CAST(x AS double) AS d,
+                        CAST(x AS decimal(8,2)) AS short_decimal, CAST(x AS decimal(30,2)) AS long_decimal,
+                        date_add('day', x, DATE '1960-01-01') AS dt,
+                        lpad(CAST(x AS varchar), 5, '0') AS str,
+                        IF(x <= 1000, to_big_endian_64(x)) AS bin
+                    FROM UNNEST(sequence(1, 8000)) t(x)
+                    """.formatted(table),
+                    8000);
+            Session disabled = Session.builder(getSession()).setSystemProperty("enable_dynamic_filtering", "false").build();
+            for (String key : List.of("id", "flag", "tiny", "small", "r", "d", "short_decimal", "long_decimal", "dt", "str", "bin")) {
+                String query = "SELECT " + key + " FROM " + table + " ORDER BY " + key + " LIMIT 3";
+                MaterializedResult expected = computeActual(disabled, query);
+                assertQueryStats(getSession(),
+                        query,
+                        stats -> assertThat(stats.getPhysicalInputPositions()).as(key).isBetween(3L, 7999L),
+                        result -> assertThat(result.getMaterializedRows()).as(key).isEqualTo(expected.getMaterializedRows()));
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testTopNWithCoercedParquetColumns()
+    {
+        String source = "test_topn_source_" + randomNameSuffix();
+        String table = "test_topn_coerced_" + randomNameSuffix();
+        Session writer = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_writer_row_group_max_row_count", "1000")
+                .build();
+        try {
+            assertUpdate(
+                    writer,
+                    """
+                    CREATE TABLE %s WITH (format = 'PARQUET', bucketed_by = ARRAY['bucket'], bucket_count = 1, sorted_by = ARRAY['id'])
+                    AS SELECT x AS id, CAST(x AS real) AS r, concat('a', CAST(x AS varchar)) AS s, 0 AS bucket
+                    FROM UNNEST(sequence(1, 8000)) t(x)
+                    """.formatted(source),
+                    8000);
+            String file = (String) computeScalar("SELECT DISTINCT \"$path\" FROM " + source);
+            assertUpdate("CREATE TABLE %s (id varchar, r double, s varchar(1), bucket integer) WITH (format = 'PARQUET', external_location = '%s')"
+                    .formatted(table, Location.of(file).parentDirectory()));
+
+            Session disabled = Session.builder(getSession()).setSystemProperty("enable_dynamic_filtering", "false").build();
+            for (String ordering : List.of("id", "r", "s, r DESC")) {
+                String sql = "SELECT id FROM " + table + " ORDER BY " + ordering + " LIMIT 3";
+                assertThat(computeActual(sql).getMaterializedRows())
+                        .as(ordering)
+                        .isEqualTo(computeActual(disabled, sql).getMaterializedRows());
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+            assertUpdate("DROP TABLE IF EXISTS " + source);
+        }
+    }
+
+    @Test
     public void testSelectedPositionsPushdown()
     {
         String tableName = "test_selected_positions_pushdown_" + randomNameSuffix();
