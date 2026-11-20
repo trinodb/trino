@@ -261,6 +261,68 @@ public class TestFloatingPointValueSet
     }
 
     @Test
+    public void testLazyRangeView()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            IntFunction<Object> value = finiteValue(type);
+            SortedRangeSet input = SortedRangeSet.of(
+                    Range.lessThan(type, value.apply(0)),
+                    Range.greaterThan(type, value.apply(1)));
+            FloatingPointValueSet values = new FloatingPointValueSet(input, false);
+            SortedRangeSet ordered = values.getOrderedValues();
+            assertThat(ordered.getSpan().isLowUnbounded()).isFalse();
+            assertThat(ordered.getSpan().isHighUnbounded()).isFalse();
+            long initialSize = values.getRetainedSizeInBytes();
+            int hash = values.hashCode();
+            SortedRangeSet ranges = values.asRanges().orElseThrow();
+            assertThat(ranges).isEqualTo(input);
+            assertThat(values.asRanges().orElseThrow()).isSameAs(ranges);
+            assertThat(values.hashCode()).isEqualTo(hash);
+            assertThat(values.getRetainedSizeInBytes()).isEqualTo(initialSize);
+            assertThat(FloatingPointValueSet.orderedRanges(values)).isEqualTo(input.getOrderedRanges());
+            assertThat(values.getRetainedSizeInBytes()).isEqualTo(initialSize);
+            assertThat(values).isEqualTo(new FloatingPointValueSet(input, false));
+        }
+    }
+
+    @Test
+    public void testUnchangedResults()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            ValueSet values = ValueSet.of(type, finiteValue(type).apply(1), nanValue(type));
+            ValueSet all = ValueSet.all(type);
+            ValueSet none = ValueSet.none(type);
+            assertThat(values.union(values)).isSameAs(values);
+            assertThat(values.intersect(values)).isSameAs(values);
+            assertThat(values.union(none)).isSameAs(values);
+            assertThat(none.union(values)).isSameAs(values);
+            assertThat(values.union(all)).isSameAs(all);
+            assertThat(all.union(values)).isSameAs(all);
+            assertThat(values.intersect(all)).isSameAs(values);
+            assertThat(all.intersect(values)).isSameAs(values);
+            assertThat(values.intersect(none)).isSameAs(none);
+            assertThat(none.intersect(values)).isSameAs(none);
+            assertThat(values.union(List.of())).isSameAs(values);
+            assertThatThrownBy(() -> all.union(ValueSet.all(BIGINT))).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> none.intersect(ValueSet.none(BIGINT))).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    public void testExpansionLimits()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            ValueSet values = ValueSet.of(type, finiteValue(type).apply(1), finiteValue(type).apply(2));
+            assertThat(values.tryExpandRanges(1)).isEmpty();
+            assertThat(values.tryExpandRanges(2)).hasValueSatisfying(expanded -> assertThat(ValueSet.copyOf(type, expanded)).isEqualTo(values));
+            ValueSet withNaN = values.union(ValueSet.of(type, nanValue(type)));
+            assertThat(withNaN.tryExpandRanges(2)).isEmpty();
+            assertThat(withNaN.tryExpandRanges(3)).hasValueSatisfying(expanded -> assertThat(ValueSet.copyOf(type, expanded)).isEqualTo(withNaN));
+            assertThat(ValueSet.of(type, nanValue(type)).tryExpandRanges(0)).isEmpty();
+        }
+    }
+
+    @Test
     public void testSerialization()
             throws Exception
     {
@@ -273,7 +335,13 @@ public class TestFloatingPointValueSet
                 .get();
         for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
             Object nan = nanValue(type);
-            for (Domain domain : List.of(Domain.none(type), Domain.all(type), Domain.singleValue(type, nan), Domain.singleValue(type, nan).complement())) {
+            for (Domain domain : List.of(
+                    Domain.none(type),
+                    Domain.all(type),
+                    Domain.singleValue(type, nan),
+                    Domain.singleValue(type, nan).complement(),
+                    Domain.create(ValueSet.ofRanges(Range.lessThan(type, finiteValue(type).apply(0))), true),
+                    Domain.multipleValues(type, List.of(finiteValue(type).apply(1), nan)))) {
                 assertThat(mapper.readValue(mapper.writeValueAsBytes(domain), Domain.class)).isEqualTo(domain);
             }
         }
