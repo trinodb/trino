@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,7 +60,7 @@ public class TrinoWorkerContainer
 
     public TrinoWorkerContainer()
     {
-        this(DEFAULT_IMAGE);
+        this(getDefaultTrinoImage());
     }
 
     public TrinoWorkerContainer(String imageName)

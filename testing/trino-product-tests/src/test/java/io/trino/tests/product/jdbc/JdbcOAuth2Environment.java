@@ -53,6 +53,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
+import static io.trino.testing.containers.TrinoTestImages.getDefaultTrinoImage;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
@@ -74,9 +75,6 @@ public abstract class JdbcOAuth2Environment
     protected static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
     protected static final int TTL_REFRESH_TOKEN_IN_SECONDS = 15;
     protected static final int HTTPS_PORT = 7778;
-    private static final String DEFAULT_TRINO_IMAGE = "trinodb/trino:latest";
-    private static final String TRINO_IMAGE_PROPERTY = "trino.product-tests.image";
-
     protected static final String CLIENT_ID = "trinodb_client_id";
     protected static final String CLIENT_SECRET = "trinodb_client_secret";
     // The JDBC client credentials flow sends the credentials in the request body (client_secret_post)
@@ -293,11 +291,6 @@ public abstract class JdbcOAuth2Environment
      * Subclasses override this to provide specific Trino configuration.
      */
     protected abstract void configureTrino(GenericContainer<?> container);
-
-    private static String getDefaultTrinoImage()
-    {
-        return System.getProperty(TRINO_IMAGE_PROPERTY, DEFAULT_TRINO_IMAGE);
-    }
 
     private static final class FixedHttpsPortTrinoContainer
             extends GenericContainer<FixedHttpsPortTrinoContainer>
