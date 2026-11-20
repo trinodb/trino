@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.min;
 
@@ -30,9 +31,10 @@ public record Range(long begin, long end)
 
     public List<Range> partition(int partitionSize)
     {
+        checkArgument(partitionSize > 0, "partitionSize must be greater than zero");
         ImmutableList.Builder<Range> partitions = ImmutableList.builder();
         long position = begin;
-        while (position <= end) {
+        while (position < end) {
             partitions.add(new Range(position, min(position + partitionSize, end)));
             position += partitionSize;
         }
