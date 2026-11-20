@@ -20,20 +20,20 @@ import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class SuiteDeltaLakeDatabricks18
+public final class SuiteDeltaLakeDatabricks18Part1
 {
-    private SuiteDeltaLakeDatabricks18() {}
+    private SuiteDeltaLakeDatabricks18Part1() {}
 
     static void main()
             throws Exception
     {
-        SuiteRunner.initialize(SuiteDeltaLakeDatabricks18.class);
+        SuiteRunner.initialize(SuiteDeltaLakeDatabricks18Part1.class);
 
         List<TestRunResult> results = new ArrayList<>();
         results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks18Environment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
                 .includeTag(TestGroup.DeltaLakeDatabricks.class)
-                .excludeTag(TestGroup.DeltaLakeExclude18.class)
+                .includeTag(TestGroup.DeltaLakeDatabricksPart1.class)
                 .run());
 
         SuiteRunner.printSummary(results);

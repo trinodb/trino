@@ -28,6 +28,7 @@ import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DAT
 @RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
+@TestGroup.DeltaLakeDatabricksPart1
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeJmxDatabricks
 {
