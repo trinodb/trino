@@ -1,6 +1,6 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, UNKNOWN, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (ca_state, cd_gender, cd_marital_status, cd_dep_count, cd_dep_employed_count, cd_dep_college_count)
                     local exchange (GATHER, SINGLE, [])

@@ -1,6 +1,6 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, UNKNOWN, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_item_id_gid, s_state_gid, groupid)
                     local exchange (REPARTITION, HASH, [i_item_id_gid, s_state_gid, groupid])

@@ -38,6 +38,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,6 +63,7 @@ public class MergeOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final OrderingCompiler orderingCompiler;
+        private final OptionalLong fetch;
         private boolean closed;
 
         public MergeOperatorFactory(
@@ -73,8 +75,10 @@ public class MergeOperator
                 List<Type> types,
                 List<Integer> outputChannels,
                 List<Integer> sortChannels,
-                List<SortOrder> sortOrder)
+                List<SortOrder> sortOrder,
+                OptionalLong fetch)
         {
+            this.fetch = requireNonNull(fetch, "fetch is null");
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
@@ -107,7 +111,8 @@ public class MergeOperator
                     serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey)),
                     orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     outputChannels,
-                    outputTypes);
+                    outputTypes,
+                    fetch);
         }
 
         @Override
@@ -125,6 +130,8 @@ public class MergeOperator
     private final List<Integer> outputChannels;
     private final List<Type> outputTypes;
 
+    private final OptionalLong fetch;
+
     private final SettableFuture<Void> blockedOnSplits = SettableFuture.create();
 
     private final List<WorkProcessor<Page>> pageProducers = new ArrayList<>();
@@ -140,8 +147,10 @@ public class MergeOperator
             PageDeserializer deserializer,
             PageWithPositionComparator comparator,
             List<Integer> outputChannels,
-            List<Type> outputTypes)
+            List<Type> outputTypes,
+            OptionalLong fetch)
     {
+        this.fetch = requireNonNull(fetch, "fetch is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
@@ -201,6 +210,7 @@ public class MergeOperator
                 outputTypes,
                 (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
+                fetch,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());
         blockedOnSplits.set(null);
