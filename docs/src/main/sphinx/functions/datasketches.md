@@ -8,8 +8,9 @@ approximate answers with mathematical guarantees much faster than traditional
 exact methods. DataSketches functions allow querying these serialized sketches
 from Trino. Support for the
 [Theta Sketch framework](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html)
-is available through {func}`theta_sketch_union` and
-{func}`theta_sketch_cardinality`, typically used to replace expensive
+is available through {func}`theta_sketch_union`,
+{func}`theta_sketch_a_not_b`, and {func}`theta_sketch_cardinality`,
+typically used to replace expensive
 `COUNT(DISTINCT ...)` aggregations when sketches are precomputed and stored.
 
 ## Configuration
@@ -57,6 +58,14 @@ Returns a serialized sketch as `varbinary`, which is a merged collection of
 sketches. The optional `nominal_entries` and `seed` parameters let you specify
 non-default sketch size and seed when merging sketches created with custom
 settings.
+:::
+
+:::{function} theta_sketch_a_not_b(sketch_a, sketch_b [, seed]) -> varbinary
+Returns a serialized sketch as `varbinary` representing the set difference of
+`sketch_a` minus `sketch_b`, that is the elements in the first sketch that are
+not in the second. This scalar function takes two sketches and is not
+commutative, so argument order matters. The optional `seed` parameter must match
+the seed used to build both input sketches.
 :::
 
 :::{function} theta_sketch_cardinality(sketch) -> double
