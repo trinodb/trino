@@ -218,6 +218,75 @@ public class TestIpAddressOperators
     }
 
     @Test
+    public void testBigintToIpAddressCast()
+    {
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(0 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(1 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::1");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(255 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::ff");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(65535 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::ffff");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "4294967295"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::ffff:ffff");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "4294967296"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::1:0:0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "281474976710655"))
+                .hasType(IPADDRESS)
+                .isEqualTo("255.255.255.255");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "281474976710656"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::1:0:0:0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "1311768467294899695"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::1234:5678:90ab:cdef");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "9223372036854775807"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::7fff:ffff:ffff:ffff");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(-9223372036854775807 - 1 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::8000:0:0:0");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(-1 AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isEqualTo("::ffff:ffff:ffff:ffff");
+
+        assertThat(assertions.expression("cast(a as IPADDRESS)")
+                .binding("a", "CAST(NULL AS BIGINT)"))
+                .hasType(IPADDRESS)
+                .isNull(IPADDRESS);
+    }
+
+    @Test
     public void testIpAddressToVarcharCast()
     {
         assertThat(assertions.expression("cast(a as VARCHAR)")

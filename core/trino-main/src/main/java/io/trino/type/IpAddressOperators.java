@@ -97,6 +97,23 @@ public final class IpAddressOperators
         return wrappedBuffer(bytes);
     }
 
+    @ScalarOperator(value = CAST, neverFails = true)
+    @SqlType(StandardTypes.IPADDRESS)
+    public static Slice castFromBigintToIpAddress(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        // Interpret all 64 bits as an unsigned value and place them in the low 64 bits.
+        byte[] bytes = new byte[16];
+        bytes[8] = (byte) (value >>> 56);
+        bytes[9] = (byte) (value >>> 48);
+        bytes[10] = (byte) (value >>> 40);
+        bytes[11] = (byte) (value >>> 32);
+        bytes[12] = (byte) (value >>> 24);
+        bytes[13] = (byte) (value >>> 16);
+        bytes[14] = (byte) (value >>> 8);
+        bytes[15] = (byte) value;
+        return wrappedBuffer(bytes);
+    }
+
     // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.IPADDRESS)
