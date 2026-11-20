@@ -48,11 +48,22 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.TIME_PICOS;
+import static io.trino.spi.type.TimeType.TIME_SECONDS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -1144,7 +1155,7 @@ public class TestSortedRangeSet
     @Test
     public void testExpandRangesForDenseType()
     {
-        for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2))) {
+        for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2), DATE, TIMESTAMP_MICROS)) {
             assertThat(ValueSet.ofRanges(Range.equal(type, 1L))
                     .tryExpandRanges(0))
                     .isEqualTo(Optional.empty());
@@ -1251,6 +1262,66 @@ public class TestSortedRangeSet
                     .tryExpandRanges(3))
                     .isEqualTo(Optional.empty());
         }
+    }
+
+    @Test
+    public void testExpandRangesForTypesWithPrecisionStep()
+    {
+        assertExpandRangesWithStep(TIMESTAMP_SECONDS, MICROSECONDS_PER_SECOND, -9_223_372_036_854_000_000L, 9_223_372_036_854_000_000L);
+        assertExpandRangesWithStep(TIMESTAMP_MILLIS, MICROSECONDS_PER_MILLISECOND, -9_223_372_036_854_775_000L, 9_223_372_036_854_775_000L);
+        assertExpandRangesWithStep(TIME_SECONDS, PICOSECONDS_PER_SECOND, 0, 86_399_000_000_000_000L);
+        assertExpandRangesWithStep(TIME_MILLIS, PICOSECONDS_PER_MILLISECOND, 0, 86_399_999_000_000_000L);
+        assertExpandRangesWithStep(TIME_PICOS, 1, 0, 86_399_999_999_999_999L);
+    }
+
+    private static void assertExpandRangesWithStep(Type type, long step, long min, long max)
+    {
+        assertThat(ValueSet.ofRanges(Range.range(type, step, true, 4 * step, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(step, 2 * step, 3 * step, 4 * step)));
+        assertThat(ValueSet.ofRanges(Range.range(type, step, false, 4 * step, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(2 * step, 3 * step)));
+        assertThat(ValueSet.ofRanges(Range.range(type, step, true, 4 * step, true))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.lessThan(type, min + 3 * step))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(min, min + step, min + 2 * step)));
+        assertThat(ValueSet.ofRanges(Range.greaterThan(type, max - 3 * step))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(max - 2 * step, max - step, max)));
+    }
+
+    @Test
+    public void testExpandRangesAroundZero()
+    {
+        assertThat(ValueSet.ofRanges(Range.range(DATE, -4L, true, -1L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-4L, -3L, -2L, -1L)));
+        assertThat(ValueSet.ofRanges(Range.range(DATE, -2L, false, 2L, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-1L, 0L, 1L)));
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -4_000L, true, -1_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-4_000L, -3_000L, -2_000L, -1_000L)));
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -2_000L, false, 2_000L, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-1_000L, 0L, 1_000L)));
+    }
+
+    @Test
+    public void testExpandRangesWithOffGridBounds()
+    {
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, 1_500L, true, 3_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -3_000L, true, -1_500L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.range(TIME_MILLIS, 1_000_000_000L, true, 2_500_000_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
     }
 
     @Test

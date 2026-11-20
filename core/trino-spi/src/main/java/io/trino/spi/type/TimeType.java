@@ -26,6 +26,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -70,11 +72,15 @@ public final class TimeType
     public static final TimeType TIME_PICOS = createTimeType(12);
 
     private final int precision;
+    private final long step;
+    private final Range range;
 
     private TimeType(int precision)
     {
         super(new TypeDescriptor(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
+        this.step = rescale(PICOSECONDS_PER_SECOND, precision, 0);
+        this.range = new Range(0L, PICOSECONDS_PER_DAY - step);
     }
 
     public static TimeType createTimeType(int precision)
@@ -115,7 +121,7 @@ public final class TimeType
     @Override
     public Optional<Range> getRange()
     {
-        return Optional.of(new Range(0L, PICOSECONDS_PER_DAY));
+        return Optional.of(range);
     }
 
     @Override
@@ -125,17 +131,30 @@ public final class TimeType
         if (0 == value) {
             return Optional.empty();
         }
-        return Optional.of(value - rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
+        return Optional.of(value - step);
     }
 
     @Override
     public Optional<Object> getNextValue(Object object)
     {
         long value = (long) object;
-        if (PICOSECONDS_PER_DAY == value) {
+        if ((long) range.getMax() == value) {
             return Optional.empty();
         }
-        return Optional.of(value + rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
+        return Optional.of(value + step);
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        long min = (long) range.getMin();
+        long max = (long) range.getMax();
+        if (min % step != 0 || max % step != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(LongStream.rangeClosed(min / step, max / step)
+                .map(value -> value * step)
+                .boxed());
     }
 
     @ScalarOperator(READ_VALUE)
