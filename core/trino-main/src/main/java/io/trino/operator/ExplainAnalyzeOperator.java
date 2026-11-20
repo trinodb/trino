@@ -13,6 +13,8 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.StageInfo;
@@ -25,12 +27,12 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ExplainAnalyzeOperator
         implements Operator
@@ -94,6 +96,7 @@ public class ExplainAnalyzeOperator
     private final NodeVersion version;
     private boolean finishing;
     private boolean outputConsumed;
+    private ListenableFuture<Void> blocked = NOT_BLOCKED;
 
     public ExplainAnalyzeOperator(
             OperatorContext operatorContext,
@@ -130,6 +133,12 @@ public class ExplainAnalyzeOperator
     }
 
     @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        return blocked;
+    }
+
+    @Override
     public boolean needsInput()
     {
         return !finishing;
@@ -155,7 +164,9 @@ public class ExplainAnalyzeOperator
         StagesInfo stagesInfo = queryInfo.getStages().get();
         checkState(stagesInfo.getOutputStage().subStages().size() == 1, "Expected one sub stage of explain node");
 
-        if (!hasFinalStageInfo(stagesInfo)) {
+        if (!isFinalStageInfo(stagesInfo)) {
+            // Final task stats reach the coordinator asynchronously, after the tasks finish
+            blocked = Futures.scheduleAsync(Futures::immediateVoidFuture, 100, MILLISECONDS, operatorContext.getDriverContext().getTimeoutExecutor());
             return null;
         }
 
@@ -174,20 +185,6 @@ public class ExplainAnalyzeOperator
 
         outputConsumed = true;
         return new Page(builder.build());
-    }
-
-    private boolean hasFinalStageInfo(StagesInfo stages)
-    {
-        boolean isFinalStageInfo = isFinalStageInfo(stages);
-        if (!isFinalStageInfo) {
-            try {
-                TimeUnit.MILLISECONDS.sleep(100);
-            }
-            catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return isFinalStageInfo(stages);
     }
 
     private boolean isFinalStageInfo(StagesInfo stages)
