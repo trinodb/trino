@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.encryption.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
