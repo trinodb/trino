@@ -58,7 +58,31 @@ public class TestMergeLimits
                 .matches(
                         limit(
                                 3,
-                                values("a")));
+                                sort(
+                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                        values("a"))));
+
+        tester().assertThat(new MergeLimits())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    return p.limit(
+                            3,
+                            ImmutableList.of(),
+                            true,
+                            ImmutableList.of(),
+                            p.limit(
+                                    5,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
+                })
+                .matches(
+                        limit(
+                                3,
+                                ImmutableList.of(),
+                                false,
+                                sort(
+                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                        values("a"))));
     }
 
     @Test
@@ -80,7 +104,21 @@ public class TestMergeLimits
                                 ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                 limit(
                                         5,
-                                        values("a"))));
+                                        sort(
+                                                ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                                values("a")))));
+
+        tester().assertThat(new MergeLimits())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    return p.limit(
+                            3_000_000_000L,
+                            p.limit(
+                                    5,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
+                })
+                .doesNotFire();
     }
 
     @Test
@@ -143,6 +181,7 @@ public class TestMergeLimits
                         ImmutableList.of(p.symbol("a")),
                         p.limit(
                                 5,
+                                false,
                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                 p.values())))
                 .matches(

@@ -16,15 +16,18 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.limit;
 
 /**
- * Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit and
- * replace the plan with empty values if the limit count is 0.
+ * Remove Limit node when the subplan is guaranteed to produce at most the limit number of rows,
+ * replacing a Limit node with ties by a Sort node when the subplan may produce more than one row,
+ * and replace the plan with empty values if the limit count is 0.
  */
 public class RemoveRedundantLimit
         implements Rule<LimitNode>
@@ -44,7 +47,15 @@ public class RemoveRedundantLimit
         if (limit.getCount() == 0) {
             return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols()));
         }
-        if (isAtMost(limit.getSource(), context.getLookup(), limit.getCount())) {
+        Cardinality sourceCardinality = extractCardinality(limit.getSource(), context.getLookup());
+        if (sourceCardinality.isAtMost(limit.getCount())) {
+            if (limit.isWithTies() && !sourceCardinality.isAtMostScalar()) {
+                return Result.ofPlanNode(new SortNode(
+                        context.getIdAllocator().getNextId(),
+                        limit.getSource(),
+                        limit.getTiesResolvingScheme().orElseThrow(),
+                        false));
+            }
             return Result.ofPlanNode(limit.getSource());
         }
         return Result.empty();

@@ -2252,6 +2252,15 @@ public class TestLogicalPlanner
                                                                                 "nation",
                                                                                 ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
+
+        assertPlan(
+                "SELECT x, y FROM (VALUES (1, 100), (2, 10)) t(x, y) ORDER BY y FETCH FIRST 2 ROWS WITH TIES",
+                output(
+                        exchange(LOCAL,
+                                sort(
+                                        ImmutableList.of(sort("y", ASCENDING, LAST)),
+                                        exchange(LOCAL,
+                                                values("x", "y"))))));
     }
 
     @Test
