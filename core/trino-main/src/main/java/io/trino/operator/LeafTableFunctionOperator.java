@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogHandle;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -113,6 +114,7 @@ public class LeafTableFunctionOperator
     private final ConnectorTableFunctionHandle functionHandle;
     private final Optional<ConnectorTableCredentials> tableCredentials;
     private final ConnectorSession session;
+    private final LocalMemoryContext processorMemoryContext;
 
     private final Deque<ConnectorSplit> pendingSplits = new ArrayDeque<>();
     private boolean noMoreSplits;
@@ -135,19 +137,23 @@ public class LeafTableFunctionOperator
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.session = operatorContext.getSession().toConnectorSession(functionCatalog);
+        this.processorMemoryContext = operatorContext.newLocalUserMemoryContext(LeafTableFunctionOperator.class.getSimpleName() + "-TableFunctionSplitProcessor");
     }
 
     private void resetProcessor(ConnectorSplit nextSplit)
     {
         if (this.processor != null) {
+            TableFunctionSplitProcessor previousProcessor = this.processor;
+            this.processor = null;
             try {
-                this.processor.close();
+                previousProcessor.close();
             }
             catch (IOException ignored) {
                 // ignore close exceptions, as this is a best-effort cleanup
             }
+            processorMemoryContext.setBytes(0);
         }
-        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, tableCredentials, nextSplit);
+        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, tableCredentials, nextSplit, processorMemoryContext::setBytes);
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
     }
@@ -243,8 +249,13 @@ public class LeafTableFunctionOperator
     public void close()
             throws Exception
     {
-        if (processor != null) {
-            processor.close();
+        try {
+            if (processor != null) {
+                processor.close();
+            }
+        }
+        finally {
+            processorMemoryContext.close();
         }
     }
 }

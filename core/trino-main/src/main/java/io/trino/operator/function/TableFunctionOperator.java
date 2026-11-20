@@ -35,10 +35,13 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -238,6 +241,9 @@ public class TableFunctionOperator
     private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> outputPages;
     private final boolean processEmptyInput;
+    private final LocalMemoryContext processorMemoryContext;
+
+    private TableFunctionDataProcessor processor;
 
     public TableFunctionOperator(
             OperatorContext operatorContext,
@@ -279,6 +285,7 @@ public class TableFunctionOperator
 
         this.operatorContext = operatorContext;
         this.session = operatorContext.getSession().toConnectorSession(catalogHandle);
+        this.processorMemoryContext = operatorContext.newLocalUserMemoryContext(TableFunctionOperator.class.getSimpleName() + "-TableFunctionDataProcessor");
 
         this.processEmptyInput = !pruneWhenEmpty;
 
@@ -291,7 +298,6 @@ public class TableFunctionOperator
                         groupPagesIndex,
                         hashStrategies,
                         tableFunctionProvider,
-                        session,
                         functionHandle,
                         properChannelsCount,
                         passThroughSourcesCount,
@@ -354,6 +360,41 @@ public class TableFunctionOperator
         }
 
         return outputPages.getResult();
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        try {
+            closeProcessor();
+        }
+        finally {
+            processorMemoryContext.close();
+        }
+    }
+
+    private TableFunctionDataProcessor createProcessor(TableFunctionProcessorProvider tableFunctionProvider, ConnectorTableFunctionHandle functionHandle)
+    {
+        try {
+            closeProcessor();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        processor = tableFunctionProvider.getDataProcessor(session, functionHandle, processorMemoryContext::setBytes);
+        return processor;
+    }
+
+    private void closeProcessor()
+            throws IOException
+    {
+        if (processor != null) {
+            TableFunctionDataProcessor previousProcessor = processor;
+            processor = null;
+            previousProcessor.close();
+            processorMemoryContext.setBytes(0);
+        }
     }
 
     private static class HashStrategies
@@ -541,7 +582,6 @@ public class TableFunctionOperator
             PagesIndex pagesIndex,
             HashStrategies hashStrategies,
             TableFunctionProcessorProvider tableFunctionProvider,
-            ConnectorSession session,
             ConnectorTableFunctionHandle functionHandle,
             int properChannelsCount,
             int passThroughSourcesCount,
@@ -567,7 +607,7 @@ public class TableFunctionOperator
                         // empty PagesIndex can only be passed once as the result of PartitionAndSort. Neither this nor any future instance of Process will ever get an empty PagesIndex again.
                         processEmpty = false;
                         return WorkProcessor.ProcessState.ofResult(new EmptyTableFunctionPartition(
-                                tableFunctionProvider.getDataProcessor(session, functionHandle),
+                                createProcessor(tableFunctionProvider, functionHandle),
                                 properChannelsCount,
                                 passThroughSourcesCount,
                                 passThroughSpecifications.stream()
@@ -587,7 +627,7 @@ public class TableFunctionOperator
                         pagesIndex,
                         partitionStart,
                         partitionEnd,
-                        tableFunctionProvider.getDataProcessor(session, functionHandle),
+                        createProcessor(tableFunctionProvider, functionHandle),
                         properChannelsCount,
                         passThroughSourcesCount,
                         requiredChannels,

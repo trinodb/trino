@@ -17,6 +17,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
@@ -47,6 +48,14 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     }
 
     @Override
+    public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, MemoryContext memoryContext)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getDataProcessor(session, handle, memoryContext);
+        }
+    }
+
+    @Override
     public TableFunctionSplitProcessor getSplitProcessor(
             ConnectorSession session,
             ConnectorTableFunctionHandle handle,
@@ -55,6 +64,19 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplitProcessor(session, handle, tableCredentials, split);
+        }
+    }
+
+    @Override
+    public TableFunctionSplitProcessor getSplitProcessor(
+            ConnectorSession session,
+            ConnectorTableFunctionHandle handle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorSplit split,
+            MemoryContext memoryContext)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplitProcessor(session, handle, tableCredentials, split, memoryContext);
         }
     }
 }
