@@ -301,7 +301,28 @@ public class TopNRankingOperator
     public boolean needsInput()
     {
         // still has more input, has not started flushing yet, and has no unfinished work
-        return !finishing && outputIterator == null && !isBuilderFull() && unfinishedWork == null;
+        if (finishing || outputIterator != null || isBuilderFull()) {
+            return false;
+        }
+        if (unfinishedWork == null) {
+            return true;
+        }
+        // input resumes while the next operator is blocked and does not take output
+        // the resumed work can start a memory wait after the driver has checked for one
+        return processUnfinishedWork() && operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private boolean processUnfinishedWork()
+    {
+        if (unfinishedWork == null) {
+            return true;
+        }
+        boolean finished = unfinishedWork.process();
+        updateMemoryReservation();
+        if (finished) {
+            unfinishedWork = null;
+        }
+        return finished;
     }
 
     @Override
@@ -326,13 +347,8 @@ public class TopNRankingOperator
     @Override
     public Page getOutput()
     {
-        if (unfinishedWork != null) {
-            boolean finished = unfinishedWork.process();
-            updateMemoryReservation();
-            if (!finished) {
-                return null;
-            }
-            unfinishedWork = null;
+        if (!processUnfinishedWork()) {
+            return null;
         }
 
         if (!finishing && (!partial || !isBuilderFull()) && outputIterator == null) {
