@@ -518,6 +518,9 @@ public class EffectivePredicateExtractor
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                        // Equality here is only an optimization hint. Types that are neither comparable nor
+                        // orderable (for example HyperLogLog) have no equality operator, so skip them.
+                        .filter(entry -> entry.getKey().type().isComparable() || entry.getKey().type().isOrderable())
                         .map(this::entryToEquality)
                         .collect(toImmutableList());
 
