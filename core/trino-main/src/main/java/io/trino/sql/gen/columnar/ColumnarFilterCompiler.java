@@ -43,6 +43,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
@@ -63,6 +64,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -271,6 +273,13 @@ public class ColumnarFilterCompiler
                     yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter(filterTemplates, call));
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
+                // a lower and an upper bound on one column, paired by AndFilterEvaluator, run as one kernel
+                case Logical logical when SameColumnRange.isFusedRange(logical) -> {
+                    List<Call> calls = logical.terms().stream()
+                            .map(Call.class::cast)
+                            .collect(toImmutableList());
+                    yield Optional.of(new CallColumnarFilterGenerator(calls, layout, functionManager).generateColumnarFilter(filterTemplates, logical));
+                }
                 case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators()).generateColumnarFilter(filterTemplates, in));
                 case Reference reference when reference.type().equals(BOOLEAN) -> Optional.of(BooleanColumnarFilter.class);
                 default -> Optional.empty();

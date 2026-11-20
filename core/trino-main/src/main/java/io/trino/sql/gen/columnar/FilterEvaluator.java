@@ -40,6 +40,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
+import static io.trino.sql.gen.columnar.PageBoundsFilterEvaluator.boundsAware;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
@@ -53,6 +54,7 @@ public sealed interface FilterEvaluator
                 ColumnarFilterEvaluator,
                 DynamicFilterEvaluator,
                 OrFilterEvaluator,
+                PageBoundsFilterEvaluator,
                 PageFilterEvaluator,
                 SelectAllEvaluator,
                 SelectNoneEvaluator
@@ -93,7 +95,8 @@ public sealed interface FilterEvaluator
                     }
                     yield Optional.empty();
                 }
-                yield createCallExpressionEvaluator(charVarcharCoercion, compiler, call, layout, dynamicFilter);
+                yield createCallExpressionEvaluator(charVarcharCoercion, compiler, call, layout, dynamicFilter)
+                        .map(evaluator -> boundsAware(call, layout, evaluator));
             }
             case IsNull isNull -> createIsNullExpressionEvaluator(charVarcharCoercion, compiler, isNull, layout, dynamicFilter);
             case Logical logical when logical.operator() == Logical.Operator.AND -> createAndExpressionEvaluator(charVarcharCoercion, compiler, logical, layout, filterReorderingEnabled, dynamicFilter);
@@ -160,7 +163,7 @@ public sealed interface FilterEvaluator
         return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
     }
 
-    private static FilterEvaluator createDictionaryAwareEvaluator(ColumnarFilter filter)
+    static FilterEvaluator createDictionaryAwareEvaluator(ColumnarFilter filter)
     {
         checkArgument(filter.getInputChannels().size() == 1, "filter should have 1 input channel");
         return new ColumnarFilterEvaluator(new DictionaryAwareColumnarFilter(filter));
