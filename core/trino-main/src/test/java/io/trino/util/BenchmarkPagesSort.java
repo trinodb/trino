@@ -123,8 +123,6 @@ public class BenchmarkPagesSort
                 ORDERING_COMPILER.compilePageWithPositionComparator(data.getSortTypes(), data.getSortChannels(), data.getSortOrders()),
                 data.getOutputChannels(),
                 data.getTypes(),
-                (pageBuilder, _) -> pageBuilder.isFull(),
-                false,
                 newSimpleAggregatedMemoryContext(),
                 new DriverYieldSignal());
 

@@ -199,8 +199,6 @@ public class MergeOperator
                 comparator,
                 outputChannels,
                 outputTypes,
-                (pageBuilder, _) -> pageBuilder.isFull(),
-                false,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());
         blockedOnSplits.set(null);
