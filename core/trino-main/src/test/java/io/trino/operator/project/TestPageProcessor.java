@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -566,6 +567,58 @@ public class TestPageProcessor
         }
         // 512 and 256 positions of 64KB slices exceed 16MB, 128 positions fit
         assertThat(batchSizes).isEqualTo(ImmutableList.of(512, 256, 128, 128));
+    }
+
+    @Test
+    public void testSharedBatchSizeSkipsRampUp()
+    {
+        int rows = 1024;
+        Slice[] slices = new Slice[rows];
+        Arrays.fill(slices, Slices.allocate(rows));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
+
+        // the first processor ramps up from a single row, as in testIncreasingBatchSize
+        AtomicInteger learnedBatchSize = new AtomicInteger(1);
+        List<Integer> batchSizes = batchSizes(new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(new TestingPassthroughProjection(0)), learnedBatchSize), inputPage);
+        assertThat(batchSizes).isEqualTo(ImmutableList.of(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1));
+        assertThat(learnedBatchSize).hasValue(2048);
+
+        // a processor created afterwards starts from the learned batch size and emits the whole page at once
+        batchSizes = batchSizes(new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(new TestingPassthroughProjection(0)), learnedBatchSize), inputPage);
+        assertThat(batchSizes).isEqualTo(ImmutableList.of(1024));
+    }
+
+    @Test
+    public void testSharedBatchSizeKeepsHalvedSize()
+    {
+        int rows = 1024;
+        Slice[] slices = new Slice[rows];
+        Arrays.fill(slices, Slices.allocate(64 * 1024));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
+
+        // the first processor halves the batch size until the output fits, as in testDecreasingBatchSize
+        AtomicInteger learnedBatchSize = new AtomicInteger(512);
+        List<Integer> batchSizes = batchSizes(new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(new TestingPassthroughProjection(0)), learnedBatchSize), inputPage);
+        assertThat(batchSizes).isEqualTo(ImmutableList.of(512, 256, 128, 128));
+        assertThat(learnedBatchSize).hasValue(128);
+
+        // a processor created afterwards does not produce the oversized pages again
+        batchSizes = batchSizes(new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(new TestingPassthroughProjection(0)), learnedBatchSize), inputPage);
+        assertThat(batchSizes).isEqualTo(nCopies(8, 128));
+    }
+
+    private List<Integer> batchSizes(PageProcessor pageProcessor, SourcePage inputPage)
+    {
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+        List<Integer> batchSizes = new ArrayList<>();
+        long totalPositionCount = 0;
+        while (totalPositionCount < inputPage.getPositionCount()) {
+            Optional<Page> page = output.next();
+            assertThat(page).isPresent();
+            batchSizes.add(page.get().getPositionCount());
+            totalPositionCount += page.get().getPositionCount();
+        }
+        return batchSizes;
     }
 
     @Test
