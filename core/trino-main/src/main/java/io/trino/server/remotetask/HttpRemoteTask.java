@@ -148,7 +148,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final Span stageSpan;
     private final String nodeId;
-    private final String nodeInstanceId;
+    private final RemoteTaskNodeInstance nodeInstance;
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
     private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
@@ -273,7 +273,7 @@ public final class HttpRemoteTask
             this.session = session;
             this.stageSpan = stageSpan;
             this.nodeId = node.getNodeIdentifier();
-            this.nodeInstanceId = node.getInstanceId();
+            this.nodeInstance = new RemoteTaskNodeInstance(taskId, node.getInstanceId());
             this.speculative = new AtomicBoolean(speculative);
             // workers don't read the stats and costs
             this.planFragment = planFragment.withoutStatsAndCosts();
@@ -342,7 +342,7 @@ public final class HttpRemoteTask
                     this::fatalUnacknowledgedFailure,
                     taskId,
                     location,
-                    nodeInstanceId,
+                    nodeInstance,
                     taskStatusRefreshMaxWait,
                     dynamicFilterDomainsCodec,
                     executor,
@@ -356,7 +356,7 @@ public final class HttpRemoteTask
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
                     initialTask.taskStatus(),
-                    nodeInstanceId,
+                    nodeInstance,
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
                     dynamicFiltersFetcher,
@@ -372,7 +372,7 @@ public final class HttpRemoteTask
                     this::fatalUnacknowledgedFailure,
                     taskStatusFetcher,
                     initialTask,
-                    nodeInstanceId,
+                    nodeInstance,
                     httpClient,
                     () -> createSpanBuilder("task-info", span),
                     taskInfoUpdateInterval,
@@ -431,7 +431,7 @@ public final class HttpRemoteTask
     @Override
     public String getNodeInstanceId()
     {
-        return nodeInstanceId;
+        return nodeInstance.nodeInstanceId();
     }
 
     @Override
@@ -821,6 +821,7 @@ public final class HttpRemoteTask
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
+        String nodeInstanceId = nodeInstance.nodeInstanceId();
         Request request = preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
@@ -836,7 +837,11 @@ public final class HttpRemoteTask
 
         Futures.addCallback(
                 future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion(), System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
+                new SimpleHttpResponseHandler<>(
+                        new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion(), System.nanoTime(), currentPendingRequestsCounter),
+                        request.getUri(),
+                        mismatch -> nodeInstance.redirectTaskUpdate(mismatch.actualNodeInstanceId()),
+                        stats),
                 executor);
     }
 
@@ -996,7 +1001,7 @@ public final class HttpRemoteTask
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
         return prepareDelete()
                 .setUri(uriBuilder.build())
-                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstance.nodeInstanceId())
                 .setSpanBuilder(createSpanBuilder("task-delete", span))
                 .build();
     }
@@ -1008,7 +1013,7 @@ public final class HttpRemoteTask
         return preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstance.nodeInstanceId())
                 .setBodyGenerator(createStaticBodyGenerator(failTaskRequestCodec.toJsonBytes(failTaskRequest)))
                 .setSpanBuilder(createSpanBuilder("task-fail", span))
                 .build();
@@ -1022,6 +1027,15 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 if (result.getStatusCode() == PRECONDITION_FAILED.code()) {
+                    Optional<String> actualNodeInstanceId = result.getHeader(TRINO_NODE_INSTANCE_ID_HEADER);
+                    if (actualNodeInstanceId.isPresent() && !actualNodeInstanceId.get().equals(request.getHeader(TRINO_NODE_INSTANCE_ID_HEADER))) {
+                        // Clean up the task on the restarted instance too, so it never runs there and redirected readers learn it is gone
+                        Request redirectedRequest = Request.Builder.fromRequest(request)
+                                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, actualNodeInstanceId.get())
+                                .build();
+                        doScheduleAsyncCleanupRequest(cleanupBackoff, redirectedRequest, action);
+                        return;
+                    }
                     // The worker has been restarted, so the task is gone and there is nothing to clean up
                     fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(request.getUri()))));
                     return;
@@ -1273,6 +1287,7 @@ public final class HttpRemoteTask
                 sendPlan.set(value.needsPlan());
                 currentRequest.set(null);
                 updateStats();
+                nodeInstance.taskUpdateSucceeded();
                 updateErrorTracker.requestSucceeded();
                 processTaskUpdate(value, splitAssignments);
                 if (pendingRequestsCounter.addAndGet(-currentPendingRequestsCounter) > 0) {
@@ -1289,10 +1304,14 @@ public final class HttpRemoteTask
                 try {
                     currentRequest.set(null);
                     updateStats();
+                    nodeInstance.taskUpdateFailed(cause);
 
-                    // if task not already done, record error
-                    TaskStatus taskStatus = getTaskStatus();
-                    if (!taskStatus.state().isDone()) {
+                    if (cause instanceof NodeInstanceMismatchException) {
+                        // the task was redirected to the current instance of the worker, which is up
+                        updateErrorTracker.requestSucceeded();
+                    }
+                    else if (!getTaskStatus().state().isDone()) {
+                        // if task not already done, record error
                         updateErrorTracker.requestFailed(cause);
                     }
 
