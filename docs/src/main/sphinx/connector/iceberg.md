@@ -249,6 +249,15 @@ implementation is used:
      `fs.hadoop.enabled` is not enabled, using this feature requires setup of 
      [local file system](/object-storage/file-system-local)
   -  
+* - `iceberg.sorted-writing.staging-location`
+  -  A file system location, such as `s3://scratch-bucket/trino`, that Trino
+     uses instead of the table location for staging writes to sorted tables.
+     Staging files are written under `<location>/<schema>/<table>/<query_id>/`.
+     Useful to keep short-lived staging files out of versioned or replicated
+     table storage. The `${USER}` placeholder can be used to use a different
+     location for each user. Cannot be combined with
+     `iceberg.sorted-writing.local-staging-path`.
+  -  
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
      Use `*` to allow all properties.
