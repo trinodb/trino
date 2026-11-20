@@ -53,7 +53,8 @@
 - { modules: plugin/trino-iceberg, timeout-minutes: 60 }
 - { modules: plugin/trino-iceberg, profile: cloud-tests, timeout-minutes: 45 }
 - { modules: plugin/trino-iceberg, profile: fte-tests }
-- { modules: plugin/trino-iceberg, profile: floci-and-avro, timeout-minutes: 60 }
+- { modules: plugin/trino-iceberg, profile: test-avro }
+- { modules: plugin/trino-iceberg, profile: test-floci }
 - { modules: plugin/trino-ignite }
 - { modules: plugin/trino-kafka }
 - { modules: plugin/trino-lakehouse }
