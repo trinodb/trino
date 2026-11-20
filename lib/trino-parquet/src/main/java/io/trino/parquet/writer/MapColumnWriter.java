@@ -60,8 +60,8 @@ public class MapColumnWriter
                 .addAll(columnChunk.getRepLevelWriterProviders())
                 .add(RepLevelWriterProviders.of(columnarMap, block, maxRepetitionLevel)).build();
 
-        keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelWriterProviders, repLevelIterables));
-        valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelWriterProviders, repLevelIterables));
+        keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), columnChunk.getRowCount(), defLevelWriterProviders, repLevelIterables));
+        valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), columnChunk.getRowCount(), defLevelWriterProviders, repLevelIterables));
     }
 
     @Override
