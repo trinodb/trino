@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -34,18 +35,21 @@ public class TopNProcessor
     private final LocalMemoryContext localUserMemoryContext;
 
     private final GroupedTopNRowNumberBuilder topNBuilder;
+    private final Optional<TopNDynamicFilter> filter;
     private Iterator<Page> outputIterator;
 
     public TopNProcessor(
             AggregatedMemoryContext aggregatedMemoryContext,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> filter)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         checkArgument(n > 0, "n must be > 0, found: %s", n);
         this.localUserMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(TopNProcessor.class.getSimpleName());
 
+        this.filter = requireNonNull(filter, "filter is null");
         topNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 comparator,
@@ -60,6 +64,7 @@ public class TopNProcessor
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
+        filter.ifPresent(topNBuilder::updateBoundary);
         updateMemoryReservation();
     }
 

@@ -96,6 +96,7 @@ import io.trino.operator.TableMutationOperator.TableMutationOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TopNDynamicFilter;
 import io.trino.operator.TopNOperator;
 import io.trino.operator.TopNRankingOperator;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
@@ -333,6 +334,7 @@ import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
@@ -1835,9 +1837,18 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTopN(TopNNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
+            Symbol firstKey = orderBySymbols.getFirst();
+            Optional<TopNDynamicFilter> filter = Optional.empty();
+            PhysicalOperation source;
+            if (node.getSource() instanceof TableScanNode scan && firstKey.type().isOrderable() && isEnableDynamicFiltering(session)) {
+                TopNDynamicFilter boundary = new TopNDynamicFilter(scan.getAssignments().get(firstKey), scan.getOutputSymbols().indexOf(firstKey), firstKey.type(), node.getOrderingScheme().ordering(firstKey), blockTypeOperators);
+                filter = Optional.of(boundary);
+                source = planTableScan(scan, context, boundary);
+            }
+            else {
+                source = node.getSource().accept(this, context);
+            }
 
             List<Type> sortTypes = new ArrayList<>();
             List<Integer> sortChannels = new ArrayList<>();
@@ -1854,7 +1865,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                    filter);
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }
@@ -2176,6 +2188,11 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
+            return planTableScan(node, context, DynamicFilter.EMPTY);
+        }
+
+        private PhysicalOperation planTableScan(TableScanNode node, LocalExecutionPlanContext context, DynamicFilter dynamicFilter)
+        {
             PlanNodeId planNodeId = node.getId();
             ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -2194,6 +2211,7 @@ public class LocalExecutionPlanner
                     tableCredentials,
                     columns.build(),
                     columnTypes.build(),
+                    dynamicFilter,
                     context.getTaskContext().aggregateUserMemoryContext());
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }

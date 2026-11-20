@@ -17,6 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -64,5 +65,25 @@ public interface HivePageSourceFactory
     {
         return createPageSource(session, path, start, length, estimatedFileSize, fileModifiedTime, schema, columns, effectivePredicate, acidInfo, bucketNumber, originalFile, transaction)
                 .map(pageSource -> new MemoryUsageReportingPageSource(pageSource, memoryContext));
+    }
+
+    default Optional<ConnectorPageSource> createPageSource(
+            ConnectorSession session,
+            Location path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Schema schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction,
+            MemoryContext memoryContext,
+            DynamicFilter dynamicFilter)
+    {
+        return createPageSource(session, path, start, length, estimatedFileSize, fileModifiedTime, schema, columns, effectivePredicate, acidInfo, bucketNumber, originalFile, transaction, memoryContext);
     }
 }

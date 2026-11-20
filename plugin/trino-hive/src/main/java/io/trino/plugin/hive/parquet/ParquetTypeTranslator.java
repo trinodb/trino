@@ -17,12 +17,15 @@ import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.util.Optional;
@@ -32,8 +35,14 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarc
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -43,6 +52,31 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 public final class ParquetTypeTranslator
 {
     private ParquetTypeTranslator() {}
+
+    // The boundary is expressed in the output type. Only compare it with statistics
+    // when the statistics decoder uses the same value representation as the reader.
+    static boolean canUseStatistics(PrimitiveType parquetType, Type type)
+    {
+        PrimitiveTypeName physicalType = parquetType.getPrimitiveTypeName();
+        LogicalTypeAnnotation annotation = parquetType.getLogicalTypeAnnotation();
+        if (type instanceof DecimalType decimal) {
+            return annotation instanceof DecimalLogicalTypeAnnotation fileDecimal &&
+                    fileDecimal.getScale() == decimal.getScale() && fileDecimal.getPrecision() <= decimal.getPrecision();
+        }
+        if (type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT) {
+            return isIntegerAnnotationAndPrimitive(annotation, physicalType);
+        }
+        return switch (physicalType) {
+            case BOOLEAN -> type == BOOLEAN;
+            case INT32 -> type == DATE && annotation instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation;
+            case FLOAT -> type == REAL;
+            case DOUBLE -> type instanceof DoubleType;
+            case BINARY, FIXED_LEN_BYTE_ARRAY -> !(annotation instanceof DecimalLogicalTypeAnnotation) &&
+                    (type instanceof VarcharType || type instanceof CharType || type == VARBINARY);
+            case INT96 -> type instanceof TimestampType;
+            case INT64 -> type instanceof TimestampType && annotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
+        };
+    }
 
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(PrimitiveTypeName fromParquetType, LogicalTypeAnnotation typeAnnotation, Type toTrinoType)
     {
