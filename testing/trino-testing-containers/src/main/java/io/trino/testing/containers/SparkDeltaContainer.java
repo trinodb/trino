@@ -80,7 +80,6 @@ public class SparkDeltaContainer
                 --driver-memory 3g \\
                 --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 \\
                 --name 'Thrift JDBC/ODBC Server' \\
-                --packages 'org.apache.spark:spark-avro_2.12:3.2.1' \\
                 --properties-file /spark/conf/spark-defaults.conf \\
                 --conf spark.hive.server2.thrift.port=%d \\
                 spark-internal
