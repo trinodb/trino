@@ -323,6 +323,48 @@ public class BenchmarkSortedRangeSet
         return result;
     }
 
+    @Benchmark
+    public boolean containsFirst(Data data)
+    {
+        return data.largeDisjointRanges.contains(data.firstPoint);
+    }
+
+    @Benchmark
+    public boolean containsLast(Data data)
+    {
+        return data.largeDisjointRanges.contains(data.lastPoint);
+    }
+
+    @Benchmark
+    public boolean containsDense(Data data)
+    {
+        return data.largeDisjointRanges.contains(data.denseSetPoints);
+    }
+
+    @Benchmark
+    public ValueSet subtractPoints(Data data)
+    {
+        return data.largeDisjointRanges.subtract(data.denseSetPoints);
+    }
+
+    @Benchmark
+    public ValueSet subtractFromSingleton(Data data)
+    {
+        return data.lastPoint.subtract(data.denseSetPoints);
+    }
+
+    @Benchmark
+    public ValueSet unionInterleavedRanges(Data data)
+    {
+        return data.interleavedRangeSets.getFirst().union(data.interleavedRangeSets.subList(1, data.interleavedRangeSets.size()));
+    }
+
+    @Benchmark
+    public ValueSet unionOverlappingRanges(Data data)
+    {
+        return data.overlappingRangeSets.getFirst().union(data.overlappingRangeSets.subList(1, data.overlappingRangeSets.size()));
+    }
+
     @State(Scope.Thread)
     public static class Data
     {
@@ -338,6 +380,30 @@ public class BenchmarkSortedRangeSet
         public List<ValueSet> manyDiscreteSets = generateInterleavedDiscreteSets(20, 5_000);
         public List<ValueSet> twoSmallDiscreteSets = generateInterleavedDiscreteSets(2, 8);
         public List<ValueSet> manySmallDiscreteSets = generateInterleavedDiscreteSets(20, 8);
+
+        // 10,000 disjoint ranges, a point inside each of them, and the first and last value
+        public SortedRangeSet largeDisjointRanges = SortedRangeSet.copyOf(BIGINT, LongStream.range(0, 10_000)
+                .mapToObj(index -> range(BIGINT, index * 4, true, index * 4 + 2, true)).toList());
+        public SortedRangeSet denseSetPoints = SortedRangeSet.of(BIGINT, LongStream.range(0, 10_000).map(index -> index * 4 + 1).boxed().toList());
+        public SortedRangeSet firstPoint = SortedRangeSet.of(BIGINT, 0L);
+        public SortedRangeSet lastPoint = SortedRangeSet.of(BIGINT, 9_999L * 4);
+        // 20 sets of 10,000 ranges each, either interleaved with or overlapping each other
+        public List<ValueSet> interleavedRangeSets = generateRangeSetsWithOffsets(true);
+        public List<ValueSet> overlappingRangeSets = generateRangeSetsWithOffsets(false);
+
+        private static List<ValueSet> generateRangeSetsWithOffsets(boolean interleaved)
+        {
+            List<ValueSet> sets = new ArrayList<>(20);
+            for (int setIndex = 0; setIndex < 20; setIndex++) {
+                int offset = setIndex;
+                sets.add(SortedRangeSet.copyOf(BIGINT, LongStream.range(0, 10_000)
+                        .mapToObj(index -> interleaved
+                                ? range(BIGINT, (index * 20 + offset) * 4, true, (index * 20 + offset) * 4 + 2, true)
+                                : range(BIGINT, index * 100 + offset, true, index * 100 + offset + 30, true))
+                        .toList()));
+            }
+            return sets;
+        }
 
         private static List<ValueSet> generateInterleavedDiscreteSets(int setCount, int valuesPerSet)
         {
@@ -409,6 +475,14 @@ public class BenchmarkSortedRangeSet
         unionTwoSmallDiscrete(data);
         unionManySmallDiscrete(data);
         linearUnionDiscreteOnLarge(data);
+        unionInterleavedRanges(data);
+        unionOverlappingRanges(data);
+
+        containsFirst(data);
+        containsLast(data);
+        containsDense(data);
+        subtractPoints(data);
+        subtractFromSingleton(data);
 
         overlapsSmall(data);
         overlapsLarge(data);
