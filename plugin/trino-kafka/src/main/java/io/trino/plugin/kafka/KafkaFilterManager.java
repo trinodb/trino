@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -36,6 +37,7 @@ import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.utils.Utils;
 
 import java.util.Collections;
 import java.util.List;
@@ -49,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.KEY_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OFFSET_TIMESTAMP_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
@@ -67,13 +70,15 @@ public class KafkaFilterManager
     private final KafkaConsumerFactory consumerFactory;
     private final KafkaAdminFactory adminFactory;
     private final KafkaInternalFieldManager kafkaInternalFieldManager;
+    private final boolean keyPartitionPushdownEnabled;
 
     @Inject
-    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory, KafkaInternalFieldManager kafkaInternalFieldManager)
+    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory, KafkaInternalFieldManager kafkaInternalFieldManager, KafkaConfig kafkaConfig)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.adminFactory = requireNonNull(adminFactory, "adminFactory is null");
         this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
+        this.keyPartitionPushdownEnabled = requireNonNull(kafkaConfig, "kafkaConfig is null").isKeyPartitionPushdownEnabled();
     }
 
     public KafkaFilteringResult getKafkaFilterResult(
@@ -106,6 +111,18 @@ public class KafkaFilterManager
             Set<Long> partitionIdsFiltered = getDomain(PARTITION_ID_FIELD, domains)
                     .map(domain -> filterValuesByDomain(domain, partitionIds))
                     .orElse(partitionIds);
+
+            // push down key
+            if (keyPartitionPushdownEnabled) {
+                Optional<Set<Integer>> keyPartitions = getDomain(KEY_FIELD, domains)
+                        .flatMap(domain -> getKeyPartitions(domain, partitionInfos.size()));
+                if (keyPartitions.isPresent()) {
+                    partitionIdsFiltered = partitionIdsFiltered.stream()
+                            .filter(partitionId -> keyPartitions.get().contains((int) (long) partitionId))
+                            .collect(toImmutableSet());
+                }
+            }
+
             Optional<Range> offsetTimestampRanged = getDomain(OFFSET_TIMESTAMP_FIELD, domains)
                     .flatMap(KafkaFilterManager::filterRangeByDomain);
 
@@ -144,12 +161,30 @@ public class KafkaFilterManager
             }
 
             // push down partitions
+            final Set<Long> finalPartitionIdsFiltered = partitionIdsFiltered;
             List<PartitionInfo> partitionFilteredInfos = partitionInfos.stream()
-                    .filter(partitionInfo -> partitionIdsFiltered.contains((long) partitionInfo.partition()))
+                    .filter(partitionInfo -> finalPartitionIdsFiltered.contains((long) partitionInfo.partition()))
                     .collect(toImmutableList());
             return new KafkaFilteringResult(partitionFilteredInfos, partitionBeginOffsets, partitionEndOffsets);
         }
         return new KafkaFilteringResult(partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+    }
+
+    @VisibleForTesting
+    static Optional<Set<Integer>> getKeyPartitions(Domain keyDomain, int numPartitions)
+    {
+        if (numPartitions == 0 || !keyDomain.isNullableDiscreteSet() || keyDomain.isNullAllowed()) {
+            return Optional.empty();
+        }
+        ImmutableSet.Builder<Integer> partitions = ImmutableSet.builder();
+        for (Object value : keyDomain.getNullableDiscreteSet().getNonNullValues()) {
+            if (!(value instanceof Slice slice) || slice.length() == 0) {
+                // A null key is returned as an empty key and can be stored in any partition
+                return Optional.empty();
+            }
+            partitions.add(Utils.toPositive(Utils.murmur2(slice.getBytes())) % numPartitions);
+        }
+        return Optional.of(partitions.build());
     }
 
     private Optional<Domain> getDomain(InternalFieldId internalFieldId, Map<String, Domain> columnNameToDomain)
