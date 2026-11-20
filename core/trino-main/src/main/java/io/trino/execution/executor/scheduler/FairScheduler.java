@@ -20,12 +20,16 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import jdk.management.VirtualThreadSchedulerMXBean;
 
+import java.lang.management.ManagementFactory;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -33,7 +37,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /// Implementation notes:
 ///
@@ -57,6 +66,7 @@ public final class FairScheduler
     private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
+    private final AtomicInteger taskThreads = new AtomicInteger();
 
     private volatile boolean paused;
 
@@ -69,19 +79,55 @@ public final class FairScheduler
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
     {
-        this(maxConcurrentTasks, daemonThreadsNamed(threadNameFormat), ticker);
+        this(maxConcurrentTasks, threadNameFormat, ticker, false);
+    }
+
+    public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker, boolean virtualThreadsEnabled)
+    {
+        this(maxConcurrentTasks, threadFactory(threadNameFormat, virtualThreadsEnabled), virtualThreadsEnabled, ticker);
     }
 
     @VisibleForTesting
     public FairScheduler(int maxConcurrentTasks, ThreadFactory threadFactory, Ticker ticker)
     {
+        this(maxConcurrentTasks, threadFactory, false, ticker);
+    }
+
+    private FairScheduler(int maxConcurrentTasks, ThreadFactory threadFactory, boolean virtualThreadsEnabled, Ticker ticker)
+    {
         this.ticker = requireNonNull(ticker, "ticker is null");
 
-        concurrencyControl = new Reservation<>(maxConcurrentTasks);
+        ExecutorService executorService;
+        if (virtualThreadsEnabled) {
+            int carriers = virtualThreadCarriers();
+            checkArgument(carriers > 1, "Virtual threads need at least two carrier threads: %s", carriers);
+            // Virtual threads are not preempted, so tasks leave one carrier free for other virtual threads
+            concurrencyControl = new Reservation<>(min(maxConcurrentTasks, carriers - 1));
+            executor = null;
+            executorMBean = null;
+            executorService = newThreadPerTaskExecutor(threadFactory);
+        }
+        else {
+            concurrencyControl = new Reservation<>(maxConcurrentTasks);
+            executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, SECONDS, new StaggeredExitSynchronousQueue(10, MILLISECONDS), threadFactory);
+            executorMBean = new ThreadPoolExecutorMBean(executor);
+            executorService = executor;
+        }
+        taskExecutor = MoreExecutors.listeningDecorator(executorService);
+    }
 
-        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new StaggeredExitSynchronousQueue(10, TimeUnit.MILLISECONDS), threadFactory);
-        executorMBean = new ThreadPoolExecutorMBean(executor);
-        taskExecutor = MoreExecutors.listeningDecorator(executor);
+    /// Returns the parallelism of the default virtual thread scheduler.
+    public static int virtualThreadCarriers()
+    {
+        return ManagementFactory.getPlatformMXBean(VirtualThreadSchedulerMXBean.class).getParallelism();
+    }
+
+    private static ThreadFactory threadFactory(String threadNameFormat, boolean virtualThreadsEnabled)
+    {
+        if (virtualThreadsEnabled) {
+            return virtualThreadsNamed(threadNameFormat);
+        }
+        return daemonThreadsNamed(threadNameFormat);
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -91,7 +137,12 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        return new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
+        return newInstance(maxConcurrentTasks, ticker, false);
+    }
+
+    public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker, boolean virtualThreadsEnabled)
+    {
+        return new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker, virtualThreadsEnabled);
     }
 
     public void pause()
@@ -174,7 +225,15 @@ public final class FairScheduler
 
         TaskControl task = new TaskControl(group, id, ticker);
 
-        return taskExecutor.submit(() -> runTask(runner, task), null);
+        return taskExecutor.submit(() -> {
+            taskThreads.incrementAndGet();
+            try {
+                runTask(runner, task);
+            }
+            finally {
+                taskThreads.decrementAndGet();
+            }
+        }, null);
     }
 
     private void runTask(Schedulable runner, TaskControl task)
@@ -324,10 +383,15 @@ public final class FairScheduler
         StringBuilder builder = new StringBuilder();
         builder.append(queue);
 
-        builder.append("Task executor: pool=%s, active=%s, queue=%s\n".formatted(
-                executor.getPoolSize(),
-                executor.getActiveCount(),
-                executor.getQueue().size()));
+        if (executor != null) {
+            builder.append("Task executor: pool=%s, active=%s, queue=%s\n".formatted(
+                    executor.getPoolSize(),
+                    executor.getActiveCount(),
+                    executor.getQueue().size()));
+        }
+        else {
+            builder.append("Task executor: threads=%s\n".formatted(taskThreads.get()));
+        }
 
         builder.append("Concurrency control: slots=%s, available=%s\n".formatted(
                 concurrencyControl.totalSlots(),
