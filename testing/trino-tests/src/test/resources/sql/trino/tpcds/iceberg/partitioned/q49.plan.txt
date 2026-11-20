@@ -1,6 +1,6 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, UNKNOWN, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (channel, item, return_ratio, return_rank, currency_rank)
                     local exchange (REPARTITION, HASH, [channel, item, return_ratio, return_rank, currency_rank])
