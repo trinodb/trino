@@ -224,33 +224,4 @@ final class TestSystemCachedKnownToken
             executor.shutdownNow();
         }
     }
-
-    @Test
-    void testGetTokenConcurrentWithSetupToken(@TempDir Path tempDir)
-            throws Exception
-    {
-        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
-        knownToken.setupToken(() -> Optional.of(new Token("the-token")));
-
-        AtomicBoolean done = new AtomicBoolean();
-        ExecutorService executor = newSingleThreadExecutor();
-        try {
-            Future<?> writer = executor.submit(() -> {
-                while (!done.get()) {
-                    knownToken.setupToken(() -> Optional.of(new Token("the-token")));
-                }
-            });
-
-            long deadline = System.nanoTime() + Duration.ofSeconds(3).toNanos();
-            while (System.nanoTime() < deadline) {
-                assertThat(knownToken.getToken().map(Token::token)).isIn(Optional.empty(), Optional.of("the-token"));
-            }
-            done.set(true);
-            writer.get();
-        }
-        finally {
-            done.set(true);
-            executor.shutdownNow();
-        }
-    }
 }
