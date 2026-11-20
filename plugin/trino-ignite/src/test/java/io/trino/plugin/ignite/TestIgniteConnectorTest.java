@@ -494,6 +494,16 @@ public class TestIgniteConnectorTest
         abort("Ignite not support char trailing space");
     }
 
+    @Test
+    @Override
+    public void testLikeWithBackslash()
+    {
+        // TODO https://github.com/trinodb/trino/issues/32256 Correctness issue: Ignite LIKE pushdown treats backslash as an escape character
+        assertThatThrownBy(super::testLikeWithBackslash)
+                .hasMessageContaining("Rows for query [SELECT k FROM test_like_backslash")
+                .hasMessageContaining("do not match");
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
