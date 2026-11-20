@@ -29,6 +29,7 @@ import java.lang.annotation.Target;
 import java.util.function.Supplier;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static java.lang.annotation.ElementType.FIELD;
@@ -45,6 +46,7 @@ public class S3FileSystemModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(S3FileSystemConfig.class);
+        newOptionalBinder(binder, S3RemoteSignerProvider.class);
 
         if (buildConfigObject(S3SecurityMappingEnabledConfig.class).isEnabled()) {
             install(new S3SecurityMappingModule());

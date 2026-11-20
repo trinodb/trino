@@ -68,6 +68,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
     private final boolean caseInsensitiveNameMatching;
+    private final boolean remoteSigningEnabled;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
@@ -82,6 +83,7 @@ public class TrinoIcebergRestCatalogFactory
             ForwardingFileIoFactory fileIoFactory,
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
+            Optional<IcebergRestCatalogS3Config> s3Config,
             SecurityProperties securityProperties,
             IcebergRestCatalogPropertiesProvider catalogPropertiesProvider,
             IcebergConfig icebergConfig,
@@ -104,6 +106,9 @@ public class TrinoIcebergRestCatalogFactory
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
+        this.remoteSigningEnabled = requireNonNull(s3Config, "s3Config is null")
+                .map(IcebergRestCatalogS3Config::isRemoteSigningEnabled)
+                .orElse(false);
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
@@ -142,10 +147,17 @@ public class TrinoIcebergRestCatalogFactory
         // for authorization and config route
         if (icebergCatalog == null) {
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(RESTUtil.merge(config, catalogPropertiesProvider.proxyProperties()))
-                            .uri(config.get(CatalogProperties.URI))
-                            .withHeaders(RESTUtil.configHeaders(config))
-                            .build(),
+                    config -> {
+                        // Proxy entries are merged last so server-provided config cannot redirect the proxy credentials
+                        Map<String, String> clientConfig = RESTUtil.merge(config, catalogPropertiesProvider.proxyProperties());
+                        if (remoteSigningEnabled) {
+                            return new IcebergRestCatalogS3RemoteSigningClient(clientConfig);
+                        }
+                        return HTTPClient.builder(clientConfig)
+                                .uri(clientConfig.get(CatalogProperties.URI))
+                                .withHeaders(RESTUtil.configHeaders(clientConfig))
+                                .build();
+                    },
                     (context, config) -> {
                         if (context.wrappedIdentity() instanceof RestSessionIdentity sessionIdentity) {
                             TrinoFileSystem fileSystem = fileSystemFactory.create(sessionIdentity.identity(), config);
