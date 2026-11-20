@@ -131,11 +131,11 @@ public class TestAgentTablePrinter
 
         List<String> lines = List.of(output.split("\n"));
         assertThat(lines.subList(0, 3)).containsExactly("|name:varchar|value:bigint|", "|---|---|", "|row0|0|");
-        assertThat(lines.get(2 + 19)).isEqualTo("|row19|19|");
-        assertThat(lines.get(2 + 20)).isEqualTo("…(+1460 rows)");
-        assertThat(lines.get(2 + 21)).isEqualTo("|row1480|1480|");
-        assertThat(lines.get(2 + 40)).isEqualTo("|row1499|1499|");
-        assertThat(output).matches("(?s).*\n\\(1500 rows, showing the first 20 and last 20, --agent-max-rows 0 for all, hash: [0-9a-f]{16}\\)\n");
+        assertThat(lines.get(2 + 49)).isEqualTo("|row49|49|");
+        assertThat(lines.get(2 + 50)).isEqualTo("…(+1400 rows)");
+        assertThat(lines.get(2 + 51)).isEqualTo("|row1450|1450|");
+        assertThat(lines.get(2 + 100)).isEqualTo("|row1499|1499|");
+        assertThat(output).matches("(?s).*\n\\(1500 rows, showing the first 50 and last 50, --agent-max-rows 0 for all, hash: [0-9a-f]{16}\\)\n");
     }
 
     @Test
@@ -352,7 +352,7 @@ public class TestAgentTablePrinter
             throws Exception
     {
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AgentTablePrinter(COLUMNS, writer, new AgentLimits(10, 0, 0));
+        OutputPrinter printer = new AgentTablePrinter(COLUMNS, writer, new AgentLimits(10, 10_000, 0));
 
         List<List<?>> rows = generateRows(10 + 1 + EARLY_STOP_ROWS);
         assertThatThrownBy(() -> printer.printRows(rows, false))
@@ -362,7 +362,37 @@ public class TestAgentTablePrinter
         String output = writer.toString();
         assertThat(output).contains("|row4|4|\n…(+");
         assertThat(output).doesNotContain("hash");
-        assertThat(output).matches("(?s).*\n\\(at least 100011 rows, showing the first 5, query stopped early, --agent-max-rows 0 for all\\)\n");
+        assertThat(output).matches("(?s).*\n\\(at least 100011 rows, showing the first 5, query stopped early, --agent-max-rows 0 --agent-max-bytes 0 for all\\)\n");
+    }
+
+    @Test
+    public void testNoEarlyStopWhenALimitIsRaised()
+            throws Exception
+    {
+        for (AgentLimits limits : List.of(new AgentLimits(10, 0, 0), new AgentLimits(0, 10_000, 0), new AgentLimits(10, 10_001, 0), new AgentLimits(1001, 10_000, 0))) {
+            StringWriter writer = new StringWriter();
+            OutputPrinter printer = new AgentTablePrinter(COLUMNS, writer, limits);
+
+            printer.printRows(generateRows(10 + 1 + EARLY_STOP_ROWS + 50), true);
+            printer.finish();
+
+            assertThat(writer.toString()).as(limits.maxRows() + " rows, " + limits.maxBytes() + " bytes").doesNotContain("stopped early");
+        }
+    }
+
+    @Test
+    public void testLargerLimitsShowMoreRows()
+            throws Exception
+    {
+        String output = print(new AgentLimits(0, 2_000, 0), generateRows(5000));
+
+        List<String> lines = List.of(output.split("\n"));
+        assertThat(lines.get(2)).isEqualTo("|row0|0|");
+        assertThat(lines.size()).isGreaterThan(100);
+        // the rows stay within the limit, the marker and the footer come on top of it
+        assertThat(output.length()).isLessThanOrEqualTo(2_200);
+        assertThat(lines.get(lines.size() - 3)).isEqualTo("|row4999|4999|");
+        assertThat(output).matches("(?s).*\n\\(5000 rows, showing the first \\d{2,} and last \\d{2,}, --agent-max-bytes 0 for all, hash: [0-9a-f]{16}\\)\n");
     }
 
     @Test
@@ -370,14 +400,14 @@ public class TestAgentTablePrinter
             throws Exception
     {
         StringWriter writer = new StringWriter();
-        OutputPrinter printer = new AgentTablePrinter(COLUMNS, writer, new AgentLimits(10, 0, 0), false, () -> true);
+        OutputPrinter printer = new AgentTablePrinter(COLUMNS, writer, new AgentLimits(10, 10_000, 0), false, () -> true);
 
         int rows = 10 + 1 + EARLY_STOP_ROWS + 50;
         printer.printRows(generateRows(rows), true);
         printer.finish();
 
         assertThat(writer.toString()).doesNotContain("stopped early");
-        assertThat(writer.toString()).matches("(?s).*\n\\(" + rows + " rows, showing the first 5 and last 5, --agent-max-rows 0 for all, hash: [0-9a-f]{16}\\)\n");
+        assertThat(writer.toString()).matches("(?s).*\n\\(" + rows + " rows, showing the first 5 and last 5, --agent-max-rows 0 --agent-max-bytes 0 for all, hash: [0-9a-f]{16}\\)\n");
         assertThat(writer.toString()).contains("|row" + (rows - 1) + "|" + (rows - 1) + "|\n");
     }
 

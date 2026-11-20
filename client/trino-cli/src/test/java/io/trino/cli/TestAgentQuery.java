@@ -104,11 +104,11 @@ public class TestAgentQuery
         server.enqueue(jsonResponse(results(10 + 1 + AgentTablePrinter.EARLY_STOP_ROWS + 5000, true)));
         server.enqueue(new MockResponse.Builder().code(204).build());
 
-        Output output = render(new AgentLimits(10, 0, 0));
+        Output output = render(new AgentLimits(10, 10_000, 0));
 
         assertThat(output.success()).isTrue();
         assertThat(output.out()).contains("|4|\n…(+");
-        assertThat(output.out()).contains("(at least 100011 rows, showing the first 5, query stopped early, --agent-max-rows 0 for all)");
+        assertThat(output.out()).contains("(at least 100011 rows, showing the first 5, query stopped early, --agent-max-rows 0 --agent-max-bytes 0 for all)");
         assertThat(output.err()).isEmpty();
         assertThat(waitForNoRowReaderThread()).as("thread reading rows is still running").isTrue();
     }
@@ -193,7 +193,7 @@ public class TestAgentQuery
         server.enqueue(jsonResponse(results(10 + 1 + AgentTablePrinter.EARLY_STOP_ROWS + 5000, true)));
         server.enqueue(new MockResponse.Builder().code(204).build());
 
-        Output output = render(new AgentLimits(10, 0, 0), 1000, Optional.of("cat"), createClientSession(server));
+        Output output = render(new AgentLimits(10, 10_000, 0), 1000, Optional.of("cat"), createClientSession(server));
 
         // the rows go to the pager, which must not turn stopping early into an abort by the user
         assertThat(output.success()).isTrue();

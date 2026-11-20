@@ -593,14 +593,14 @@ mode:
   - Turn [agent mode](cli-agent-mode) on or off. By default it is turned on
     when an AI agent is detected.
 * - `--agent-max-bytes=<bytes>`
-  - Maximum size of the rows that agent mode prints in full. Defaults to
-    `10000`. A value of `0` or less means unlimited.
+  - Maximum size of the rows that agent mode prints. A larger result is cut
+    in the middle. Defaults to `10000`. A value of `0` or less means unlimited.
 * - `--agent-max-cell-width=<characters>`
   - Maximum width of a value in agent mode. Defaults to `500`. A value of `0` or
     less means unlimited.
 * - `--agent-max-rows=<rows>`
-  - Maximum number of rows that agent mode prints in full. Defaults to `1000`. A
-    value of `0` or less means unlimited.
+  - Maximum number of rows that agent mode prints. A larger result is cut in
+    the middle. Defaults to `1000`. A value of `0` or less means unlimited.
 * - `--execute=<execute>`
   - Execute specified statements and exit.
 * - `-f`, `--file=<file>`
@@ -734,17 +734,18 @@ In agent mode, the CLI behaves as follows:
   ```
 
 * A result with up to 1000 rows and 10000 bytes, including the header, is
-  printed in full. A larger result is cut to the first and last 20 rows with a
-  marker such as `…(+1460 rows)` between them. When `--agent-max-rows` is below
-  40, the printed rows are split evenly between the start and the end, with the
-  extra row at the start. The byte limit can cut the output to fewer rows, but
-  the first row is printed even when it alone is over the limit. Values and
-  column headers longer than 500 characters are cut and end with a marker such
-  as `…(+4500 chars)`.
+  printed in full. A larger result is cut in the middle: the first half of the
+  row and byte limits is used for rows from the start of the result and the
+  second half for rows from the end, with a marker such as `…(+1460 rows)`
+  between them. The output stays within the limits, with the marker and the
+  footer on top. The byte limit can cut the output to fewer rows, but the first
+  row is printed even when it alone is over the limit. Values and column headers
+  longer than 500 characters are cut and end with a marker such as
+  `…(+4500 chars)`.
   Use the `--agent-max-rows`, `--agent-max-bytes`, and `--agent-max-cell-width`
-  options to change the limits. A value of `0` removes a limit. When both the
-  row and the byte limit are removed, the rows are printed while they are read
-  and not kept in memory.
+  options to change the limits. A higher limit prints more rows of a cut
+  result. A value of `0` removes a limit. When both the row and the byte limit
+  are removed, the rows are printed while they are read and not kept in memory.
 * In values, the characters `\`, `|`, carriage return and line feed are written
   as `\\`, `\|`, `\r` and `\n`, so that a line break can be told from the text
   `\n`.
@@ -755,9 +756,12 @@ In agent mode, the CLI behaves as follows:
   `…(+4500 chars)`.
 * The CLI cancels the query after it has read 100000 rows past the point where
   the output was cut. The footer then states `at least` the number of rows read,
-  and the exit status is `0`. A query that runs in a transaction is not
-  cancelled, because that fails the transaction. Its remaining rows are read
-  and counted, and the footer has the number of rows.
+  the output has only the rows from the start of the result, and the exit
+  status is `0`. A query that runs in a transaction is not cancelled, because
+  that fails the transaction. Its remaining rows are read and counted, and the
+  footer has the number of rows. A query is not cancelled either when a limit is
+  raised above its default or removed, so that the whole result is read and the
+  footer has its number of rows.
 * A result of a query that failed or was cancelled has the footer
   `(incomplete: 10 rows received before the query ended)` and no hash, and the
   error is reported.
@@ -772,7 +776,7 @@ In agent mode, the CLI behaves as follows:
   but it compares values inside arrays, maps, and rows as they are printed.
 
   ```text
-  (1500 rows, showing the first 20 and last 20, --agent-max-rows 0 --agent-max-bytes 0 for all, hash: a7553ab5cf51bd45)
+  (1500 rows, showing the first 400 and last 332, --agent-max-rows 0 --agent-max-bytes 0 for all, hash: be16aa0ebf60a6ed)
   ```
 
 * Errors are printed to the standard error as one line of JSON. A query failure
