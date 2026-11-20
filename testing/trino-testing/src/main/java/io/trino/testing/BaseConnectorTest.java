@@ -158,6 +158,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REPORTING_WRITTEN_BYTES;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_FIELD_DEFAULT_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
@@ -5103,6 +5104,26 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES (1, 123, NULL), (2, 456, 789)");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithRowFieldDefault()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        if (!hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE)) {
+            String tableName = "test_row_field_default_" + randomNameSuffix();
+            assertQueryFails(
+                    "CREATE TABLE " + tableName + " (info ROW(name varchar, active boolean DEFAULT true))",
+                    ".* Catalog '.*' does not support default value for fields of column name 'info'");
+            return;
+        }
+        skipTestUnless(hasBehavior(SUPPORTS_ROW_FIELD_DEFAULT_VALUE));
+
+        try (TestTable table = newTrinoTable("test_row_field_default", "(id integer, info ROW(name varchar, active boolean DEFAULT true))")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("active boolean DEFAULT true");
         }
     }
 

@@ -66,6 +66,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.FieldDefaultValues.analyzeFieldDefaults;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
@@ -83,6 +84,8 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.extractFieldDefaults;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.stripFieldDefaults;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
@@ -178,7 +181,7 @@ public class CreateTableTask
                 Identifier name = getOnlyElement(column.getName().getOriginalParts());
                 Type type;
                 try {
-                    type = plannerContext.getTypeManager().getType(toTypeDescriptor(column.getType()));
+                    type = plannerContext.getTypeManager().getType(toTypeDescriptor(stripFieldDefaults(column.getType())));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), name);
@@ -191,6 +194,10 @@ public class CreateTableTask
                 }
                 if (column.getDefaultValue().isPresent() && !supportsDefaultColumnValue) {
                     throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support default value for column name '%s'", catalogName, name);
+                }
+                Map<List<String>, Expression> fieldDefaults = extractFieldDefaults(column.getType());
+                if (!fieldDefaults.isEmpty() && !supportsDefaultColumnValue) {
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support default value for fields of column name '%s'", catalogName, name);
                 }
                 if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                     throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, name);
@@ -211,6 +218,7 @@ public class CreateTableTask
                         .setName(name.getValue().toLowerCase(ENGLISH))
                         .setType(supportedType)
                         .setDefaultValue(column.getDefaultValue().map(Expression::toString))
+                        .setFieldDefaults(analyzeFieldDefaults(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, fieldDefaults))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)

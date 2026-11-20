@@ -76,8 +76,10 @@ import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlockBuilder;
@@ -825,6 +827,7 @@ public class IcebergPageSourceProvider
                     .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
 
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumnsByIcebergId(reader, nameMapping);
+            Set<Integer> fileFieldIds = fileColumnsByIcebergId.keySet();
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled())
@@ -944,16 +947,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
                                 new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
-                    else if (column.isBaseColumn()) {
-                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
-                    }
                     else {
-                        transforms.dereferenceField(
-                                ImmutableList.<Integer>builder()
-                                        .add(ordinal)
-                                        .addAll(applyProjection(column, baseColumn))
-                                        .build(),
-                                getSridInjectionTransform(column, tableSchema));
+                        addColumnTransform(transforms, column, baseColumn, ordinal, tableSchema, fileFieldIds);
                     }
                 }
             }
@@ -1195,6 +1190,7 @@ public class IcebergPageSourceProvider
 
             // Mapping from Iceberg field ID to Parquet fields.
             Map<Integer, org.apache.parquet.schema.Type> parquetIdToFieldName = createParquetIdToFieldMapping(fileSchema);
+            Set<Integer> fileFieldIds = parquetIdToFieldName.keySet();
 
             List<IcebergColumnHandle> columnsForRead = columns;
             if (columns.stream().anyMatch(IcebergColumnHandle::isMergeRowIdColumn) &&
@@ -1315,16 +1311,8 @@ public class IcebergPageSourceProvider
                         transforms.transform(new DataSequenceNumberTransform(dataSequenceNumber.orElseThrow(() ->
                                 new TrinoException(ICEBERG_BAD_DATA, "Cannot read $last_updated_sequence_number metadata column: Iceberg manifest is missing dataSequenceNumber")), ordinal));
                     }
-                    else if (column.isBaseColumn()) {
-                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
-                    }
                     else {
-                        transforms.dereferenceField(
-                                ImmutableList.<Integer>builder()
-                                        .add(ordinal)
-                                        .addAll(applyProjection(column, baseColumn))
-                                        .build(),
-                                getSridInjectionTransform(column, tableSchema));
+                        addColumnTransform(transforms, column, baseColumn, ordinal, tableSchema, fileFieldIds);
                     }
                 }
             }
@@ -1833,6 +1821,11 @@ public class IcebergPageSourceProvider
         }
         GroupType baseType = baseColumnType.get().asGroupType();
 
+        // Leaf is missing from the file: read the whole column so initial defaults can be applied after reading
+        if (!parquetIdToField.containsKey(column.getPath().getLast())) {
+            return baseColumnType;
+        }
+
         List<org.apache.parquet.schema.Type> subfieldTypes = column.getPath().stream()
                 .filter(parquetIdToField::containsKey)
                 .map(parquetIdToField::get)
@@ -1896,6 +1889,120 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+    }
+
+    private static void addColumnTransform(
+            TransformConnectorPageSource.Builder transforms,
+            IcebergColumnHandle column,
+            IcebergColumnHandle baseColumn,
+            int ordinal,
+            Schema tableSchema,
+            Set<Integer> fileFieldIds)
+    {
+        Optional<Function<Block, Block>> sridTransform = getSridInjectionTransform(column, tableSchema);
+        Optional<Function<Block, Block>> defaultsTransform = getNestedDefaultsTransform(baseColumn, tableSchema, fileFieldIds);
+
+        if (column.isBaseColumn()) {
+            if (defaultsTransform.isPresent()) {
+                Function<Block, Block> defaults = defaultsTransform.get();
+                transforms.column(ordinal, Optional.of(sridTransform.map(srid -> (Function<Block, Block>) block -> srid.apply(defaults.apply(block))).orElse(defaults)));
+            }
+            else {
+                transforms.column(ordinal, sridTransform);
+            }
+            return;
+        }
+
+        List<Integer> path = applyProjection(column, baseColumn);
+        if (defaultsTransform.isEmpty()) {
+            transforms.dereferenceField(ImmutableList.<Integer>builder().add(ordinal).addAll(path).build(), sridTransform);
+            return;
+        }
+        // Dereference after filling so rows with a NULL parent stay NULL
+        Function<Block, Block> defaults = defaultsTransform.get();
+        transforms.transform(ordinal, block -> {
+            Block result = defaults.apply(block);
+            for (int index : path) {
+                result = RowBlock.getRowFieldsFromBlock(result).get(index);
+            }
+            return sridTransform.isPresent() ? sridTransform.get().apply(result) : result;
+        });
+    }
+
+    private static Optional<Function<Block, Block>> getNestedDefaultsTransform(IcebergColumnHandle baseColumn, Schema tableSchema, Set<Integer> fileFieldIds)
+    {
+        NestedField field = tableSchema.findField(baseColumn.getId());
+        if (field == null || !field.type().isStructType() || !(baseColumn.getType() instanceof RowType rowType) || !hasMissingFieldDefault(field.type().asStructType(), fileFieldIds)) {
+            return Optional.empty();
+        }
+        return Optional.of(block -> fillMissingFieldDefaults(rowType, field.type().asStructType(), tableSchema, fileFieldIds, block));
+    }
+
+    private static boolean hasMissingFieldDefault(Types.StructType struct, Set<Integer> fileFieldIds)
+    {
+        for (NestedField field : struct.fields()) {
+            if (!fileFieldIds.contains(field.fieldId())) {
+                if (field.initialDefaultLiteral() != null) {
+                    return true;
+                }
+            }
+            else if (field.type().isStructType() && hasMissingFieldDefault(field.type().asStructType(), fileFieldIds)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Replaces fields missing from the file with their initial default; NULL rows stay NULL
+    private static Block fillMissingFieldDefaults(RowType rowType, Types.StructType struct, Schema tableSchema, Set<Integer> fileFieldIds, Block block)
+    {
+        List<RowType.Field> fields = rowType.getFields();
+        if (fields.size() != struct.fields().size()) {
+            return block;
+        }
+        int positionCount = block.getPositionCount();
+        List<Block> fieldBlocks = RowBlock.getRowFieldsFromBlock(block);
+        Block[] newFieldBlocks = new Block[fields.size()];
+        for (int i = 0; i < newFieldBlocks.length; i++) {
+            NestedField icebergField = struct.fields().get(i);
+            Type fieldType = fields.get(i).getType();
+            Block fieldBlock = fieldBlocks.get(i);
+            if (!fileFieldIds.contains(icebergField.fieldId())) {
+                Object initialDefault = getInitialDefault(tableSchema, icebergField.fieldId());
+                if (initialDefault != null) {
+                    if (!block.mayHaveNull()) {
+                        fieldBlock = RunLengthEncodedBlock.create(writeNativeValue(fieldType, initialDefault), positionCount);
+                    }
+                    else {
+                        // Two entries: the default (id 0) and NULL (id 1) for NULL rows
+                        BlockBuilder dictionary = fieldType.createBlockBuilder(null, 2);
+                        writeNativeValue(fieldType, dictionary, initialDefault);
+                        dictionary.appendNull();
+                        int[] ids = new int[positionCount];
+                        for (int position = 0; position < positionCount; position++) {
+                            ids[position] = block.isNull(position) ? 1 : 0;
+                        }
+                        fieldBlock = DictionaryBlock.create(positionCount, dictionary.build(), ids);
+                    }
+                }
+            }
+            else if (fieldType instanceof RowType nestedRowType && icebergField.type().isStructType()) {
+                fieldBlock = fillMissingFieldDefaults(nestedRowType, icebergField.type().asStructType(), tableSchema, fileFieldIds, fieldBlock);
+            }
+            newFieldBlocks[i] = fieldBlock;
+        }
+
+        Optional<long[]> rowIsValid = Optional.empty();
+        if (block.mayHaveNull()) {
+            long[] valid = Bitmap.allocateWords(positionCount, true);
+            for (int position = 0; position < positionCount; position++) {
+                if (block.isNull(position)) {
+                    Bitmap.clear(valid, 0, position);
+                }
+            }
+            rowIsValid = Optional.of(valid);
+        }
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsValid, newFieldBlocks);
     }
 
     /**
