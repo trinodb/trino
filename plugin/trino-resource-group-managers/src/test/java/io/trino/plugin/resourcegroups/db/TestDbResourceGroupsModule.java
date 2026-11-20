@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.resourcegroups.db;
 
+import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,5 +30,44 @@ public class TestDbResourceGroupsModule
         DatabaseMigrator migrator = DbResourceGroupsModule.createMigrator(config);
 
         assertThat(migrator).isInstanceOf(NoOpDatabaseMigrator.class);
+    }
+
+    @Test
+    public void testCreateManagerWithProductionWiring()
+    {
+        TestingResourceGroupsDatabase database = TestingResourceGroupsDatabase.create();
+        TestingResourceGroupsDao dao = database.getDao();
+        dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, "weighted", null, true, "1h", "1d", "1GB", null, "test");
+        dao.insertSelector(1, 1, ".*", null, null, null, null, null, null, null, null);
+
+        ResourceGroupConfigurationManager<?> manager = new DbResourceGroupConfigurationManagerFactory().create(
+                database.getConfigurationProperties(),
+                new TestingConfigurationManagerContext("test"));
+        try {
+            assertThat(manager).isInstanceOf(DbResourceGroupConfigurationManager.class);
+            assertThat(((DbResourceGroupConfigurationManager) manager).getRootGroups()).hasSize(1);
+            assertThat(((DbResourceGroupConfigurationManager) manager).getSelectors()).hasSize(1);
+        }
+        finally {
+            manager.shutdown();
+        }
+    }
+
+    private record TestingConfigurationManagerContext(String environment)
+            implements ResourceGroupConfigurationManagerContext
+    {
+        @Override
+        public ClusterMemoryPoolManager getMemoryPoolManager()
+        {
+            return _ -> {};
+        }
+
+        @Override
+        public String getEnvironment()
+        {
+            return environment;
+        }
     }
 }
