@@ -76,12 +76,6 @@ public class TpcdsSplit
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return false;
-    }
-
     @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
