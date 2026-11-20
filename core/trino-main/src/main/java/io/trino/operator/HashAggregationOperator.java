@@ -364,7 +364,25 @@ public class HashAggregationOperator
         if (aggregationBuilder != null && aggregationBuilder.isFull()) {
             return false;
         }
-        return unfinishedWork == null;
+        if (unfinishedWork == null) {
+            return true;
+        }
+        // input resumes while the next operator is blocked and does not take output
+        // the resumed work can start a memory wait after the driver has checked for one
+        return processUnfinishedWork() && operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private boolean processUnfinishedWork()
+    {
+        if (unfinishedWork == null) {
+            return true;
+        }
+        boolean workDone = unfinishedWork.process();
+        aggregationBuilder.updateMemory();
+        if (workDone) {
+            unfinishedWork = null;
+        }
+        return workDone;
     }
 
     @Override
@@ -466,13 +484,8 @@ public class HashAggregationOperator
         }
 
         // process unfinished work if one exists
-        if (unfinishedWork != null) {
-            boolean workDone = unfinishedWork.process();
-            aggregationBuilder.updateMemory();
-            if (!workDone) {
-                return null;
-            }
-            unfinishedWork = null;
+        if (!processUnfinishedWork()) {
+            return null;
         }
 
         if (outputPages == null) {
