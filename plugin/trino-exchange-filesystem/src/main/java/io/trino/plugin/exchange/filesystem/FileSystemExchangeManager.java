@@ -56,6 +56,7 @@ public class FileSystemExchangeManager
     private final int maxOutputPartitionCount;
     private final int exchangeFileListingParallelism;
     private final long exchangeSourceHandleTargetDataSizeInBytes;
+    private final boolean commitManifestEnabled;
     private final ExecutorService executor;
 
     @Inject
@@ -80,6 +81,7 @@ public class FileSystemExchangeManager
         this.maxOutputPartitionCount = fileSystemExchangeConfig.getMaxOutputPartitionCount();
         this.exchangeFileListingParallelism = fileSystemExchangeConfig.getExchangeFileListingParallelism();
         this.exchangeSourceHandleTargetDataSizeInBytes = fileSystemExchangeConfig.getExchangeSourceHandleTargetDataSize().toBytes();
+        this.commitManifestEnabled = fileSystemExchangeConfig.isCommitManifestEnabled();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -106,6 +108,7 @@ public class FileSystemExchangeManager
                 context,
                 outputPartitionCount,
                 preserveOrderWithinPartition,
+                commitManifestEnabled,
                 exchangeFileListingParallelism,
                 exchangeSourceHandleTargetDataSizeInBytes,
                 executor);
@@ -124,7 +127,8 @@ public class FileSystemExchangeManager
                 maxPageStorageSizeInBytes,
                 exchangeSinkBufferPoolMinSize,
                 exchangeSinkBuffersPerPartition,
-                exchangeSinkMaxFileSizeInBytes);
+                exchangeSinkMaxFileSizeInBytes,
+                commitManifestEnabled);
     }
 
     @Override
