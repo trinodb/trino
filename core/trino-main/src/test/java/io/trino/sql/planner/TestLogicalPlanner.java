@@ -2308,6 +2308,23 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testReorderJoinsOverTopN()
+    {
+        assertDistributedPlan(
+                "SELECT count(*) FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey " +
+                        "JOIN (SELECT custkey FROM customer ORDER BY acctbal DESC, custkey LIMIT 100) c ON o.custkey = c.custkey",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                .right(anyTree(
+                                        join(INNER, topCustomers -> topCustomers
+                                                .equiCriteria("O_CUSTKEY", "C_CUSTKEY")
+                                                .left(anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CUSTKEY", "custkey"))))
+                                                .right(anyTree(tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_ACCTBAL", "acctbal"))))))))));
+    }
+
+    @Test
     public void testRemoveSingleRowSort()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1";
