@@ -28,12 +28,15 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateRow
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -59,6 +62,6 @@ public class TestEvaluateRow
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateRow().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateRow().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
