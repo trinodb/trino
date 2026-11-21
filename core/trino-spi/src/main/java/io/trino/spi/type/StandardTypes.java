@@ -45,6 +45,7 @@ public final class StandardTypes
     public static final String MAP = MapType.NAME;
     public static final String JSON = "json";
     public static final String IPADDRESS = "ipaddress";
+    public static final String IPADDRESS_WITH_PORT = "ipaddress_with_port";
     public static final String UUID = "uuid";
     public static final String VARIANT = "variant";
     public static final String GEOMETRY = "Geometry";

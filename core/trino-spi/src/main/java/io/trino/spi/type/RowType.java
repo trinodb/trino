@@ -137,7 +137,7 @@ public class RowType
     private final int flatFixedSize;
     private final boolean flatVariableWidth;
 
-    private RowType(TypeDescriptor typeDescriptor, List<Field> originalFields)
+    protected RowType(TypeDescriptor typeDescriptor, List<Field> originalFields)
     {
         super(typeDescriptor, SqlRow.class, RowBlock.class);
 

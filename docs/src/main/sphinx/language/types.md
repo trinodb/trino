@@ -974,6 +974,16 @@ using the canonical format defined in {rfc}`5952`.
 
 Examples: `IPADDRESS '10.0.0.1'`, `IPADDRESS '2001:db8::1'`
 
+(ipaddress-with-port-type)=
+### `IPADDRESS_WITH_PORT`
+
+An IP address together with a port. The value is a tuple with the fields
+`ip_address` of type `IPADDRESS` and `port` of type `INTEGER`. IPv6 addresses
+must be enclosed in square brackets when written together with a port.
+
+Examples: `IPADDRESS_WITH_PORT '10.0.0.1:80'`,
+`IPADDRESS_WITH_PORT '[2001:db8::1]:443'`
+
 ## UUID
 
 (uuid-type)=
