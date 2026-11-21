@@ -974,6 +974,34 @@ using the canonical format defined in {rfc}`5952`.
 
 Examples: `IPADDRESS '10.0.0.1'`, `IPADDRESS '2001:db8::1'`
 
+(ipaddress-with-port-type)=
+### `IPADDRESS_WITH_PORT`
+
+An IP address together with a port. The value is a tuple with the fields
+`ip_address` of type `IPADDRESS` and `port` of type `INTEGER`. IPv6 addresses
+must be enclosed in square brackets when written together with a port.
+
+Examples: `IPADDRESS_WITH_PORT '10.0.0.1:80'`,
+`IPADDRESS_WITH_PORT '[2001:db8::1]:443'`
+
+(ipaddress-with-subnet-type)=
+### `IPADDRESS_WITH_SUBNET`
+
+An IP network (subnet) represented by an IP address and a prefix length.
+The value is a tuple with the fields `ip_address` of type `IPADDRESS` and
+`prefix_length` of type `INTEGER`. The address is normalized to the network
+address. Prefix lengths range from 0 to 32 for IPv4 and from 0 to 128 for
+IPv6. IPv6 addresses use CIDR notation without square brackets.
+
+Examples: `IPADDRESS_WITH_SUBNET '192.168.1.10/16'`,
+`IPADDRESS_WITH_SUBNET '2001:db8::1/32'`
+
+Use `contains` to test whether an IP address belongs to a subnet:
+
+```sql
+SELECT contains(IPADDRESS_WITH_SUBNET '192.168.1.10/16', IPADDRESS '192.168.4.4');
+```
+
 ## UUID
 
 (uuid-type)=

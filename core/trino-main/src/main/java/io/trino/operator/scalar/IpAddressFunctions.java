@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -27,6 +28,8 @@ import java.net.InetAddress;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.type.IpAddressType.IPADDRESS;
 
 public final class IpAddressFunctions
 {
@@ -84,6 +87,50 @@ public final class IpAddressFunctions
         BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(ipAddress.length * Byte.SIZE - prefixLength);
 
         return cidrPrefix.equals(addressPrefix);
+    }
+
+    @Description("Determines whether given IP address exists in the subnet")
+    @ScalarFunction
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean contains(@SqlType(StandardTypes.IPADDRESS_WITH_SUBNET) SqlRow subnet, @SqlType(StandardTypes.IPADDRESS) Slice address)
+    {
+        Slice subnetAddress = IPADDRESS.getSlice(subnet.getRawFieldBlock(0), subnet.getRawIndex());
+        long prefixLength = INTEGER.getLong(subnet.getRawFieldBlock(1), subnet.getRawIndex());
+        return contains(subnetAddress, (int) prefixLength, address);
+    }
+
+    private static boolean contains(Slice subnetAddress, int prefixLength, Slice address)
+    {
+        byte[] subnetBytes = subnetAddress.getBytes();
+        boolean ipv4 = isIpv4Mapped(subnetBytes) && prefixLength <= 32;
+        int maxPrefixLength = ipv4 ? 32 : 128;
+        if (prefixLength < 0 || prefixLength > maxPrefixLength) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length");
+        }
+
+        int effectivePrefixLength = prefixLength + (ipv4 ? 96 : 0);
+        if (effectivePrefixLength == 0) {
+            return true;
+        }
+
+        byte[] addressBytes = address.getBytes();
+        BigInteger subnetPrefix = new BigInteger(1, subnetBytes).shiftRight(subnetBytes.length * Byte.SIZE - effectivePrefixLength);
+        BigInteger addressPrefix = new BigInteger(1, addressBytes).shiftRight(addressBytes.length * Byte.SIZE - effectivePrefixLength);
+
+        return subnetPrefix.equals(addressPrefix);
+    }
+
+    private static boolean isIpv4Mapped(byte[] address)
+    {
+        if (address.length != 16) {
+            return false;
+        }
+        for (int i = 0; i < 10; i++) {
+            if (address[i] != 0) {
+                return false;
+            }
+        }
+        return address[10] == (byte) 0xFF && address[11] == (byte) 0xFF;
     }
 
     private static boolean isValidIpV6Cidr(int prefixLength)

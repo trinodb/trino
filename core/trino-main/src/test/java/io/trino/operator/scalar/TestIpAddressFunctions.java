@@ -489,6 +489,44 @@ public class TestIpAddressFunctions
     }
 
     @Test
+    public void testIpAddressWithSubnetContains()
+    {
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/16'", "IPADDRESS '192.168.4.4'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/16'", "IPADDRESS '192.169.4.4'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/32'", "IPADDRESS '192.168.1.10'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/32'", "IPADDRESS '192.168.1.11'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '0.0.0.0/0'", "IPADDRESS '192.168.4.4'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '0.0.0.0/0'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/32'", "IPADDRESS '2001:db8:abcd::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/32'", "IPADDRESS '2001:db9::1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/128'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/128'", "IPADDRESS '2001:db8::2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::/0'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(true);
+
+        // IPv4-mapped IPv6 values are normalized to IPv4 by IPADDRESS.
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::ffff:192.168.1.10/128'", "IPADDRESS '192.168.1.10'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::ffff:192.168.1.10/128'", "IPADDRESS '::ffff:192.168.1.10'"))
+                .isEqualTo(true);
+    }
+
+    @Test
     public void testIPv4MappedAddresses()
     {
         assertThat(assertions.function("contains", "'0:0:0:0:0:ffff:aabb:ccdd/96'", "IPADDRESS '170.187.204.221'"))

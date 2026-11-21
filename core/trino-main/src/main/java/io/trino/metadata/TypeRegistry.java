@@ -93,6 +93,8 @@ import static io.trino.type.FunctionParametricType.FUNCTION;
 import static io.trino.type.IntervalDayTimeParametricType.INTERVAL_DAY_TIME_PARAMETRIC;
 import static io.trino.type.IntervalYearMonthParametricType.INTERVAL_YEAR_MONTH_PARAMETRIC;
 import static io.trino.type.IpAddressType.IPADDRESS;
+import static io.trino.type.IpAddressWithPortType.IPADDRESS_WITH_PORT;
+import static io.trino.type.IpAddressWithSubnetType.IPADDRESS_WITH_SUBNET;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
@@ -152,6 +154,8 @@ public final class TypeRegistry
         addType(VARIANT);
         addType(CODE_POINTS);
         addType(IPADDRESS);
+        addType(IPADDRESS_WITH_PORT);
+        addType(IPADDRESS_WITH_SUBNET);
         addType(UUID);
         addType(TDIGEST);
         addParametricType(VarcharParametricType.VARCHAR);
