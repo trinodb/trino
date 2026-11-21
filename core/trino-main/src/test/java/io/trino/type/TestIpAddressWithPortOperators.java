@@ -153,7 +153,7 @@ public class TestIpAddressWithPortOperators
     @Test
     public void testTypeRegistration()
     {
-        assertThat(assertions.query("SELECT IPADDRESS_WITH_PORT '1.2.3.4:80'").getTypes())
+        assertThat(assertions.execute("SELECT IPADDRESS_WITH_PORT '1.2.3.4:80'").getTypes())
                 .containsExactly(IPADDRESS_WITH_PORT);
     }
 }
