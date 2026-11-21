@@ -53,6 +53,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -217,6 +218,89 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo();
         assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FINISHED);
+    }
+
+    @Test
+    @Timeout(30)
+    public void testDestroyResultsCompletesTaskBeforeNotification()
+            throws Exception
+    {
+        assertTaskCompletionBeforeNotification(true);
+    }
+
+    @Test
+    @Timeout(30)
+    public void testDestroyResultsDoesNotCompleteTaskWithMoreSplits()
+            throws Exception
+    {
+        assertTaskCompletionBeforeNotification(false);
+    }
+
+    private void assertTaskCompletionBeforeNotification(boolean noMoreSplits)
+            throws Exception
+    {
+        ScheduledExecutorService notificationExecutor = newScheduledThreadPool(1, threadsNamed("task-completion-notification-%s"));
+        CountDownLatch notificationBlocked = new CountDownLatch(1);
+        CountDownLatch releaseNotification = new CountDownLatch(1);
+        try {
+            SqlTaskExecutionFactory executionFactory = new SqlTaskExecutionFactory(
+                    notificationExecutor,
+                    taskExecutor,
+                    createTestingPlanner(),
+                    noopTracer(),
+                    new TaskManagerConfig());
+            SqlTask sqlTask = createInitialTask(notificationExecutor, executionFactory);
+            sqlTask.updateTask(
+                    TEST_SESSION,
+                    Span.getInvalid(),
+                    Optional.of(PLAN_FRAGMENT),
+                    ImmutableMap.of(),
+                    ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), noMoreSplits)),
+                    PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
+                    ImmutableMap.of(),
+                    false);
+
+            assertEventually(() -> {
+                TaskInfo taskInfo = sqlTask.getTaskInfo();
+                assertThat(taskInfo.stats().completedDrivers()).isEqualTo(1);
+                assertThat(taskInfo.taskStatus().state()).isEqualTo(noMoreSplits ? TaskState.FLUSHING : TaskState.RUNNING);
+            });
+            BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
+            assertThat(results.serializedPages()).hasSize(1);
+            assertThat(getSerializedPagePositionCount(results.serializedPages().get(0))).isEqualTo(1);
+            if (noMoreSplits) {
+                results = sqlTask.getTaskResults(OUT, results.token() + results.serializedPages().size(), DataSize.of(1, MEGABYTE)).get();
+                assertThat(results.bufferComplete()).isTrue();
+                assertThat(results.serializedPages()).isEmpty();
+            }
+
+            // Drain earlier notifications, then hold the buffer-finished callback until after consumer cleanup.
+            notificationExecutor.submit(() -> {
+                notificationBlocked.countDown();
+                releaseNotification.await();
+                return null;
+            });
+            notificationBlocked.await();
+
+            TaskInfo destroyed = sqlTask.destroyTaskResults(OUT);
+            assertThat(destroyed.outputBuffers().state()).isEqualTo(BufferState.FINISHED);
+            assertThat(destroyed.taskStatus().state()).isEqualTo(noMoreSplits ? TaskState.FINISHED : TaskState.RUNNING);
+            sqlTask.cancel();
+            if (noMoreSplits) {
+                assertThat(sqlTask.getTaskInfo().taskStatus().state()).isEqualTo(TaskState.FINISHED);
+            }
+            else {
+                assertThat(sqlTask.getTaskInfo().taskStatus().state()).isNotEqualTo(TaskState.FINISHED);
+            }
+
+            releaseNotification.countDown();
+            assertEventually(() -> assertThat(sqlTask.getTaskInfo().taskStatus().state())
+                    .isEqualTo(noMoreSplits ? TaskState.FINISHED : TaskState.CANCELED));
+        }
+        finally {
+            releaseNotification.countDown();
+            notificationExecutor.shutdownNow();
+        }
     }
 
     @Test
@@ -440,6 +524,11 @@ public class TestSqlTask
     }
 
     private SqlTask createInitialTask()
+    {
+        return createInitialTask(taskNotificationExecutor, sqlTaskExecutionFactory);
+    }
+
+    private SqlTask createInitialTask(ScheduledExecutorService taskNotificationExecutor, SqlTaskExecutionFactory sqlTaskExecutionFactory)
     {
         TaskId taskId = new TaskId(new StageId("query", 0), nextTaskId.incrementAndGet(), 0);
         URI location = URI.create("fake://task/" + taskId);
