@@ -154,6 +154,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -229,6 +230,36 @@ public class TestHttpRemoteTask
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().state().isDone());
         poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testTaskUpdateResponsesPostponeTaskInfoFetch()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+        TaskManagerConfig taskManagerConfig = new TaskManagerConfig()
+                .setStatusRefreshMaxWait(TASK_MANAGER_CONFIG.getStatusRefreshMaxWait())
+                .setInfoUpdateInterval(new Duration(1, MINUTES));
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, createDynamicFilterService(), new QueryManagerConfig(), taskManagerConfig);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+        long initialVersion = remoteTask.getTaskInfo().taskStatus().version();
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
+        poll(() -> remoteTask.getTaskInfo().taskStatus().version() > initialVersion);
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
+        assertThat(testingTaskResource.getTaskInfoFetchCounter()).isEqualTo(0);
 
         httpRemoteTaskFactory.stop();
     }
@@ -859,6 +890,7 @@ public class TestHttpRemoteTask
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
 
         private long statusFetchCounter;
+        private long taskInfoFetchCounter;
         private long createOrUpdateCounter;
         private long dynamicFiltersFetchCounter;
         private long dynamicFiltersSentCounter;
@@ -886,6 +918,7 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             checkNodeInstance(expectedNodeInstanceId);
+            taskInfoFetchCounter++;
             lastActivityNanos.set(System.nanoTime());
             return buildTaskInfo();
         }
@@ -1040,6 +1073,11 @@ public class TestHttpRemoteTask
         public synchronized long getStatusFetchCounter()
         {
             return statusFetchCounter;
+        }
+
+        public synchronized long getTaskInfoFetchCounter()
+        {
+            return taskInfoFetchCounter;
         }
 
         public synchronized long getCreateOrUpdateCounter()
