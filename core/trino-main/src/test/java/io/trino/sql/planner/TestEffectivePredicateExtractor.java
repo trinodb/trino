@@ -100,6 +100,7 @@ import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -786,6 +787,49 @@ public class TestEffectivePredicateExtractor
         // Only the common conjuncts can be inferred through a Union
         assertThat(normalizeConjuncts(effectivePredicate)).isEqualTo(normalizeConjuncts(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10))));
     }
+
+     @Test
+     public void testUnionWithNonComparableOutput()
+     {
+        // Output symbols differ from the source symbols, so deriveCommonPredicates builds an equality per column.
+        // HyperLogLog is neither comparable nor orderable, and `sketch = branch_sketch` has no operator.
+        Symbol outputCount = new Symbol(BIGINT, "a");
+        Symbol outputSketch = new Symbol(HYPER_LOG_LOG, "h");
+        Symbol leftCount = new Symbol(BIGINT, "b");
+        Symbol leftSketch = new Symbol(HYPER_LOG_LOG, "bh");
+        Symbol rightCount = new Symbol(BIGINT, "c");
+        Symbol rightSketch = new Symbol(HYPER_LOG_LOG, "ch");
+
+        PlanNode left = new ProjectNode(
+                newId(),
+                filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10))),
+                Assignments.builder()
+                        .put(leftCount, new Reference(BIGINT, "a"))
+                        .putIdentity(leftSketch)
+                        .build());
+        PlanNode right = new ProjectNode(
+                newId(),
+                filter(baseTableScan, and(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10)), lessThan(new Reference(BIGINT, "a"), bigintLiteral(100)))),
+                Assignments.builder()
+                        .put(rightCount, new Reference(BIGINT, "a"))
+                        .putIdentity(rightSketch)
+                        .build());
+
+        ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.<Symbol, Symbol>builder()
+                .putAll(outputCount, leftCount, rightCount)
+                .putAll(outputSketch, leftSketch, rightSketch)
+                .build();
+        PlanNode node = new UnionNode(
+                newId(),
+                ImmutableList.of(left, right),
+                symbolMapping,
+                ImmutableList.copyOf(symbolMapping.keySet()));
+
+        Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
+
+        // The comparable column is still inferred. The HyperLogLog column is skipped.
+        assertThat(normalizeConjuncts(effectivePredicate)).isEqualTo(normalizeConjuncts(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10))));
+     }
 
     @Test
     public void testInnerJoin()
