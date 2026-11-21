@@ -323,6 +323,11 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.concurrent.CompletableFuture&lt;?&gt; io.trino.spi.connector.ConnectorMetadata::refreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.type.RowType::&lt;init&gt;(io.trino.spi.type.TypeDescriptor, java.util.List&lt;io.trino.spi.type.RowType.Field&gt;)</old>
+                                    <justification>To support new data types IpAddressWithPort and IpAddressWithSubnet</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
