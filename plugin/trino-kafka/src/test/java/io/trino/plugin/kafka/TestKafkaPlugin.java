@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -199,6 +200,107 @@ public class TestKafkaPlugin
                 new TestingConnectorContext());
         assertThat(connector).isNotNull();
         connector.shutdown();
+    }
+
+    @Test
+    public void testConfluentSchemaRegistrySecuritySpinup()
+            throws Exception
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        // the schema registry client loads the trust store when the connector is created
+        Path truststorePath = Path.of(Resources.getResource("confluent/registry-truststore.p12").toURI());
+
+        Connector connector = factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.table-description-supplier", "CONFLUENT")
+                        .put("kafka.confluent-schema-registry-url", "https://localhost:8081")
+                        .put("kafka.confluent-schema-registry.basic-auth.user", "trino")
+                        .put("kafka.confluent-schema-registry.basic-auth.password", "secret")
+                        .put("kafka.confluent-schema-registry.ssl.truststore.location", truststorePath.toString())
+                        .put("kafka.confluent-schema-registry.ssl.truststore.password", "secret")
+                        .put("kafka.confluent-schema-registry.ssl.truststore.type", "PKCS12")
+                        .put("kafka.confluent-schema-registry.ssl.endpoint-identification-algorithm", "disabled")
+                        .put("bootstrap.quiet", "true")
+                        .buildOrThrow(),
+                new TestingConnectorContext());
+        assertThat(connector).isNotNull();
+        connector.shutdown();
+    }
+
+    @Test
+    public void testConfluentSchemaRegistryTruststoreMissingFileSpindown()
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.table-description-supplier", "CONFLUENT")
+                        .put("kafka.confluent-schema-registry-url", "https://localhost:8081")
+                        .put("kafka.confluent-schema-registry.ssl.truststore.location", "/not/a/real/path")
+                        .put("kafka.confluent-schema-registry.ssl.truststore.password", "secret")
+                        .put("bootstrap.quiet", "true")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Invalid configuration property kafka.confluent-schema-registry.ssl.truststore.location: file does not exist: /not/a/real/path");
+    }
+
+    @Test
+    public void testConfluentSchemaRegistryUnreadableTruststoreSpindown()
+            throws Exception
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        // the trust store is loaded at startup even though the registry URL uses http
+        Path truststorePath = Files.createTempFile("truststore", ".p12");
+        try {
+            Files.writeString(truststorePath, "not a trust store");
+            assertThatThrownBy(() -> factory.create(
+                            "test-connector",
+                            ImmutableMap.<String, String>builder()
+                                    .put("kafka.nodes", "localhost:9092")
+                                    .put("kafka.table-description-supplier", "CONFLUENT")
+                                    .put("kafka.confluent-schema-registry-url", "http://localhost:8081")
+                                    .put("kafka.confluent-schema-registry.ssl.truststore.location", truststorePath.toString())
+                                    .put("kafka.confluent-schema-registry.ssl.truststore.password", "secret")
+                                    .put("kafka.confluent-schema-registry.ssl.truststore.type", "PKCS12")
+                                    .put("bootstrap.quiet", "true")
+                                    .buildOrThrow(),
+                            new TestingConnectorContext())
+                    .shutdown())
+                    .hasMessageContaining("Error initializing the ssl context for RestService");
+        }
+        finally {
+            Files.delete(truststorePath);
+        }
+    }
+
+    @Test
+    public void testConfluentSchemaRegistryKeystorePasswordWithoutKeystoreSpindown()
+    {
+        KafkaPlugin plugin = new KafkaPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test-connector",
+                ImmutableMap.<String, String>builder()
+                        .put("kafka.nodes", "localhost:9092")
+                        .put("kafka.table-description-supplier", "CONFLUENT")
+                        .put("kafka.confluent-schema-registry-url", "https://localhost:8081")
+                        .put("kafka.confluent-schema-registry.ssl.keystore.password", "secret")
+                        .put("bootstrap.quiet", "true")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("kafka.confluent-schema-registry.ssl.keystore.location must be set when kafka.confluent-schema-registry.ssl.keystore.password or kafka.confluent-schema-registry.ssl.key.password is given");
     }
 
     private void writeToFile(Path filepath, String content)
