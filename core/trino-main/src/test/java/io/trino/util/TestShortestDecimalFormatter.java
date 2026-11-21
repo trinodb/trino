@@ -16,10 +16,14 @@ package io.trino.util;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Random;
 
 import static io.trino.util.ShortestDecimalFormatter.formatDouble;
 import static io.trino.util.ShortestDecimalFormatter.formatReal;
+import static java.lang.Math.nextDown;
+import static java.lang.Math.nextUp;
+import static java.lang.Math.scalb;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestShortestDecimalFormatter
@@ -124,6 +128,107 @@ class TestShortestDecimalFormatter
                     .describedAs("%s -> %s", Float.toString(value), formatted)
                     .isLessThanOrEqualTo(shortest.abs().multiply(new BigDecimal("5.0000001E-7")));
             assertThat(new BigDecimal(formatted).stripTrailingZeros().precision()).isLessThanOrEqualTo(7);
+        }
+    }
+
+    @Test
+    void testDoubleMatchesJdk()
+    {
+        Random random = new Random(3);
+        for (int i = 0; i < 300_000; i++) {
+            assertDoubleDigits(Double.longBitsToDouble(random.nextLong()));
+            // values with a short decimal representation
+            assertDoubleDigits(Double.parseDouble(random.nextLong(1, 1_000_000_000_000_000_000L) + "e" + random.nextInt(-320, 300)));
+            assertDoubleDigits(Double.parseDouble(random.nextInt(1, 100_000) + "e" + random.nextInt(-12, 12)));
+            // integral values around the limit of exact integers
+            assertDoubleDigits(random.nextLong(1L << random.nextInt(1, 63)));
+            // subnormals
+            assertDoubleDigits(Double.longBitsToDouble(random.nextLong(1L << random.nextInt(1, 53))));
+        }
+        // powers of two have a narrower interval below
+        for (int exponent = -1074; exponent <= 1023; exponent++) {
+            double value = scalb(1.0, exponent);
+            assertDoubleDigits(value);
+            assertDoubleDigits(nextUp(value));
+            assertDoubleDigits(nextDown(value));
+            assertDoubleDigits(scalb((double) ((1L << 53) - 1), exponent));
+        }
+    }
+
+    @Test
+    void testRealMatchesJdk()
+    {
+        Random random = new Random(4);
+        for (int i = 0; i < 300_000; i++) {
+            assertRealDigits(Float.intBitsToFloat(random.nextInt()));
+            assertRealDigits(Float.parseFloat(random.nextInt(1, 1_000_000_000) + "e" + random.nextInt(-45, 38)));
+            assertRealDigits(Float.intBitsToFloat(random.nextInt(1 << random.nextInt(1, 24))));
+        }
+        for (int exponent = -149; exponent <= 127; exponent++) {
+            float value = scalb(1.0f, exponent);
+            assertRealDigits(value);
+            assertRealDigits(Math.nextUp(value));
+            assertRealDigits(Math.nextDown(value));
+        }
+    }
+
+    @Test
+    void testPowerOfTenTable()
+    {
+        for (int e2 = -1074; e2 <= 971; e2++) {
+            int regular = ShortestDecimalFormatter.Tables.floorLog10Pow2(e2);
+            assertThat(regular).describedAs("e2 = %s", e2).isEqualTo(floorLog10(powerOfTwo(e2)));
+            int narrower = ShortestDecimalFormatter.Tables.floorLog10ThreeQuartersPow2(e2);
+            assertThat(narrower).describedAs("e2 = %s", e2).isEqualTo(floorLog10(powerOfTwo(e2 - 2).multiply(BigDecimal.valueOf(3))));
+            for (int e10 : new int[] {regular, narrower}) {
+                int shift = ShortestDecimalFormatter.Tables.powerExponent(e10) - e2 - 64;
+                assertThat(shift).describedAs("e2 = %s, e10 = %s", e2, e10).isBetween(57, 63);
+            }
+        }
+    }
+
+    private static BigDecimal powerOfTwo(int exponent)
+    {
+        if (exponent >= 0) {
+            return new BigDecimal(BigInteger.ONE.shiftLeft(exponent));
+        }
+        return BigDecimal.ONE.divide(new BigDecimal(BigInteger.ONE.shiftLeft(-exponent)));
+    }
+
+    private static int floorLog10(BigDecimal value)
+    {
+        return value.precision() - value.scale() - 1;
+    }
+
+    private static void assertDoubleDigits(double value)
+    {
+        if (Double.isNaN(value) || Double.isInfinite(value) || value == 0) {
+            return;
+        }
+        BigDecimal expected = new BigDecimal(Double.toString(value)).stripTrailingZeros();
+        assertThat(new BigDecimal(ShortestDecimalFormatter.formatDouble(value, false).toStringUtf8()).stripTrailingZeros())
+                .describedAs("fast path for %s", value)
+                .isEqualTo(expected);
+        if (Double.doubleToLongBits(value) % 97 == 0) {
+            assertThat(new BigDecimal(ShortestDecimalFormatter.formatDouble(value, true).toStringUtf8()).stripTrailingZeros())
+                    .describedAs("exact path for %s", value)
+                    .isEqualTo(expected);
+        }
+    }
+
+    private static void assertRealDigits(float value)
+    {
+        if (Float.isNaN(value) || Float.isInfinite(value) || value == 0) {
+            return;
+        }
+        BigDecimal expected = new BigDecimal(Float.toString(value)).stripTrailingZeros();
+        assertThat(new BigDecimal(ShortestDecimalFormatter.formatReal(value, Integer.MAX_VALUE, false).toStringUtf8()).stripTrailingZeros())
+                .describedAs("fast path for %s", value)
+                .isEqualTo(expected);
+        if (Float.floatToIntBits(value) % 97 == 0) {
+            assertThat(new BigDecimal(ShortestDecimalFormatter.formatReal(value, Integer.MAX_VALUE, true).toStringUtf8()).stripTrailingZeros())
+                    .describedAs("exact path for %s", value)
+                    .isEqualTo(expected);
         }
     }
 
