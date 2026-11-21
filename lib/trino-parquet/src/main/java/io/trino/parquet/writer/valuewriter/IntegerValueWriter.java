@@ -15,8 +15,9 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
+
+import static java.lang.Math.min;
 
 public class IntegerValueWriter
         extends PrimitiveValueWriter
@@ -29,45 +30,50 @@ public class IntegerValueWriter
     @Override
     protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;
-        boolean mayHaveNull = block.mayHaveNull();
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!mayHaveNull || !block.isNull(position)) {
-                int value = intArrayBlock.getInt(position);
-                valuesWriter.writeInteger(value);
-                statistics.updateStats(value);
+        int positionCount = block.getPositionCount();
+        if (!block.mayHaveNull()) {
+            writeIntegers(intArrayBlock.getRawValues(), intArrayBlock.getRawValuesOffset(), positionCount);
+            return;
+        }
+        int[] buffer = intBuffer();
+        for (int start = 0; start < positionCount; start += buffer.length) {
+            int end = min(start + buffer.length, positionCount);
+            int size = 0;
+            for (int position = start; position < end; position++) {
+                if (!block.isNull(position)) {
+                    buffer[size] = intArrayBlock.getInt(position);
+                    size++;
+                }
             }
+            writeIntegers(buffer, 0, size);
         }
     }
 
     @Override
     protected void writeRepeated(ValueBlock block, int count)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
-        int value = ((IntArrayBlock) block).getInt(0);
-        for (int i = 0; i < count; i++) {
-            valuesWriter.writeInteger(value);
-        }
-        statistics.updateStats(value);
+        IntArrayBlock intArrayBlock = (IntArrayBlock) block;
+        writeRepeatedInteger(intArrayBlock.getInt(0), count);
     }
 
     @Override
     protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int index = 0; index < length; index++) {
-            int position = positions[offset + index];
-            if (!mayHaveNull || !block.isNull(position)) {
-                int value = intArrayBlock.getInt(position);
-                valuesWriter.writeInteger(value);
-                statistics.updateStats(value);
+        int[] buffer = intBuffer();
+        for (int start = 0; start < length; start += buffer.length) {
+            int end = min(start + buffer.length, length);
+            int size = 0;
+            for (int index = start; index < end; index++) {
+                int position = positions[offset + index];
+                if (!mayHaveNull || !block.isNull(position)) {
+                    buffer[size] = intArrayBlock.getInt(position);
+                    size++;
+                }
             }
+            writeIntegers(buffer, 0, size);
         }
     }
 }

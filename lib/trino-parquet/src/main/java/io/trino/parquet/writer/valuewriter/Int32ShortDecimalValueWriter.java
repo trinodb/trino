@@ -17,10 +17,10 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
-import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -37,45 +37,47 @@ public class Int32ShortDecimalValueWriter
     @Override
     protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        int positionCount = block.getPositionCount();
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                int value = toIntExact(longArrayBlock.getLong(i));
-                valuesWriter.writeInteger(value);
-                statistics.updateStats(value);
+        int[] buffer = intBuffer();
+        for (int start = 0; start < positionCount; start += buffer.length) {
+            int end = min(start + buffer.length, positionCount);
+            int size = 0;
+            for (int position = start; position < end; position++) {
+                if (!mayHaveNull || !block.isNull(position)) {
+                    buffer[size] = toIntExact(longArrayBlock.getLong(position));
+                    size++;
+                }
             }
+            writeIntegers(buffer, 0, size);
         }
     }
 
     @Override
     protected void writeRepeated(ValueBlock block, int count)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
-        int value = toIntExact(((LongArrayBlock) block).getLong(0));
-        for (int i = 0; i < count; i++) {
-            valuesWriter.writeInteger(value);
-        }
-        statistics.updateStats(value);
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        writeRepeatedInteger(toIntExact(longArrayBlock.getLong(0)), count);
     }
 
     @Override
     protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int index = 0; index < length; index++) {
-            int position = positions[offset + index];
-            if (!mayHaveNull || !block.isNull(position)) {
-                int value = toIntExact(longArrayBlock.getLong(position));
-                valuesWriter.writeInteger(value);
-                statistics.updateStats(value);
+        int[] buffer = intBuffer();
+        for (int start = 0; start < length; start += buffer.length) {
+            int end = min(start + buffer.length, length);
+            int size = 0;
+            for (int index = start; index < end; index++) {
+                int position = positions[offset + index];
+                if (!mayHaveNull || !block.isNull(position)) {
+                    buffer[size] = toIntExact(longArrayBlock.getLong(position));
+                    size++;
+                }
             }
+            writeIntegers(buffer, 0, size);
         }
     }
 }
