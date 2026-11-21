@@ -165,6 +165,7 @@ import io.trino.operator.scalar.MapToMapCast;
 import io.trino.operator.scalar.MapTransformKeysFunction;
 import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.MultiMatchAnyFunction;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
@@ -657,6 +658,7 @@ public final class SystemFunctionBundle
                 .functions(intervalYearMonthOperators())
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                .function(new MultiMatchAnyFunction(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)

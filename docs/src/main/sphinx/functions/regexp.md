@@ -1,7 +1,7 @@
 # Regular expression functions
 
-All the regular expression functions use the [Java pattern] syntax,
-with a few notable exceptions:
+The {func}`multi_match_any` function uses RE2 syntax. The `regexp_*` functions
+use the [Java pattern] syntax, with a few notable exceptions:
 
 - When using multi-line mode (enabled via the `(?m)` flag),
   only `\n` is recognized as a line terminator. Additionally,
@@ -184,6 +184,50 @@ SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); -- [1, 2, 14, ]
 ```
 :::
 
+:::{function} multi_match_any(string, patterns) -> boolean
+Returns `true` if any regular expression in the `array(varchar)` `patterns`
+matches a substring of `string`. Use `^` and `$` to match the whole string.
+The function compiles the patterns into one expression and searches the string
+with that expression rather than running a separate search for each pattern.
+
+```sql
+SELECT multi_match_any('WARN: request timed out', ARRAY['^ERROR:', 'timed out']); -- true
+SELECT multi_match_any('INFO: request complete', ARRAY['^ERROR:', 'timed out']); -- false
+SELECT multi_match_any('INFO: request complete', ARRAY[]); -- false
+```
+
+A `NULL` string or `NULL` array returns `NULL`. For a valid string, an empty
+array returns `false`. An empty regular expression matches any string,
+including the empty string. A `NULL` array element, invalid UTF-8 in either
+argument, or an invalid pattern raises `INVALID_FUNCTION_ARGUMENT`. The
+function validates all patterns before searching, even if an earlier pattern
+would match. Both arguments can contain NUL characters.
+
+Patterns use the RE2J implementation of [RE2 syntax], regardless of the
+`regex-library` setting.
+Backreferences and lookaround are not supported. Matching is case-sensitive by
+default and operates on Unicode code points. Unicode character classes such as
+`\p{L}` are supported, but `\w` and `\b` use ASCII word characters. Unlike
+`regexp_like`, `.` matches newlines by default. Inline flags such as `(?i)`,
+`(?m)`, and `(?-s)` apply only within their array entry. Capturing groups do not
+affect the boolean result, and names may be reused in different entries.
+
+The limits per call are 10,000 patterns, 64 KiB of UTF-8 bytes per pattern,
+1 MiB of total pattern bytes, and 16 MiB of string bytes. Exceeding any of these
+limits raises `INVALID_FUNCTION_ARGUMENT`.
+
+Each function instance caches only its most recent compiled pattern set. The
+function reuses that expression for consecutive calls with the same array
+contents. It uses the `re2j.dfa-states-limit` and `re2j.dfa-retries` settings
+described in
+{doc}`/admin/properties-regexp-function`, including fallback to an NFA.
+Neither those settings nor the input limits bound total compilation memory:
+counted repetitions can expand the compiled expression beyond the size of the
+pattern text. Compiled expressions and matching state use JVM heap outside
+Trino's per-query memory accounting.
+:::
+
 [capturing group number]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html#gnumber
 [capturing groups]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html#cg
 [java pattern]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html
+[re2 syntax]: https://github.com/google/re2/wiki/Syntax
