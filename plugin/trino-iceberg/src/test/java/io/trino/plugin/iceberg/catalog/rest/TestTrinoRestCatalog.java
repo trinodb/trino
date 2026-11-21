@@ -430,7 +430,7 @@ public class TestTrinoRestCatalog
             assertUnsupportedOperation(() -> metadata.dropNotNullConstraint(SESSION, tableHandle, columnHandle), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.setDefaultValue(SESSION, tableHandle, columnHandle, "1"), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.dropDefaultValue(SESSION, tableHandle, columnHandle), Endpoint.V1_UPDATE_TABLE);
-            assertUnsupportedOperation(() -> metadata.addField(SESSION, tableHandle, ImmutableList.of("r"), "z", BIGINT, false), Endpoint.V1_UPDATE_TABLE);
+            assertUnsupportedOperation(() -> metadata.addField(SESSION, tableHandle, ImmutableList.of("r"), "z", BIGINT, Optional.empty(), false), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.dropField(SESSION, tableHandle, columns.get("r"), ImmutableList.of("x")), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.renameField(SESSION, tableHandle, ImmutableList.of("r", "x"), "renamed_field"), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.setFieldType(SESSION, tableHandle, ImmutableList.of("r", "x"), BIGINT), Endpoint.V1_UPDATE_TABLE);

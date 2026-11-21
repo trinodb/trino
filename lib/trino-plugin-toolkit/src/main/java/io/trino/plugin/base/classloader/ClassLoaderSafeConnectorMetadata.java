@@ -391,10 +391,19 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
+    }
+
+    @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, defaultValue, ignoreExisting);
         }
     }
 
@@ -531,6 +540,22 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.dropField(session, tableHandle, column, fieldPath);
+        }
+    }
+
+    @Override
+    public void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.setFieldDefaultValue(session, tableHandle, column, fieldPath, defaultValue);
+        }
+    }
+
+    @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropFieldDefaultValue(session, tableHandle, column, fieldPath);
         }
     }
 

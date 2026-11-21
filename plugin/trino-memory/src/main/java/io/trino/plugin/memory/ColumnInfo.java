@@ -16,18 +16,30 @@ package io.trino.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnMetadata;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValue, boolean nullable, Optional<String> comment)
+public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValue, boolean nullable, Optional<String> comment, List<FieldDefault> fieldDefaults)
 {
     public ColumnInfo
     {
         requireNonNull(handle, "handle is null");
         requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(comment, "comment is null");
+        fieldDefaults = List.copyOf(fieldDefaults);
+    }
+
+    public ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValue, boolean nullable, Optional<String> comment, Map<List<String>, String> fieldDefaults)
+    {
+        this(handle, defaultValue, nullable, comment, fieldDefaults.entrySet().stream()
+                .map(entry -> new FieldDefault(entry.getKey(), entry.getValue()))
+                .collect(toImmutableList()));
     }
 
     @JsonIgnore
@@ -39,6 +51,7 @@ public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValu
                 .setDefaultValue(defaultValue)
                 .setNullable(nullable)
                 .setComment(comment)
+                .setFieldDefaults(fieldDefaults.stream().collect(toImmutableMap(FieldDefault::path, FieldDefault::value)))
                 .build();
     }
 
@@ -51,6 +64,16 @@ public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValu
                 .add("defaultValue", defaultValue)
                 .add("nullable", nullable)
                 .add("comment", comment)
+                .add("fieldDefaults", fieldDefaults)
                 .toString();
+    }
+
+    public record FieldDefault(List<String> path, String value)
+    {
+        public FieldDefault
+        {
+            path = List.copyOf(path);
+            requireNonNull(value, "value is null");
+        }
     }
 }

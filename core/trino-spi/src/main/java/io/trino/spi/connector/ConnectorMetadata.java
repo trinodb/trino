@@ -618,11 +618,27 @@ public interface ConnectorMetadata
      * Add the specified field, potentially nested, to a row.
      *
      * @param parentPath path to a field within the column, without leaf field name.
+     * @deprecated use {@link #addField(ConnectorSession, ConnectorTableHandle, List, String, Type, Optional, boolean)}
      */
-    // TODO add support for rows inside arrays and maps and for anonymous row fields
+    @Deprecated
     default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
+    }
+
+    /**
+     * Add the specified field, potentially nested, to a row.
+     *
+     * @param parentPath path to a field within the column, without leaf field name.
+     * @param defaultValue default value of the field as a SQL literal, applied to rows that exist before the field is added
+     */
+    // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
+    {
+        if (defaultValue.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields with default values");
+        }
+        addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
     }
 
     /**
@@ -712,6 +728,26 @@ public interface ConnectorMetadata
     default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping fields");
+    }
+
+    /**
+     * Set the default value of the specified field, potentially nested, within a row column.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    default void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting default values for fields");
+    }
+
+    /**
+     * Drop the default value of the specified field, potentially nested, within a row column.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    default void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping default values for fields");
     }
 
     /**

@@ -879,7 +879,7 @@ intervalQualifier
 
 rowField
     : type
-    | identifier type;
+    | identifier type (DEFAULT literal)?;
 
 typeParameter
     : INTEGER_VALUE | type

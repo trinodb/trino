@@ -357,7 +357,7 @@ public class MemoryMetadata
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
             MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
-            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), column.getComment()));
+            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), column.getComment(), column.getFieldDefaults()));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -459,7 +459,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
                 .addAll(table.columns())
-                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), column.getComment()))
+                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), column.getComment(), column.getFieldDefaults()))
                 .build();
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.truncated(), table.dataFragments(), table.comment()));
@@ -477,7 +477,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment(), columnInfo.fieldDefaults()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -492,7 +492,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.of(defaultValue), columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.of(defaultValue), columnInfo.nullable(), columnInfo.comment(), columnInfo.fieldDefaults()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -507,7 +507,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.empty(), columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.empty(), columnInfo.nullable(), columnInfo.comment(), columnInfo.fieldDefaults()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -522,7 +522,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.defaultValue(), true, columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.defaultValue(), true, columnInfo.comment(), columnInfo.fieldDefaults()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -723,7 +723,7 @@ public class MemoryMetadata
         checkArgument(info != null, "Table not found");
         List<ColumnInfo> newColumns = info.columns().stream()
                 .map(column -> column.handle().equals(columnHandle)
-                        ? new ColumnInfo(column.handle(), column.defaultValue(), column.nullable(), comment)
+                        ? new ColumnInfo(column.handle(), column.defaultValue(), column.nullable(), comment, column.fieldDefaults())
                         : column)
                 .collect(toImmutableList());
         tables.put(table.id(), new TableInfo(table.id(), info.schemaName(), info.tableName(), newColumns, info.truncated(), info.dataFragments(), info.comment()));

@@ -507,11 +507,21 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         Span span = startSpan("addField", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
+    }
+
+    @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
+    {
+        Span span = startSpan("addField", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, defaultValue, ignoreExisting);
         }
     }
 
@@ -602,6 +612,24 @@ public class TracingConnectorMetadata
         Span span = startSpan("dropField", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.dropField(session, tableHandle, column, fieldPath);
+        }
+    }
+
+    @Override
+    public void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        Span span = startSpan("setFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setFieldDefaultValue(session, tableHandle, column, fieldPath, defaultValue);
+        }
+    }
+
+    @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        Span span = startSpan("dropFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropFieldDefaultValue(session, tableHandle, column, fieldPath);
         }
     }
 

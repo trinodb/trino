@@ -66,6 +66,7 @@ import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
@@ -84,6 +85,7 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
@@ -656,7 +658,7 @@ public final class ShowQueriesRewrite
                                 allColumnProperties);
                         return new ColumnDefinition(
                                 QualifiedName.of(column.getName()),
-                                toSqlType(column.getType()),
+                                withFieldDefaults(toSqlType(column.getType()), column.getFieldDefaults(), objectName, node),
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
                                 propertyNodes,
@@ -676,6 +678,37 @@ public final class ShowQueriesRewrite
                     propertyNodes,
                     connectorTableMetadata.getComment());
             return singleValueQuery("Create Table", formatSql(createTable).trim());
+        }
+
+        private DataType withFieldDefaults(DataType type, Map<List<String>, String> fieldDefaults, QualifiedObjectName tableName, Node node)
+        {
+            if (fieldDefaults.isEmpty()) {
+                return type;
+            }
+            return withFieldDefaults(type, ImmutableList.of(), fieldDefaults, tableName, node);
+        }
+
+        private DataType withFieldDefaults(DataType type, List<String> path, Map<List<String>, String> fieldDefaults, QualifiedObjectName tableName, Node node)
+        {
+            if (!(type instanceof RowDataType rowType)) {
+                return type;
+            }
+            ImmutableList.Builder<RowDataType.Field> fields = ImmutableList.builder();
+            for (RowDataType.Field field : rowType.getFields()) {
+                if (field.getName().isEmpty()) {
+                    fields.add(field);
+                    continue;
+                }
+                List<String> fieldPath = ImmutableList.<String>builder().addAll(path).add(field.getName().get().getValue()).build();
+                Optional<Expression> defaultValue = Optional.ofNullable(fieldDefaults.get(fieldPath))
+                        .map(value -> parseDefaultColumnValueExpression(value, tableName, node));
+                fields.add(new RowDataType.Field(
+                        field.getLocation(),
+                        field.getName(),
+                        withFieldDefaults(field.getType(), fieldPath, fieldDefaults, tableName, node),
+                        defaultValue));
+            }
+            return new RowDataType(rowType.getLocation(), fields.build());
         }
 
         private Expression parseDefaultColumnValueExpression(String expression, QualifiedObjectName name, Node node)

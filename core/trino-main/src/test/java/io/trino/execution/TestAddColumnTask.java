@@ -34,15 +34,19 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
+import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.TypeParameter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -63,6 +68,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -443,6 +449,99 @@ public class TestAddColumnTask
     }
 
     @Test
+    void testAddFieldWithDefaultValue()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
+
+        ColumnDefinition column = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("col", "b"),
+                toSqlType(BOOLEAN),
+                Optional.of(new BooleanLiteral(new NodeLocation(1, 1), "true")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false));
+
+        assertThat(((MockMetadataWithDefaultValue) metadata).addedFields)
+                .containsExactly(ImmutableList.of(ImmutableList.of("col"), "b", BOOLEAN, Optional.of("true")));
+    }
+
+    @Test
+    void testAddFieldWithDefaultValueUnsupportedConnector()
+    {
+        Metadata metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME, ImmutableSet.of());
+        PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
+
+        ColumnDefinition column = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("col", "b"),
+                toSqlType(BOOLEAN),
+                Optional.of(new BooleanLiteral(new NodeLocation(1, 1), "true")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        AddColumn addColumn = new AddColumn(new NodeLocation(1, 1), asQualifiedName(tableName), column, Optional.of(new ColumnPosition.Last()), false, false);
+
+        assertTrinoExceptionThrownBy(() ->
+                getFutureValue(new AddColumnTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager)
+                        .execute(addColumn, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("does not support default value");
+    }
+
+    @Test
+    void testAddRowColumnWithFieldDefault()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+
+        RowDataType rowType = new RowDataType(
+                new NodeLocation(1, 1),
+                ImmutableList.of(
+                        new RowDataType.Field(new NodeLocation(1, 1), Optional.of(new Identifier("a")), toSqlType(BIGINT)),
+                        new RowDataType.Field(
+                                new NodeLocation(1, 1),
+                                Optional.of(new Identifier("b")),
+                                toSqlType(BOOLEAN),
+                                Optional.of(new BooleanLiteral(new NodeLocation(1, 1), "true")))));
+        ColumnDefinition column = new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("info"), rowType, Optional.empty(), true, ImmutableList.of(), Optional.empty());
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false));
+
+        ColumnMetadata added = metadata.getTableMetadata(testSession, table).columns().get(1);
+        assertThat(added.getName()).isEqualTo("info");
+        assertThat(added.getFieldDefaults()).isEqualTo(ImmutableMap.of(ImmutableList.of("b"), "true"));
+    }
+
+    @Test
+    void testAddRowColumnWithFieldDefaultInsideArray()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+
+        RowDataType element = new RowDataType(
+                new NodeLocation(1, 1),
+                ImmutableList.of(new RowDataType.Field(
+                        new NodeLocation(1, 1),
+                        Optional.of(new Identifier("b")),
+                        toSqlType(BOOLEAN),
+                        Optional.of(new BooleanLiteral(new NodeLocation(1, 1), "true")))));
+        GenericDataType arrayType = new GenericDataType(
+                new NodeLocation(1, 1),
+                new Identifier("array"),
+                ImmutableList.of(new TypeParameter(element)));
+        ColumnDefinition column = new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("info"), arrayType, Optional.empty(), true, ImmutableList.of(), Optional.empty());
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false)))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("inside array or map types are not supported");
+    }
+
+    @Test
     public void testAddFieldToNotExistingField()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
@@ -586,6 +685,13 @@ public class TestAddColumnTask
             extends MockMetadata
     {
         private final Set<ConnectorCapabilities> capabilities;
+        private final List<List<Object>> addedFields = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
+        {
+            addedFields.add(ImmutableList.of(parentPath, fieldName, type, defaultValue));
+        }
 
         public MockMetadataWithDefaultValue(String catalogName, Set<ConnectorCapabilities> capabilities)
         {

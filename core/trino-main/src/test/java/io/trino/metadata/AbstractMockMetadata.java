@@ -380,7 +380,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
         throw new UnsupportedOperationException();
     }
@@ -393,6 +393,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
     {
         throw new UnsupportedOperationException();
     }

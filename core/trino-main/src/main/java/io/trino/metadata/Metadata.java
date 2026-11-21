@@ -309,7 +309,7 @@ public interface Metadata
     /**
      * Add the specified field to the column.
      */
-    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting);
 
     /**
      * Set the specified default value to the column.
@@ -345,6 +345,16 @@ public interface Metadata
      * Drop the specified field from the column.
      */
     void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
+
+    /**
+     * Set the default value of the specified field within the column.
+     */
+    void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue);
+
+    /**
+     * Drop the default value of the specified field within the column.
+     */
+    void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
 
     /**
      * Drops the specified table

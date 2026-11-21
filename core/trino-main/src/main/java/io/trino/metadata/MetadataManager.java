@@ -1037,11 +1037,11 @@ public final class MetadataManager
     }
 
     @Override
-    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
-        metadata.addField(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), parentPath, fieldName, type, ignoreExisting);
+        metadata.addField(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), parentPath, fieldName, type, defaultValue, ignoreExisting);
     }
 
     @Override
@@ -1063,6 +1063,22 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         metadata.dropField(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, fieldPath);
+    }
+
+    @Override
+    public void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.setFieldDefaultValue(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, fieldPath, defaultValue);
+    }
+
+    @Override
+    public void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.dropFieldDefaultValue(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, fieldPath);
     }
 
     @Override
