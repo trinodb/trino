@@ -29,7 +29,7 @@ public final class DynamicTablePqlExtractor
 {
     private DynamicTablePqlExtractor() {}
 
-    public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain)
+    public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain, Optional<String> constraintPql)
     {
         StringBuilder builder = new StringBuilder();
         Map<String, String> queryOptions = table.queryOptions();
@@ -60,7 +60,7 @@ public final class DynamicTablePqlExtractor
         builder.append(table.tableName());
         builder.append(table.suffix().orElse(""));
 
-        Optional<String> filter = getFilter(table.filter(), tupleDomain, false);
+        Optional<String> filter = getFilter(table.filter(), tupleDomain, false, constraintPql);
         if (filter.isPresent()) {
             builder.append(" WHERE ")
                     .append(filter.get());
@@ -71,7 +71,7 @@ public final class DynamicTablePqlExtractor
                     .map(PinotColumnHandle::getExpression)
                     .collect(joining(", ")));
         }
-        Optional<String> havingClause = getFilter(table.havingExpression(), tupleDomain, true);
+        Optional<String> havingClause = getFilter(table.havingExpression(), tupleDomain, true, Optional.empty());
         if (havingClause.isPresent()) {
             builder.append(" HAVING ")
                     .append(havingClause.get());
@@ -93,9 +93,9 @@ public final class DynamicTablePqlExtractor
         return builder.toString();
     }
 
-    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, boolean forHavingClause)
+    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, boolean forHavingClause, Optional<String> constraintPql)
     {
-        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), forHavingClause);
+        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), forHavingClause, constraintPql);
 
         if (tupleFilter.isPresent() && filter.isPresent()) {
             return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));

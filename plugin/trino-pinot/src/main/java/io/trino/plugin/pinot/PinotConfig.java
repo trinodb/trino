@@ -62,6 +62,7 @@ public class PinotConfig
     private int maxRowsForBrokerQueries = 50_000;
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
+    private boolean jsonPredicatePushdownEnabled;
     private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
@@ -217,6 +218,19 @@ public class PinotConfig
     public boolean isCountDistinctPushdownEnabled()
     {
         return countDistinctPushdownEnabled;
+    }
+
+    public boolean isJsonPredicatePushdownEnabled()
+    {
+        return jsonPredicatePushdownEnabled;
+    }
+
+    @Config("pinot.json-predicate-pushdown.enabled")
+    @ConfigDescription("Controls whether JSON predicates are pushed down to Pinot. A JSON predicate is converted to a Pinot JSON_MATCH function call which generates an error when a JSON index is missing.")
+    public PinotConfig setJsonPredicatePushdownEnabled(boolean jsonPredicatePushdownEnabled)
+    {
+        this.jsonPredicatePushdownEnabled = jsonPredicatePushdownEnabled;
+        return this;
     }
 
     @Config("pinot.count-distinct-pushdown.enabled")

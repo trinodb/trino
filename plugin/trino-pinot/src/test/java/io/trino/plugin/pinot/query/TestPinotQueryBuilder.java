@@ -68,7 +68,7 @@ class TestPinotQueryBuilder
                     ValueSet.of(type, nativeValue.apply(Double.NaN)).complement())) {
                 Domain domain = Domain.create(values, false);
                 TupleDomain<ColumnHandle> constraint = TupleDomain.withColumnDomains(Map.of(new PinotColumnHandle("x", type), domain));
-                PinotQuery query = compileToPinotQuery("SELECT x FROM test WHERE " + getFilterClause(constraint, Optional.empty(), false).orElseThrow());
+                PinotQuery query = compileToPinotQuery("SELECT x FROM test WHERE " + getFilterClause(constraint, Optional.empty(), false, Optional.empty()).orElseThrow());
                 new QueryOptimizer().optimize(query, schema);
                 RangePredicate predicate = (RangePredicate) RequestContextUtils.getFilter(query.getFilterExpression()).getPredicate();
                 BaseRawValueBasedPredicateEvaluator evaluator = newRawValueBasedEvaluator(predicate, pinotType);
@@ -97,7 +97,7 @@ class TestPinotQueryBuilder
             Domain domain = extraction.tupleDomain().getDomains().orElseThrow().get(symbol);
             assertThat(domain.getValues().complement().isDiscreteSet()).isTrue();
             TupleDomain<ColumnHandle> constraint = extraction.tupleDomain().transformKeys(column -> new PinotColumnHandle(column.name(), column.type()));
-            assertThat(getFilterClause(constraint, Optional.empty(), false))
+            assertThat(getFilterClause(constraint, Optional.empty(), false, Optional.empty()))
                     .contains("((\"x\" >= '-Infinity' AND \"x\" < '0.0') OR (\"x\" > '0.0' AND \"x\" <= 'Infinity'))");
         }
     }
