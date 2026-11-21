@@ -17,10 +17,12 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
+import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.metastore.type.ListTypeInfo;
 import io.trino.metastore.type.MapTypeInfo;
@@ -28,7 +30,9 @@ import io.trino.metastore.type.PrimitiveCategory;
 import io.trino.metastore.type.PrimitiveTypeInfo;
 import io.trino.metastore.type.StructTypeInfo;
 import io.trino.metastore.type.TypeInfo;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveReadOnlyException;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.metastore.ProtectMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.Page;
@@ -49,11 +53,23 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.JSON_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.OPENCSV_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.OPENX_JSON_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -81,6 +97,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 
 public final class HiveWriteUtils
 {
@@ -89,6 +106,17 @@ public final class HiveWriteUtils
             .append(DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss"))
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
             .toFormatter();
+
+    private static final String UUID_PATTERN = "[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}";
+    private static final Pattern QUERY_FILE_NAME = Pattern.compile(
+            "(?:([a-z0-9_]+)_" + UUID_PATTERN + "|0[0-9]{5}_0_" + UUID_PATTERN + "_([a-z0-9_]+))"
+                    + Arrays.stream(HiveStorageFormat.values())
+                    .map(HiveStorageFormat::toStorageFormat)
+                    .flatMap(format -> Arrays.stream(HiveCompressionCodec.values())
+                            .flatMap(codec -> Stream.of(getFileExtension(codec, format, false), getFileExtension(codec, format, true))))
+                    .distinct()
+                    .map(Pattern::quote)
+                    .collect(joining("|", "(?:", ")")));
 
     private HiveWriteUtils() {}
 
@@ -238,9 +266,45 @@ public final class HiveWriteUtils
         }
     }
 
+    public static String getFileExtension(HiveCompressionCodec compression, StorageFormat format, boolean includeFormatExtension)
+    {
+        String outputFormat = format.getOutputFormat();
+        // text format files must have the correct extension when compressed
+        String compressionExtension = HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS.equals(outputFormat)
+                ? compression.getHiveCompressionKind().map(CompressionKind::getFileExtension).orElse("")
+                : "";
+        if (!includeFormatExtension) {
+            return compressionExtension;
+        }
+
+        String formatExtension = switch (outputFormat) {
+            case ORC_OUTPUT_FORMAT_CLASS -> ".orc";
+            case MAPRED_PARQUET_OUTPUT_FORMAT_CLASS -> ".parquet";
+            case AVRO_CONTAINER_OUTPUT_FORMAT_CLASS -> ".avro";
+            case HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS -> switch (format.getSerde()) {
+                case OPENCSV_SERDE_CLASS -> ".csv";
+                case JSON_SERDE_CLASS, OPENX_JSON_SERDE_CLASS -> ".json";
+                case LAZY_SIMPLE_SERDE_CLASS -> ".txt";
+                default -> "";
+            };
+            default -> "";
+        };
+        // Readers detect the outer compression codec of text files from the extension.
+        return formatExtension + compressionExtension;
+    }
+
+    /**
+     * Matches non-transactional Hive output names, including names with only a compression extension.
+     */
     public static boolean isFileCreatedByQuery(String fileName, String queryId)
     {
-        return fileName.startsWith(queryId) || fileName.endsWith(queryId);
+        Matcher matcher = QUERY_FILE_NAME.matcher(fileName);
+        if (!matcher.matches()) {
+            return false;
+        }
+        int group = matcher.start(1) >= 0 ? 1 : 2;
+        int start = matcher.start(group);
+        return matcher.end(group) - start == queryId.length() && fileName.startsWith(queryId, start);
     }
 
     public static Optional<Location> createTemporaryPath(TrinoFileSystem fileSystem, ConnectorIdentity identity, Location targetPath, String temporaryStagingDirectoryPath)

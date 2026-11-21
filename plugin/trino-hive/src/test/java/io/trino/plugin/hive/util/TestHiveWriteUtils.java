@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.util;
 
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -21,10 +23,14 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
+import static io.trino.plugin.hive.util.HiveWriteUtils.getFileExtension;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
@@ -33,6 +39,53 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveWriteUtils
 {
+    @ParameterizedTest
+    @CsvSource({
+            "ORC, GZIP, '', .orc",
+            "PARQUET, SNAPPY, '', .parquet",
+            "AVRO, ZSTD, '', .avro",
+            "CSV, GZIP, .gz, .csv.gz",
+            "JSON, SNAPPY, .snappy, .json.snappy",
+            "OPENX_JSON, LZ4, .lz4, .json.lz4",
+            "TEXTFILE, ZSTD, .zst, .txt.zst",
+            "REGEX, GZIP, .gz, .gz",
+            "ESRI, GZIP, .gz, .gz",
+            "ESRI_GEO_JSON, GZIP, .gz, .gz",
+            "RCBINARY, GZIP, '', ''",
+            "RCTEXT, GZIP, '', ''",
+            "SEQUENCEFILE, GZIP, '', ''",
+            "SEQUENCEFILE_PROTOBUF, GZIP, '', ''",
+    })
+    public void testFileExtension(HiveStorageFormat format, HiveCompressionCodec codec, String withoutFormat, String withFormat)
+    {
+        assertThat(getFileExtension(codec, format.toStorageFormat(), false)).isEqualTo(withoutFormat);
+        assertThat(getFileExtension(codec, format.toStorageFormat(), true)).isEqualTo(withFormat);
+    }
+
+    @Test
+    public void testIsFileCreatedByQuery()
+    {
+        String queryId = "20180102_030405_00641_x1y2z";
+        String uuid = "2f64d249-7930-4d62-9bce-2a00ed7363d2";
+        String unbucketed = queryId + "_" + uuid;
+        String bucketed = "001234_0_" + uuid + "_" + queryId;
+        for (String name : List.of(unbucketed, bucketed, bucketed + ".gz", bucketed + ".csv.gz", unbucketed + ".parquet")) {
+            assertThat(isFileCreatedByQuery(name, queryId)).as(name).isTrue();
+        }
+        for (String name : List.of(
+                queryId + "_notes",
+                "report_" + queryId,
+                "report_" + queryId + ".parquet",
+                "other_" + unbucketed,
+                "11234_0_" + uuid + "_" + queryId,
+                bucketed + ".parquet.gz",
+                bucketed + ".parquet.bak",
+                bucketed + "_extra.parquet",
+                unbucketed + ".csv.gz.bak")) {
+            assertThat(isFileCreatedByQuery(name, queryId)).as(name).isFalse();
+        }
+    }
+
     @Test
     public void testCreatePartitionValuesDecimal()
     {

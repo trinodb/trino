@@ -327,6 +327,7 @@ import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
+import static io.trino.plugin.hive.util.HiveWriteUtils.getFileExtension;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isWritableType;
 import static io.trino.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
@@ -431,6 +432,7 @@ public class HiveMetadata
     private final long maxPartitionDropsPerQuery;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
+    private final boolean writeFileFormatExtension;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -458,7 +460,8 @@ public class HiveMetadata
             boolean allowTableRename,
             long maxPartitionDropsPerQuery,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            boolean writeFileFormatExtension)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -486,6 +489,7 @@ public class HiveMetadata
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.writeFileFormatExtension = writeFileFormatExtension;
     }
 
     @Override
@@ -1906,13 +1910,12 @@ public class HiveMetadata
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
         if (handle.getBucketInfo().isPresent() && isCreateEmptyBucketFiles(session)) {
-            List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, true, partitionUpdates);
+            List<MissingBucketsUpdate> missingBucketsUpdates = computePartitionUpdatesForMissingBuckets(session, table, handle, true, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
-            for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                Location writePath = Location.of(partitionUpdate.getWritePath().toString());
-                createEmptyFiles(session, writePath, table, partition, partitionUpdate.getFileNames());
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, Iterables.transform(missingBucketsUpdates, MissingBucketsUpdate::partitionUpdate)));
+            for (MissingBucketsUpdate missingBucketsUpdate : missingBucketsUpdates) {
+                PartitionUpdate partitionUpdate = missingBucketsUpdate.partitionUpdate();
+                createEmptyFiles(session, partitionUpdate.getWritePath(), table, missingBucketsUpdate.partition(), partitionUpdate.getFileNames());
             }
             if (handle.isTransactional()) {
                 AcidTransaction transaction = handle.getTransaction();
@@ -1990,39 +1993,71 @@ public class HiveMetadata
                         .collect(toImmutableList())));
     }
 
-    private static List<PartitionUpdate> computePartitionUpdatesForMissingBuckets(
+    private List<MissingBucketsUpdate> computePartitionUpdatesForMissingBuckets(
             ConnectorSession session,
+            Table table,
             HiveWritableTableHandle handle,
             boolean isCreateTable,
             List<PartitionUpdate> partitionUpdates)
     {
-        ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
+        int bucketCount = handle.getBucketInfo().orElseThrow().bucketCount();
+        boolean includeFormatExtension = writeFileFormatExtension && !handle.isTransactional();
+        ImmutableList.Builder<MissingBucketsUpdate> missingBucketsUpdates = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
-            int bucketCount = handle.getBucketInfo().orElseThrow().bucketCount();
+            if (includeFormatExtension && partitionUpdate.getFileNames().size() == bucketCount) {
+                continue;
+            }
+            Optional<Partition> partition = getPartitionForEmptyBucketFiles(session, table, partitionUpdate, includeFormatExtension);
+            String extension = "";
+            if (includeFormatExtension) {
+                StorageFormat format = partition
+                        .map(value -> value.getStorage().getStorageFormat())
+                        .orElse(table.getStorage().getStorageFormat());
+                extension = getFileExtension(HiveCompressionCodec.NONE, format, true);
+            }
 
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
                     session,
                     bucketCount,
                     isCreateTable && handle.isTransactional(),
-                    partitionUpdate);
-            partitionUpdatesForMissingBucketsBuilder.add(new PartitionUpdate(
-                    partitionUpdate.getName(),
-                    partitionUpdate.getUpdateMode(),
-                    partitionUpdate.getWritePath(),
-                    partitionUpdate.getTargetPath(),
-                    fileNamesForMissingBuckets,
-                    0,
-                    0,
-                    0));
+                    partitionUpdate,
+                    extension);
+            missingBucketsUpdates.add(new MissingBucketsUpdate(
+                    new PartitionUpdate(
+                            partitionUpdate.getName(),
+                            partitionUpdate.getUpdateMode(),
+                            partitionUpdate.getWritePath(),
+                            partitionUpdate.getTargetPath(),
+                            fileNamesForMissingBuckets,
+                            0,
+                            0,
+                            0),
+                    partition));
         }
-        return partitionUpdatesForMissingBucketsBuilder.build();
+        return missingBucketsUpdates.build();
+    }
+
+    private record MissingBucketsUpdate(PartitionUpdate partitionUpdate, Optional<Partition> partition) {}
+
+    private Optional<Partition> getPartitionForEmptyBucketFiles(ConnectorSession session, Table table, PartitionUpdate partitionUpdate, boolean includeFormatExtension)
+    {
+        if (table.getPartitionColumns().isEmpty()) {
+            return Optional.empty();
+        }
+        if (includeFormatExtension && partitionUpdate.getUpdateMode() == APPEND) {
+            return Optional.of(metastore.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), ImmutableList.of(partitionUpdate.getName()))
+                    .get(partitionUpdate.getName())
+                    .orElseThrow(() -> new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition dropped during insert: " + partitionUpdate.getName())));
+        }
+        return Optional.of(buildPartitionObject(session, table, partitionUpdate));
     }
 
     private static List<String> computeFileNamesForMissingBuckets(
             ConnectorSession session,
             int bucketCount,
             boolean transactionalCreateTable,
-            PartitionUpdate partitionUpdate)
+            PartitionUpdate partitionUpdate,
+            String extension)
     {
         if (partitionUpdate.getFileNames().size() == bucketCount) {
             // fast path for the common case
@@ -2041,7 +2076,7 @@ public class HiveMetadata
             }
             missingFileNamesBuilder.add(transactionalCreateTable
                     ? computeTransactionalBucketedFilename(i)
-                    : computeNonTransactionalBucketedFilename(session.getQueryId(), i));
+                    : computeNonTransactionalBucketedFilename(session.getQueryId(), i) + extension);
         }
         List<String> missingFileNames = missingFileNamesBuilder.build();
         verify(fileNames.size() + missingFileNames.size() == bucketCount);
@@ -2282,11 +2317,12 @@ public class HiveMetadata
         }
 
         if (handle.getBucketInfo().isPresent() && isCreateEmptyBucketFiles(session)) {
-            List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, false, partitionUpdates);
+            List<MissingBucketsUpdate> missingBucketsUpdates = computePartitionUpdatesForMissingBuckets(session, table, handle, false, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
-            for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, Iterables.transform(missingBucketsUpdates, MissingBucketsUpdate::partitionUpdate)));
+            for (MissingBucketsUpdate missingBucketsUpdate : missingBucketsUpdates) {
+                PartitionUpdate partitionUpdate = missingBucketsUpdate.partitionUpdate();
+                Optional<Partition> partition = missingBucketsUpdate.partition();
                 if (handle.isTransactional() && partition.isPresent()) {
                     PartitionStatistics statistics = PartitionStatistics.builder().setBasicStatistics(partitionUpdate.getStatistics()).build();
                     metastore.addPartition(
@@ -2299,8 +2335,7 @@ public class HiveMetadata
                             statistics,
                             handle.isRetriesEnabled());
                 }
-                Location writePath = Location.of(partitionUpdate.getWritePath().toString());
-                createEmptyFiles(session, writePath, table, partition, partitionUpdate.getFileNames());
+                createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
 

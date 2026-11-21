@@ -126,6 +126,16 @@ Hive connector documentation.
 * - `hive.storage-format`
   - The default file format used when creating new tables.
   - `PARQUET`
+* - `hive.write-file-format-extension`
+  - Append a format extension to new non-transactional data files:
+    `.orc`, `.parquet`, `.avro`, `.csv`, `.json` (for `JSON` and `OPENX_JSON`),
+    or `.txt` (for `TEXTFILE`). Compressed text files retain their compression
+    extension after the format extension, for example, `.csv.gz`. Compression
+    inside ORC, Parquet, and Avro files does not add a compression extension.
+    Empty bucket files receive only the format extension because they are
+    uncompressed. Other formats, transactional writes, and existing file names
+    are not affected.
+  - `false`
 * - `hive.orc.use-column-names`
   - Access ORC columns by name. By default, columns in ORC files are accessed by
     their ordinal position in the Hive table definition. The equivalent catalog

@@ -68,6 +68,7 @@ public class HivePageSinkProvider
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean temporaryStagingDirectoryEnabled;
     private final String temporaryStagingDirectoryPath;
+    private final boolean writeFileFormatExtension;
 
     @Inject
     public HivePageSinkProvider(
@@ -98,6 +99,7 @@ public class HivePageSinkProvider
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
         this.temporaryStagingDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
         this.temporaryStagingDirectoryPath = config.getTemporaryStagingDirectoryPath();
+        this.writeFileFormatExtension = config.isWriteFileFormatExtension();
     }
 
     @Override
@@ -186,7 +188,8 @@ public class HivePageSinkProvider
                 session,
                 hiveWriterStats,
                 temporaryStagingDirectoryEnabled,
-                temporaryStagingDirectoryPath);
+                temporaryStagingDirectoryPath,
+                writeFileFormatExtension);
 
         return new HivePageSink(
                 writerFactory,

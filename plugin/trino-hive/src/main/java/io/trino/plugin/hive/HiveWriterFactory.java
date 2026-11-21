@@ -23,7 +23,6 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.HiveTypeName;
@@ -64,7 +63,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.metastore.AcidOperation.CREATE_TABLE;
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
@@ -87,6 +85,7 @@ import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
+import static io.trino.plugin.hive.util.HiveWriteUtils.getFileExtension;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
@@ -136,6 +135,7 @@ public class HiveWriterFactory
     private final boolean sortedWritingTempStagingPathEnabled;
     private final String sortedWritingTempStagingPath;
     private final InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
+    private final boolean writeFileFormatExtension;
 
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
@@ -168,7 +168,8 @@ public class HiveWriterFactory
             ConnectorSession session,
             HiveWriterStats hiveWriterStats,
             boolean sortedWritingTempStagingPathEnabled,
-            String sortedWritingTempStagingPath)
+            String sortedWritingTempStagingPath,
+            boolean writeFileFormatExtension)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystem = fileSystemFactory.create(session);
@@ -193,6 +194,7 @@ public class HiveWriterFactory
         this.sortedWritingTempStagingPathEnabled = sortedWritingTempStagingPathEnabled;
         this.sortedWritingTempStagingPath = requireNonNull(sortedWritingTempStagingPath, "sortedWritingTempStagingPath is null");
         this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
+        this.writeFileFormatExtension = writeFileFormatExtension;
 
         // divide input columns into partition and data columns
         ImmutableList.Builder<String> partitionColumnNames = ImmutableList.builder();
@@ -426,7 +428,7 @@ public class HiveWriterFactory
             String subdir = computeAcidSubdir(transaction);
             String fileName;
             if (table != null && isInsertOnlyTable(table.getParameters())) {
-                fileName = "%05d_0".formatted(bucketToUse) + getFileExtension(compressionCodec, outputStorageFormat);
+                fileName = "%05d_0".formatted(bucketToUse) + getFileExtension(compressionCodec, outputStorageFormat, false);
             }
             else {
                 fileName = "bucket_%05d".formatted(bucketToUse);
@@ -434,7 +436,7 @@ public class HiveWriterFactory
             path = path.appendPath(subdir).appendPath(fileName);
         }
         else {
-            path = path.appendPath(computeFileName(bucketNumber) + getFileExtension(compressionCodec, outputStorageFormat));
+            path = path.appendPath(computeFileName(bucketNumber) + getFileExtension(compressionCodec, outputStorageFormat, writeFileFormatExtension && !isCreateTransactionalTable));
         }
 
         boolean useAcidSchema = isCreateTransactionalTable || (table != null && isFullAcidTable(table.getParameters()));
@@ -680,15 +682,6 @@ public class HiveWriterFactory
         Matcher matcher = BUCKET_FROM_FILENAME_PATTERN.matcher(fileName);
         checkArgument(matcher.matches(), "filename %s does not match pattern %s", fileName, BUCKET_FROM_FILENAME_PATTERN);
         return Integer.parseInt(matcher.group(1));
-    }
-
-    public static String getFileExtension(HiveCompressionCodec compression, StorageFormat format)
-    {
-        // text format files must have the correct extension when compressed
-        return compression.getHiveCompressionKind()
-                .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
-                .map(CompressionKind::getFileExtension)
-                .orElse("");
     }
 
     @VisibleForTesting

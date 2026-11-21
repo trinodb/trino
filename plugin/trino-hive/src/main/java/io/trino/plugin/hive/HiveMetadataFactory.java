@@ -81,6 +81,7 @@ public class HiveMetadataFactory
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
+    private final boolean writeFileFormatExtension;
 
     @Inject
     public HiveMetadataFactory(
@@ -140,7 +141,8 @@ public class HiveMetadataFactory
                 hiveConfig.isPartitionProjectionEnabled(),
                 allowTableRename,
                 hiveConfig.getTimestampPrecision(),
-                hiveConfig.getMetadataParallelism());
+                hiveConfig.getMetadataParallelism(),
+                hiveConfig.isWriteFileFormatExtension());
     }
 
     public HiveMetadataFactory(
@@ -179,7 +181,8 @@ public class HiveMetadataFactory
             boolean partitionProjectionEnabled,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
-            int metadataParallelism)
+            int metadataParallelism,
+            boolean writeFileFormatExtension)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -191,6 +194,7 @@ public class HiveMetadataFactory
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
+        this.writeFileFormatExtension = writeFileFormatExtension;
 
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
@@ -279,6 +283,7 @@ public class HiveMetadataFactory
                 allowTableRename,
                 maxPartitionDropsPerQuery,
                 hiveViewsTimestampPrecision,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                writeFileFormatExtension);
     }
 }

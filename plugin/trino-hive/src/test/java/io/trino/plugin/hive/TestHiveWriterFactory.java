@@ -16,11 +16,14 @@ package io.trino.plugin.hive;
 import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
 
 import static io.trino.plugin.hive.HiveWriterFactory.computeNonTransactionalBucketedFilename;
 import static io.trino.plugin.hive.HiveWriterFactory.computeTransactionalBucketedFilename;
+import static io.trino.plugin.hive.HiveWriterFactory.getBucketFromFileName;
 import static io.trino.plugin.hive.HiveWriterFactory.setSchemeToFileIfAbsent;
 import static org.apache.hadoop.hive.ql.exec.Utilities.getBucketIdFromFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +39,15 @@ public class TestHiveWriterFactory
 
         name = computeTransactionalBucketedFilename(1234);
         assertThat(name).isEqualTo("001234_0");
+        assertThat(getBucketIdFromFile(name)).isEqualTo(1234);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".parquet", ".csv.gz", ".gz"})
+    public void testBucketIdWithExtension(String extension)
+    {
+        String name = computeNonTransactionalBucketedFilename("20180102_030405_00641_x1y2z", 1234) + extension;
+        assertThat(getBucketFromFileName(name)).isEqualTo(1234);
         assertThat(getBucketIdFromFile(name)).isEqualTo(1234);
     }
 

@@ -2565,6 +2565,7 @@ public class SemiTransactionalHiveMetastore
             return new RecursiveDeleteResult(false, notDeletedItems.build());
         }
 
+        boolean deleteAllFiles = queryIds.contains("");
         boolean allDescendentsDeleted = true;
         ImmutableList.Builder<String> notDeletedEligibleItems = ImmutableList.builder();
         for (Location file : allFiles) {
@@ -2572,7 +2573,7 @@ public class SemiTransactionalHiveMetastore
             boolean eligible = false;
             // don't delete hidden Trino directories use by FileHiveMetastore
             if (!fileName.startsWith(".trino")) {
-                eligible = queryIds.stream().anyMatch(id -> isFileCreatedByQuery(fileName, id));
+                eligible = deleteAllFiles || queryIds.stream().anyMatch(id -> isFileCreatedByQuery(fileName, id));
             }
             if (eligible) {
                 if (!deleteFileIfExists(fileSystem, file)) {

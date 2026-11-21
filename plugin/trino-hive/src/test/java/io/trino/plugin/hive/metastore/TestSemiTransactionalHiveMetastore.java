@@ -63,6 +63,8 @@ import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
+import static io.trino.plugin.hive.HiveWriterFactory.computeNonTransactionalBucketedFilename;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -70,6 +72,7 @@ import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -151,6 +154,31 @@ final class TestSemiTransactionalHiveMetastore
         insertIntoExistingTable();
         transactionalMetastore.commit();
         assertThat(storedStatistics()).isEqualTo(MERGE_INCREMENTAL.updatePartitionStatistics(EXISTING_STATISTICS, STATISTICS_UPDATE));
+    }
+
+    @Test
+    void testRollbackOnlyDeletesQueryFiles()
+            throws IOException
+    {
+        String queryId = SESSION.getQueryId();
+        Path tableDirectory = tempDir.resolve(TABLE_LOCATION.path());
+        Files.createFile(tableDirectory.resolve(queryId + "_" + randomUUID() + ".orc"));
+        Files.createFile(tableDirectory.resolve(computeNonTransactionalBucketedFilename(queryId, 2) + ".csv.gz"));
+        Files.createFile(tableDirectory.resolve(computeNonTransactionalBucketedFilename(queryId, 3) + ".gz"));
+        String unrelatedPrefix = queryId + "_external.parquet";
+        String unrelatedSuffix = "external_" + queryId + ".parquet";
+        String unrelatedQuery = computeNonTransactionalBucketedFilename("other_query", 2) + ".csv.gz";
+        for (String name : List.of(unrelatedPrefix, unrelatedSuffix, unrelatedQuery)) {
+            Files.createFile(tableDirectory.resolve(name));
+        }
+
+        transactionalMetastore.declareIntentionToWrite(SESSION, DIRECT_TO_TARGET_EXISTING_DIRECTORY, TABLE_LOCATION, TABLE);
+        transactionalMetastore.rollback();
+
+        try (var files = Files.list(tableDirectory)) {
+            assertThat(files.map(Path::getFileName).map(Path::toString))
+                    .containsExactlyInAnyOrder(unrelatedPrefix, unrelatedSuffix, unrelatedQuery);
+        }
     }
 
     @Test

@@ -99,6 +99,7 @@ public class HiveConfig
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.PARQUET;
     private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.GZIP;
     private boolean respectTableFormat = true;
+    private boolean writeFileFormatExtension;
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
     private boolean createEmptyBucketFiles;
@@ -524,6 +525,19 @@ public class HiveConfig
     public HiveConfig setRespectTableFormat(boolean respectTableFormat)
     {
         this.respectTableFormat = respectTableFormat;
+        return this;
+    }
+
+    public boolean isWriteFileFormatExtension()
+    {
+        return writeFileFormatExtension;
+    }
+
+    @Config("hive.write-file-format-extension")
+    @ConfigDescription("Append a storage format extension to newly written non-transactional data files")
+    public HiveConfig setWriteFileFormatExtension(boolean writeFileFormatExtension)
+    {
+        this.writeFileFormatExtension = writeFileFormatExtension;
         return this;
     }
 
