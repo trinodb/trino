@@ -22,6 +22,11 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.MergeWriterNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -37,10 +42,13 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.mergeWriter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMetadataQueryOptimization
         extends BasePushdownPlanTest
@@ -197,6 +205,50 @@ public class TestMetadataQueryOptimization
                 format("SELECT DISTINCT b, c FROM %s WHERE \"$path\" IS NOT NULL", testTable),
                 session,
                 anyTree(tableScan(testTable)));
+    }
+
+    @Test
+    public void testOptimizationWithinMergeForUnrelatedSourceTable()
+    {
+        String targetTable = "test_merge_metadata_optimization_target";
+        String sourceTable = "test_merge_metadata_optimization_source";
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s (part, value) WITH (PARTITIONING = ARRAY['part']) AS VALUES (1, 10), (2, 20)",
+                targetTable));
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s (part, value) WITH (PARTITIONING = ARRAY['part']) AS VALUES (6, 10), (9, 20)",
+                sourceTable));
+
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty("optimize_metadata_queries", "true")
+                .build();
+
+        assertPlanWithSession(
+                format(
+                        "MERGE INTO %s t USING (SELECT max(part) AS part FROM %s) s ON false WHEN NOT MATCHED THEN INSERT (part, value) VALUES (s.part, 1)",
+                        targetTable,
+                        sourceTable),
+                session,
+                true,
+                anyTree(mergeWriter(anyTree(node(ValuesNode.class)))),
+                plan -> {
+                    MergeWriterNode mergeWriter = (MergeWriterNode) PlanNodeSearcher.searchFrom(plan.getRoot())
+                            .where(MergeWriterNode.class::isInstance)
+                            .findOnlyElement();
+                    PlanNode mergeSource = mergeWriter.getSource();
+
+                    assertThat(PlanNodeSearcher.searchFrom(mergeSource)
+                            .where(node -> node instanceof TableScanNode tableScan &&
+                                    tableScan.getTable().catalogHandle().getCatalogName().toString().equals(ICEBERG_CATALOG) &&
+                                    tableScan.getTable().connectorHandle() instanceof IcebergTableHandle icebergTableHandle &&
+                                    icebergTableHandle.getSchemaTableName().getSchemaName().equals(SCHEMA_NAME) &&
+                                    icebergTableHandle.getSchemaTableName().getTableName().equals(sourceTable))
+                            .findAll()).isEmpty();
+                    assertThat(PlanNodeSearcher.searchFrom(mergeSource)
+                            .where(node -> node instanceof ValuesNode valuesNode && valuesNode.getRowCount() > 0)
+                            .findAll()).isNotEmpty();
+                });
     }
 
     @AfterAll
