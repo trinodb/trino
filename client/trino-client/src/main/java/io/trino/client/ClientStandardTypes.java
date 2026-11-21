@@ -49,6 +49,7 @@ public final class ClientStandardTypes
     public static final String VARIANT = "variant";
     public static final String IPADDRESS = "ipaddress";
     public static final String IPADDRESS_WITH_PORT = "ipaddress_with_port";
+    public static final String IPADDRESS_WITH_SUBNET = "ipaddress_with_subnet";
     public static final String UUID = "uuid";
     public static final String GEOMETRY = "Geometry";
     public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
