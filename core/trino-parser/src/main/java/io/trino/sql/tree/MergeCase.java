@@ -47,4 +47,6 @@ public abstract sealed class MergeCase
     public abstract List<Identifier> getSetColumns();
 
     public abstract List<Expression> getSetExpressions();
+
+    public abstract boolean isNotMatchedBySource();
 }

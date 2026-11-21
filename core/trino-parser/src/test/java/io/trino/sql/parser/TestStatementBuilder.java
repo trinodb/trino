@@ -343,6 +343,16 @@ public class TestStatementBuilder
                 insert (part, qty) values (c.part, c.qty)
                 """);
 
+        printStatement(
+                """
+                merge into inventory as i
+                using changes as c
+                on i.part = c.part
+                when not matched by source and qty = 0 then delete
+                when not matched by source then
+                update set qty = 0
+                """);
+
         printStatement("set session authorization user");
         printStatement("reset session authorization");
     }
