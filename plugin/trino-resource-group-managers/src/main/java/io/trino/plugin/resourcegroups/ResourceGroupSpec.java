@@ -209,6 +209,7 @@ public class ResourceGroupSpec
         }
         return (name.equals(other.name) &&
                 softMemoryLimit.equals(other.softMemoryLimit) &&
+                softMemoryLimitFraction.equals(other.softMemoryLimitFraction) &&
                 maxQueued == other.maxQueued &&
                 softConcurrencyLimit.equals(other.softConcurrencyLimit) &&
                 hardConcurrencyLimit == other.hardConcurrencyLimit &&
@@ -244,6 +245,7 @@ public class ResourceGroupSpec
         return toStringHelper(this)
                 .add("name", name)
                 .add("softMemoryLimit", softMemoryLimit)
+                .add("softMemoryLimitFraction", softMemoryLimitFraction)
                 .add("maxQueued", maxQueued)
                 .add("softConcurrencyLimit", softConcurrencyLimit)
                 .add("hardConcurrencyLimit", hardConcurrencyLimit)
