@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -51,6 +52,8 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AssertProvider;
+import org.assertj.core.api.SoftAssertions;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
@@ -66,6 +69,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CyclicBarrier;
@@ -74,6 +78,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -89,6 +94,7 @@ import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -172,6 +178,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -187,6 +194,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Fail.fail;
 import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -836,26 +844,6 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName())))
                     .skippingTypesCheck()
                     .matches("VALUES '2005-09-10'");
-        }
-    }
-
-    @Test
-    public void testLikeWithBackslash()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
-        try (TestTable table = newTrinoTable(
-                "test_like_backslash",
-                "(k integer, v varchar)",
-                List.of(
-                        "1, 'a\\b'",
-                        "2, 'a%b'",
-                        "3, 'a\\%b'",
-                        "4, 'a\\\\%b'",
-                        "5, '%a\\%b%'",
-                        "6, '%a\\\\%b%'"))) {
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v LIKE '%a\\%b%'"))
-                    .hasCorrectResultsRegardlessOfPushdown();
         }
     }
 
@@ -5582,6 +5570,213 @@ public abstract class BaseConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES 'a '");
         }
+    }
+
+    @Test
+    public void testVarcharPushdownCorrectness()
+    {
+        assertSelectPushdownCorrectness(
+                () -> newTrinoTable("test_varchar_pushdown_correctness", "(k integer, v varchar(5))"),
+                "varchar(5)",
+                varcharPushdownValues(),
+                varcharPushdownPredicates());
+    }
+
+    @Test
+    public void testCharPushdownCorrectness()
+    {
+        assertSelectPushdownCorrectness(
+                () -> newTrinoTable("test_char_pushdown_correctness", "(k integer, v char(5))"),
+                "char(5)",
+                charPushdownValues(),
+                charPushdownPredicates());
+    }
+
+    @Test
+    public void testDeleteWithVarcharPushdownCorrectness()
+    {
+        assertDeletePushdownCorrectness(
+                () -> createTestTableForWrites("test_delete_varchar_pushdown_correctness", "(k integer, v varchar(5))", "k"),
+                varcharPushdownValues(),
+                varcharPushdownPredicates());
+    }
+
+    @Test
+    public void testDeleteWithCharPushdownCorrectness()
+    {
+        assertDeletePushdownCorrectness(
+                () -> createTestTableForWrites("test_delete_char_pushdown_correctness", "(k integer, v char(5))", "k"),
+                charPushdownValues(),
+                charPushdownPredicates());
+    }
+
+    private void assertSelectPushdownCorrectness(Supplier<TestTable> tableFactory, String type, List<String> values, List<String> predicates)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = tableFactory.get()) {
+            insertMissingRows(table.getName(), values);
+            SoftAssertions softly = new SoftAssertions();
+            for (String predicate : predicates) {
+                softly.assertThat((long) computeScalar("SELECT count_if(%s) FROM (SELECT CAST(v AS %s) v FROM (VALUES %s) t(v))".formatted(predicate, type, String.join(", ", values))))
+                        .as("Rows matching %s", predicate)
+                        .isBetween(1L, values.size() - 1L);
+                assertCorrectness(softly, predicate, () -> assertThat(query("SELECT k FROM %s WHERE %s".formatted(table.getName(), predicate))).hasCorrectResultsRegardlessOfPushdown());
+            }
+            assertQueryCorrectness(softly, table.getName(), "SELECT v, count(*) FROM %s GROUP BY v");
+            assertQueryCorrectness(softly, table.getName(), "SELECT DISTINCT v FROM %s");
+            assertQueryCorrectness(softly, table.getName(), "SELECT count(DISTINCT v) FROM %s");
+            assertQueryCorrectness(softly, table.getName(), "SELECT min(v), max(v) FROM %s");
+            assertOrderedQueryCorrectness(softly, table.getName(), "SELECT v FROM %s ORDER BY v LIMIT 5");
+            assertOrderedQueryCorrectness(softly, table.getName(), "SELECT v FROM %s ORDER BY v DESC LIMIT 5");
+            softly.assertAll();
+        }
+    }
+
+    private void assertQueryCorrectness(SoftAssertions softly, String tableName, @Language("SQL") String queryTemplate)
+    {
+        assertCorrectness(softly, queryTemplate, () -> assertThat(query(queryTemplate.formatted(tableName))).hasCorrectResultsRegardlessOfPushdown());
+    }
+
+    private void assertOrderedQueryCorrectness(SoftAssertions softly, String tableName, @Language("SQL") String queryTemplate)
+    {
+        assertCorrectness(softly, queryTemplate, () -> assertThat(query(queryTemplate.formatted(tableName))).ordered().hasCorrectResultsRegardlessOfPushdown());
+    }
+
+    private void assertDeletePushdownCorrectness(Supplier<TestTable> tableFactory, List<String> values, List<String> predicates)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_DELETE));
+
+        Session withoutPushdown = Session.builder(getSession())
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
+        try (TestTable table = tableFactory.get()) {
+            insertMissingRows(table.getName(), values);
+            Set<Object> keysBeforeDelete = computeActual("SELECT k FROM " + table.getName()).getOnlyColumnAsSet();
+            SoftAssertions softly = new SoftAssertions();
+            for (String predicate : predicates) {
+                Set<Object> keysMatchingPredicate = computeActual(withoutPushdown, "SELECT k FROM %s WHERE %s".formatted(table.getName(), predicate)).getOnlyColumnAsSet();
+                Set<Object> expectedKeysAfterDelete = Sets.difference(keysBeforeDelete, keysMatchingPredicate);
+                assertCorrectness(softly, predicate, () -> assertDeleteMatchesNonPushdownResult(table.getName(), predicate, expectedKeysAfterDelete));
+                insertMissingRows(table.getName(), values);
+            }
+            softly.assertAll();
+        }
+    }
+
+    private void assertDeleteMatchesNonPushdownResult(String tableName, String predicate, Set<Object> expectedKeysAfterDelete)
+    {
+        try {
+            getQueryRunner().execute(getSession(), "DELETE FROM %s WHERE %s".formatted(tableName, predicate));
+        }
+        catch (RuntimeException e) {
+            try {
+                assertThatTrinoException(e).hasErrorCode(NOT_SUPPORTED);
+            }
+            catch (AssertionError _) {
+                throw e;
+            }
+            return;
+        }
+        assertThat(computeActual("SELECT k FROM " + tableName).getOnlyColumnAsSet())
+                .isEqualTo(expectedKeysAfterDelete);
+    }
+
+    private static void assertCorrectness(SoftAssertions softly, String check, ThrowingCallable assertion)
+    {
+        softly.assertThat(catchThrowable(assertion)).as("Incorrect results for %s", check).isNull();
+    }
+
+    private void insertMissingRows(String tableName, List<String> values)
+    {
+        String rows = IntStream.range(0, values.size())
+                .mapToObj(index -> "(%s, %s)".formatted(index + 1, values.get(index)))
+                .collect(joining(", "));
+        getQueryRunner().execute(getSession(), "INSERT INTO %s SELECT * FROM (VALUES %s) t(k, v) WHERE k NOT IN (SELECT k FROM %s)".formatted(tableName, rows, tableName));
+    }
+
+    private static List<String> varcharPushdownValues()
+    {
+        return ImmutableList.<String>builder()
+                .addAll(stringPushdownValues())
+                .add("'ä'")
+                .build();
+    }
+
+    private static List<String> charPushdownValues()
+    {
+        return ImmutableList.<String>builder()
+                .addAll(stringPushdownValues())
+                .add("U&'a\\0009'")
+                .build();
+    }
+
+    private static List<String> stringPushdownValues()
+    {
+        return ImmutableList.<String>builder()
+                .add("''")
+                .add("'a'")
+                .add("'a '")
+                .add("'A'")
+                .add("'B'")
+                .add("'b'")
+                .add("'x_y'")
+                .add("'x\\y'")
+                .add("'xa'")
+                .add("'x[a]'")
+                .add("'a\\b'")
+                .add("'a%b'")
+                .add("'a\\%b'")
+                .add("'a\\\\%b'")
+                .add("NULL")
+                .build();
+    }
+
+    private static List<String> varcharPushdownPredicates()
+    {
+        return ImmutableList.<String>builder()
+                .add("v = 'a'")
+                .add("v = 'a '")
+                .add("v = ''")
+                .add("v <> 'a'")
+                .add("v <> ''")
+                .add("v IN ('a', 'b')")
+                .add("v NOT IN ('a', '')")
+                .add("v < 'b'")
+                .add("v < 'a '")
+                .add("v > ''")
+                .add("v BETWEEN 'a' AND 'b'")
+                .add("v IS NULL")
+                .add("v IS NOT NULL")
+                .add("v LIKE 'a%'")
+                .add("v NOT LIKE 'a%'")
+                .add("v LIKE '_'")
+                .add("v LIKE '%\\_%'")
+                .add("v LIKE '_[a]'")
+                .add("v LIKE '_[a]' ESCAPE '!'")
+                .add("v LIKE '%\\\\%' ESCAPE '\\'")
+                .add("v LIKE 'x!_%' ESCAPE '!'")
+                .add("v LIKE '%!%%' ESCAPE '!'")
+                .add("v LIKE '%a\\%b%'")
+                .build();
+    }
+
+    private static List<String> charPushdownPredicates()
+    {
+        return ImmutableList.<String>builder()
+                .add("v = CHAR 'a'")
+                .add("v = CHAR ''")
+                .add("v <> CHAR 'a'")
+                .add("v IN (CHAR 'a', CHAR 'b')")
+                .add("v NOT IN (CHAR 'a', CHAR '')")
+                .add("v < CHAR 'b'")
+                .add("v <= CHAR 'a'")
+                .add("v > CHAR 'a'")
+                .add("v >= CHAR 'a'")
+                .add("v BETWEEN CHAR 'a' AND CHAR 'b'")
+                .add("v LIKE 'a%'")
+                .add("v LIKE '% '")
+                .build();
     }
 
     @Test

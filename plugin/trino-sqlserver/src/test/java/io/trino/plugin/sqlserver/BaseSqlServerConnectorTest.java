@@ -42,6 +42,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -487,6 +488,28 @@ public abstract class BaseSqlServerConnectorTest
         try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
         }
+    }
+
+    @Test
+    @Override
+    public void testVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testVarcharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (2 failures)")
+                .hasMessageContaining("Incorrect results for v LIKE '_[a]'")
+                .hasMessageContaining("Incorrect results for v LIKE '_[a]' ESCAPE '!'");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testDeleteWithVarcharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (2 failures)")
+                .hasMessageContaining("Incorrect results for v LIKE '_[a]'")
+                .hasMessageContaining("Incorrect results for v LIKE '_[a]' ESCAPE '!'");
     }
 
     @Test

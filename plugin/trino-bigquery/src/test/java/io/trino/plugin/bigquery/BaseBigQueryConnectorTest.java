@@ -335,6 +335,22 @@ public abstract class BaseBigQueryConnectorTest
 
     @Test
     @Override
+    public void testCharPushdownCorrectness()
+    {
+        assertThatThrownBy(super::testCharPushdownCorrectness)
+                .hasMessage("Unsupported column type: char(5)");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCharPushdownCorrectness()
+    {
+        assertThatThrownBy(super::testDeleteWithCharPushdownCorrectness)
+                .hasMessage("Unsupported column type: char(5)");
+    }
+
+    @Test
+    @Override
     public void testCharToVarcharCastCoercionAcrossPushdown()
     {
         assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)

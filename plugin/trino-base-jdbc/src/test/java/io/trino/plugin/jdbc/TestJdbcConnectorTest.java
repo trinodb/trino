@@ -140,6 +140,32 @@ public class TestJdbcConnectorTest
 
     @Test
     @Override
+    public void testCharPushdownCorrectness()
+    {
+        // TODO Correctness issue: char ranges are pushed down, but H2 compares char values without padding
+        assertThatThrownBy(super::testCharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (4 failures)")
+                .hasMessageContaining("Incorrect results for v <= CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v > CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v >= CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v BETWEEN CHAR 'a' AND CHAR 'b'");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCharPushdownCorrectness()
+    {
+        // TODO Correctness issue: char ranges are pushed down, but H2 compares char values without padding
+        assertThatThrownBy(super::testDeleteWithCharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (4 failures)")
+                .hasMessageContaining("Incorrect results for v <= CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v > CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v >= CHAR 'a'")
+                .hasMessageContaining("Incorrect results for v BETWEEN CHAR 'a' AND CHAR 'b'");
+    }
+
+    @Test
+    @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)

@@ -87,6 +87,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * @see TestPostgreSqlConnectorSmokeTest
@@ -913,6 +914,16 @@ public class TestPostgreSqlConnectorTest
             assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    @Override
+    public void testCharPushdownCorrectness()
+    {
+        // TODO Correctness issue: PostgreSQL compares char values without trailing spaces, so 'a\t' sorts after 'a'
+        assertThatThrownBy(super::testCharPushdownCorrectness)
+                .hasMessageContaining("Multiple Failures (1 failure)")
+                .hasMessageContaining("Incorrect results for SELECT v FROM %s ORDER BY v LIMIT 5");
     }
 
     @Test
