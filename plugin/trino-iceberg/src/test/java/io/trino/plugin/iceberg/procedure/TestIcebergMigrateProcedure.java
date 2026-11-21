@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -573,6 +574,33 @@ public class TestIcebergMigrateProcedure
         assertQueryReturnsEmptyResult("SELECT * FROM " + icebergTableName);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateHiveTableAsSelectCoercesIcebergTimestamp()
+    {
+        try (TestTable iceberg = new TestTable(
+                getQueryRunner()::execute,
+                "iceberg.tpch.test_timestamp",
+                "AS SELECT TIMESTAMP '2021-01-01 10:11:12.123789' AS ts");
+                TestTable hive = new TestTable(
+                        getQueryRunner()::execute,
+                        "hive.tpch.test_timestamp",
+                        "AS SELECT ts FROM " + iceberg.getName())) {
+            assertThat(query("SELECT ts FROM " + iceberg.getName()))
+                    .matches("VALUES TIMESTAMP '2021-01-01 10:11:12.123789'");
+            assertThat(query("SELECT ts FROM " + hive.getName()))
+                    .matches("VALUES TIMESTAMP '2021-01-01 10:11:12.124'");
+        }
+    }
+
+    @Test
+    public void testCreateHiveTableLikeCoercesIcebergTimestamp()
+    {
+        try (TestTable iceberg = new TestTable(getQueryRunner()::execute, "iceberg.tpch.test_timestamp", "(ts timestamp(6))");
+                TestTable hive = new TestTable(getQueryRunner()::execute, "hive.tpch.test_timestamp", "(LIKE " + iceberg.getName() + ")")) {
+            assertQuery("DESCRIBE " + hive.getName(), "VALUES ('ts', 'timestamp(3)', '', '')");
+        }
     }
 
     private String getColumnType(String tableName, String columnName)

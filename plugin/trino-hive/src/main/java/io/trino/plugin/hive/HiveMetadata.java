@@ -348,6 +348,7 @@ import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
@@ -3555,7 +3556,30 @@ public class HiveMetadata
         if (type instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() == 0) {
             return Optional.of(VarcharType.createVarcharType(1));
         }
-        return Optional.empty();
+        Type newType = coerceTimestampPrecision(type, getTimestampPrecision(session).getPrecision());
+        return newType.equals(type) ? Optional.empty() : Optional.of(newType);
+    }
+
+    private Type coerceTimestampPrecision(Type type, int precision)
+    {
+        if (type instanceof TimestampType) {
+            return createTimestampType(precision);
+        }
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayType(coerceTimestampPrecision(arrayType.getElementType(), precision));
+        }
+        if (type instanceof MapType mapType) {
+            return new MapType(
+                    coerceTimestampPrecision(mapType.getKeyType(), precision),
+                    coerceTimestampPrecision(mapType.getValueType(), precision),
+                    typeManager.getTypeOperators());
+        }
+        if (type instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), coerceTimestampPrecision(field.getType(), precision)))
+                    .collect(toImmutableList()));
+        }
+        return type;
     }
 
     @Override
