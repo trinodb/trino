@@ -5,21 +5,20 @@ local exchange (GATHER, SINGLE, [])
                 final aggregation over (i_item_id, i_item_desc, i_current_price)
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_item_id, i_item_desc, i_current_price])
-                            partial aggregation over (i_item_id, i_item_desc, i_current_price)
-                                join (INNER, PARTITIONED, can skip output duplicates):
-                                    remote exchange (REPARTITION, HASH, [ss_item_sk])
-                                        join (INNER, REPLICATED, can skip output duplicates):
-                                            dynamic filter (ss_item_sk::EQUAL, ss_item_sk::EQUAL)
-                                                scan store_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (i_item_sk::EQUAL)
-                                                        scan item
+                            intermediate aggregation over (i_item_id, i_item_desc, i_current_price)
+                                join (INNER, REPLICATED, can skip output duplicates):
+                                    partial aggregation over (ss_item_sk)
+                                        dynamic filter (ss_item_sk::EQUAL)
+                                            scan store_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [inv_item_sk])
+                                        remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                dynamic filter (inv_date_sk::EQUAL)
-                                                    scan inventory
+                                                join (INNER, REPLICATED, can skip output duplicates):
+                                                    dynamic filter (inv_date_sk::EQUAL, inv_item_sk::EQUAL)
+                                                        scan inventory
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan item
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
