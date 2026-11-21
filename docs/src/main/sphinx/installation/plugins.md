@@ -93,6 +93,15 @@ directory in which Trino is installed, but it is configurable using the
 configuration variable `plugin.dir` with the launcher. The [Docker
 image](/installation/containers) uses the path `/usr/lib/trino/plugin`.
 
+Each plugin loads its classes in isolation from the server and from other
+plugins, except the classes of the SPI. A plugin that uses a library the server
+loads once for all of them, for example a runtime on the JVM module path or one
+with native code, can load that library's packages from the server class path
+as well. List their package prefixes in the `plugin.shared-packages` property
+of the [config properties file](config-properties), for example
+`plugin.shared-packages=com.example.runtime.`. The packages are shared with
+every plugin, so list only those of such libraries.
+
 Restart Trino to use the plugin. 
 
 The [trino-packages project](https://github.com/trinodb/trino-packages) contains
