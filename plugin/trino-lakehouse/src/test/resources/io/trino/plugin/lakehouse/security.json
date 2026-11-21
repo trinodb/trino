@@ -1,0 +1,26 @@
+{
+  "schemas": [
+    {
+      "user": "admin",
+      "owner": true
+    }
+  ],
+  "tables": [
+    {
+      "user": "admin",
+      "privileges": [
+        "SELECT",
+        "INSERT",
+        "OWNERSHIP"
+      ]
+    },
+    {
+      "user": "alice",
+      "schema": "tpch",
+      "table": ".*_nation",
+      "privileges": [
+        "SELECT"
+      ]
+    }
+  ]
+}
