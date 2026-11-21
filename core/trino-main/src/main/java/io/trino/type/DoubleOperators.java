@@ -27,11 +27,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -43,6 +40,7 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.ShortestDecimalFormatter.formatDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
@@ -50,7 +48,6 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
 import static java.math.RoundingMode.HALF_UP;
-import static java.util.Locale.ENGLISH;
 
 public final class DoubleOperators
 {
@@ -60,8 +57,6 @@ public final class DoubleOperators
     private static final double MAX_SHORT_PLUS_ONE_AS_DOUBLE = 0x1p15;
     private static final double MIN_BYTE_AS_DOUBLE = -0x1p7;
     private static final double MAX_BYTE_PLUS_ONE_AS_DOUBLE = 0x1p7;
-
-    private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0###################E0", new DecimalFormatSymbols(ENGLISH)));
 
     private DoubleOperators() {}
 
@@ -209,35 +204,14 @@ public final class DoubleOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        String stringValue;
-
-        // handle positive and negative 0
-        if (value == 0e0) {
-            if (1e0 / value > 0) {
-                stringValue = "0E0";
-            }
-            else {
-                stringValue = "-0E0";
-            }
-        }
-        else if (Double.isInfinite(value)) {
-            if (value > 0) {
-                stringValue = "Infinity";
-            }
-            else {
-                stringValue = "-Infinity";
-            }
-        }
-        else {
-            stringValue = FORMAT.get().format(value);
-        }
+        Slice slice = formatDouble(value);
 
         // String is all-ASCII, so String.length() here returns actual code points count
-        if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
+        if (slice.length() <= x) {
+            return slice;
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", value, stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", value, slice.toStringUtf8(), x));
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
