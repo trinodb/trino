@@ -32,6 +32,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.SubPlan;
@@ -48,6 +49,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
@@ -63,6 +65,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -488,6 +491,24 @@ public class TestCostCalculator
                 .cpu(2000)
                 .memory(0)
                 .network(5000 * IS_NULL_OVERHEAD);
+    }
+
+    @Test
+    public void testTopN()
+    {
+        Symbol key = new Symbol(BIGINT, "orderkey");
+        TableScanNode source = tableScan("scan", key, new Symbol(BIGINT, "custkey"));
+        OrderingScheme ordering = new OrderingScheme(ImmutableList.of(key), ImmutableMap.of(key, ASC_NULLS_FIRST));
+        TopNNode topN = new TopNNode(new PlanNodeId("top"), source, 2, ordering, TopNNode.Step.SINGLE);
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of("scan", new PlanCostEstimate(100, 64, 64, 0));
+        PlanNodeStatsEstimate input = statsEstimate(source, 16 * 8);
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of("scan", input, "top", statsEstimate(source, 16 * 2));
+        assertCost(topN, costs, stats).cpu(100 + 8 * 18).memory(64 + 2 * 18).memoryWhenOutputting(2 * 18).network(0);
+        assertCostEstimatedExchanges(topN, costs, stats).cpu(100 + 8 * 18).memory(64 + 2 * 18).network(0);
+
+        assertCost(topN, costs, ImmutableMap.of("scan", statsEstimate(source, 0), "top", statsEstimate(source, 0))).cpu(100).memory(64);
+        assertCost(topN, costs, ImmutableMap.of("scan", PlanNodeStatsEstimate.unknown(), "top", statsEstimate(source, 16 * 2)))
+                .hasUnknownComponents();
     }
 
     @Test

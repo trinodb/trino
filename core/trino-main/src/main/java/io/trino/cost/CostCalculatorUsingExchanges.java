@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
@@ -283,6 +284,14 @@ public class CostCalculatorUsingExchanges
             // evaluated in context of actual source node type (and their sources).
             LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
             return costForStreaming(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitTopN(TopNNode node, Void context)
+        {
+            double cpuCost = getStats(node.getSource()).getOutputSizeInBytes(node.getSource().getOutputSymbols());
+            double memoryCost = getStats(node).getOutputSizeInBytes(node.getOutputSymbols());
+            return costForAccumulation(node, LocalCostEstimate.of(cpuCost, memoryCost, 0));
         }
 
         @Override
