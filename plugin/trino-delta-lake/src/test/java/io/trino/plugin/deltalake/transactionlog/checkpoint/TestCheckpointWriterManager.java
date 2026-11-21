@@ -24,6 +24,9 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
@@ -38,7 +41,11 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.parquet.column.Encoding;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -46,6 +53,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -63,6 +71,8 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.apache.parquet.column.Encoding.DELTA_LENGTH_BYTE_ARRAY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -172,6 +182,67 @@ public class TestCheckpointWriterManager
         assertThat(readLastCheckpoint(fileSystem, tableLocation)).contains(otherWriterLastCheckpoint);
     }
 
+    @Test
+    public void testDeltaLengthByteArrayEncodingFollowsParquetWriterConfig(@TempDir Path tempDirectory)
+            throws Exception
+    {
+        assertThat(writeCheckpointAndReadBinaryEncodings(tempDirectory.resolve("enabled"), new ParquetWriterConfig()))
+                .contains(DELTA_LENGTH_BYTE_ARRAY);
+        assertThat(writeCheckpointAndReadBinaryEncodings(tempDirectory.resolve("disabled"), new ParquetWriterConfig().setDeltaLengthByteArrayEncodingEnabled(false)))
+                .isNotEmpty()
+                .doesNotContain(DELTA_LENGTH_BYTE_ARRAY);
+    }
+
+    /**
+     * Writes a checkpoint for version 1 with a manager created the same way as the injected one,
+     * and returns the encodings of all {@code BINARY} column chunks in that checkpoint.
+     */
+    private Set<Encoding> writeCheckpointAndReadBinaryEncodings(Path tableDirectory, ParquetWriterConfig parquetWriterConfig)
+            throws Exception
+    {
+        String tableLocation = tableDirectory.toUri().toString();
+        Location transactionLogDirectory = Location.of(tableLocation).appendPath("_delta_log");
+        // Unique paths make dictionary encoding inefficient, so the writer falls back to the non-dictionary encoding
+        Set<AddFileEntry> previousCheckpointAdds = IntStream.range(0, 100)
+                .mapToObj(index -> addFileEntry(sha256().hashInt(index) + ".parquet"))
+                .collect(toImmutableSet());
+        new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", ParquetWriterOptions.builder().build()).write(
+                new CheckpointEntries(METADATA_ENTRY, PROTOCOL_ENTRY, ImmutableSet.of(), previousCheckpointAdds, ImmutableSet.of()),
+                fileSystem.newOutputFile(transactionLogDirectory.appendPath("00000000000000000000.checkpoint.parquet")));
+        fileSystem.newOutputFile(transactionLogDirectory.appendPath("_last_checkpoint"))
+                .createOrOverwrite(jsonCodec(LastCheckpoint.class).toJsonBytes(new LastCheckpoint(0, previousCheckpointAdds.size() + 2, Optional.empty(), Optional.empty())));
+        Files.writeString(tableDirectory.resolve("_delta_log/00000000000000000001.json"), TAIL_ADD_JSON);
+
+        DeltaLakeFileSystemFactory fileSystemFactory = new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider());
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        CheckpointWriterManager checkpointWriterManager = new CheckpointWriterManager(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                fileSystemFactory,
+                new NodeVersion("test"),
+                transactionLogAccess(fileSystemFactory, stats),
+                stats,
+                jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                parquetWriterConfig,
+                newDirectExecutorService());
+
+        checkpointWriterManager.writeCheckpoint(SESSION, loadSnapshot(tableLocation, fileSystemFactory, ParquetReaderOptions.builder().build()), Optional.empty());
+
+        try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(
+                fileSystem.newInputFile(transactionLogDirectory.appendPath("00000000000000000001.checkpoint.parquet")),
+                ParquetReaderOptions.defaultOptions(),
+                stats)) {
+            return MetadataReader.readFooter(dataSource, Optional.empty()).getBlocks().stream()
+                    .map(BlockMetadata::columns)
+                    .flatMap(List::stream)
+                    .filter(column -> column.getPrimitiveType().getPrimitiveTypeName() == BINARY)
+                    .map(ColumnChunkMetadata::getEncodings)
+                    .flatMap(Set::stream)
+                    .collect(toImmutableSet());
+        }
+    }
+
     /**
      * Writes a checkpoint for version 0 and a commit for version 1. The returned factory deletes that checkpoint when the checkpoint for version 1 is opened,
      * so copying its entries fails.
@@ -211,7 +282,21 @@ public class TestCheckpointWriterManager
 
     private CheckpointWriterManager checkpointWriterManager(DeltaLakeFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, ParquetWriterOptions parquetWriterOptions)
     {
-        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+        return new CheckpointWriterManager(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                fileSystemFactory,
+                new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", parquetWriterOptions),
+                transactionLogAccess(fileSystemFactory, stats),
+                stats,
+                jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                newDirectExecutorService());
+    }
+
+    private TransactionLogAccess transactionLogAccess(DeltaLakeFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats)
+    {
+        return new TransactionLogAccess(
                 TESTING_TYPE_MANAGER,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
@@ -220,16 +305,6 @@ public class TestCheckpointWriterManager
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
                 new FileSystemTransactionLogReaderFactory(fileSystemFactory));
-        return new CheckpointWriterManager(
-                TESTING_TYPE_MANAGER,
-                checkpointSchemaManager,
-                fileSystemFactory,
-                new CheckpointWriter(TESTING_TYPE_MANAGER, checkpointSchemaManager, "test", parquetWriterOptions),
-                transactionLogAccess,
-                stats,
-                jsonCodec(LastCheckpoint.class),
-                new DeltaLakeConfig(),
-                newDirectExecutorService());
     }
 
     private static DeltaLakeFileSystemFactory interceptingOutputStreams(OutputStreamFactory outputStreamFactory)
