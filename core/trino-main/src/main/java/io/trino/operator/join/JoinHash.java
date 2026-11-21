@@ -52,6 +52,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean isSingleMatchWithoutFilter()
+    {
+        return positionLinks == null && filterFunction == null;
+    }
+
+    @Override
     public boolean isEmpty()
     {
         return getJoinPositionCount() == 0;

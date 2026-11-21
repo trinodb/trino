@@ -61,6 +61,15 @@ public interface LookupSource
 
     boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
+    /**
+     * Returns whether every successful lookup is eligible and has no subsequent match.
+     * When true, callers may skip {@link #isJoinPositionEligible} and {@link #getNextJoinPosition}.
+     */
+    default boolean isSingleMatchWithoutFilter()
+    {
+        return false;
+    }
+
     boolean isEmpty();
 
     @Override
