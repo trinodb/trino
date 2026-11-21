@@ -53,7 +53,7 @@ class DynamicFiltersFetcher
 {
     private final TaskId taskId;
     private final URI taskUri;
-    private final String nodeInstanceId;
+    private final RemoteTaskNodeInstance nodeInstance;
     private final Consumer<Throwable> onFail;
     private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
     private final Duration refreshMaxWait;
@@ -77,7 +77,7 @@ class DynamicFiltersFetcher
             Consumer<Throwable> onFail,
             TaskId taskId,
             URI taskUri,
-            String nodeInstanceId,
+            RemoteTaskNodeInstance nodeInstance,
             Duration refreshMaxWait,
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             Executor executor,
@@ -90,7 +90,7 @@ class DynamicFiltersFetcher
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
+        this.nodeInstance = requireNonNull(nodeInstance, "nodeInstance is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
@@ -160,6 +160,7 @@ class DynamicFiltersFetcher
             return;
         }
 
+        String nodeInstanceId = nodeInstance.nodeInstanceId();
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskUri).appendPath("dynamicfilters").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
@@ -171,7 +172,7 @@ class DynamicFiltersFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
-        addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(dynamicFiltersVersion), request.getUri(), stats), executor);
+        addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(dynamicFiltersVersion), request.getUri(), _ -> nodeInstance.canRetryRejectedRequest(nodeInstanceId), stats), executor);
     }
 
     private class DynamicFiltersResponseCallback
