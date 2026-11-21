@@ -1159,7 +1159,7 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static ReaderPageSourceWithRowPositions createParquetPageSource(
+    static ReaderPageSourceWithRowPositions createParquetPageSource(
             TrinoInputFile inputFile,
             long start,
             long length,
