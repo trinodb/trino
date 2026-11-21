@@ -116,6 +116,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_S
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE_MANIFESTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ROLLBACK_TO_SNAPSHOT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -397,6 +398,22 @@ public class TestTrinoRestCatalog
             assertUnsupportedOperation(() -> metadata.setColumnComment(SESSION, tableHandle, columnHandle, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.setViewComment(SESSION, viewName, Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
             assertUnsupportedOperation(() -> metadata.setViewColumnComment(SESSION, viewName, "c", Optional.of("comment")), Endpoint.V1_UPDATE_VIEW);
+        }
+    }
+
+    @Test
+    public void testDropNonEmptyNamespace()
+            throws IOException
+    {
+        Catalog backend = backendCatalog(Files.createTempDirectory(null));
+        Namespace namespace = Namespace.of("test");
+        ((SupportsNamespaces) backend).createNamespace(namespace);
+        backend.buildTable(TableIdentifier.of(namespace, "test_table"), new Schema(Types.NestedField.required(1, "c", Types.LongType.get()))).create();
+
+        try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(backend, ImmutableList.of(Endpoint.V1_DELETE_NAMESPACE))) {
+            TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+            assertTrinoExceptionThrownBy(() -> catalog.dropNamespace(SESSION, "test"))
+                    .hasErrorCode(SCHEMA_NOT_EMPTY);
         }
     }
 
