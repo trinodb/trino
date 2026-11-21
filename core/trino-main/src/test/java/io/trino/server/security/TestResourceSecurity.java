@@ -329,6 +329,20 @@ public class TestResourceSecurity
                 assertThat(response.header("user")).isEqualTo(TEST_USER);
                 assertThat(response.header("principal")).isEqualTo(TEST_USER_LOGIN);
             }
+
+            // The Trino client sends both X-Trino-User and X-Trino-Original-User, so both must be rewritten to the mapped user,
+            // otherwise the session user is the authentication user, and the mapped user has to impersonate it
+            request = new Request.Builder()
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
+                    .addHeader("Authorization", Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
+                    .addHeader("X-Trino-User", TEST_USER_LOGIN)
+                    .addHeader("X-Trino-Original-User", TEST_USER_LOGIN)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertThat(response.code()).isEqualTo(SC_OK);
+                assertThat(response.header("user")).isEqualTo(TEST_USER);
+                assertThat(response.header("principal")).isEqualTo(TEST_USER_LOGIN);
+            }
         }
     }
 
