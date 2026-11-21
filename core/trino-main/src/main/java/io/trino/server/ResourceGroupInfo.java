@@ -35,6 +35,7 @@ public record ResourceGroupInfo(
         SchedulingPolicy schedulingPolicy,
         int schedulingWeight,
         DataSize softMemoryLimit,
+        DataSize hardMemoryLimit,
         int softConcurrencyLimit,
         int hardConcurrencyLimit,
         DataSize hardPhysicalDataScanLimit,
@@ -54,6 +55,7 @@ public record ResourceGroupInfo(
         requireNonNull(state, "state is null");
         requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+        requireNonNull(hardMemoryLimit, "hardMemoryLimit is null");
         requireNonNull(memoryUsage, "memoryUsage is null");
         requireNonNull(cpuUsage, "cpuUsage is null");
         requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");

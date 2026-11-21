@@ -87,6 +87,20 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         dropAllTables();
     }
 
+    @Test
+    public void testHardMemoryLimitColumn()
+    {
+        migrateDatabase();
+        jdbi.useHandle(handle -> {
+            handle.execute("INSERT INTO resource_groups (name, max_queued, hard_concurrency_limit) VALUES ('global', 10, 1)");
+            assertThat(handle.createQuery("SELECT hard_memory_limit FROM resource_groups").mapTo(String.class).one()).isNull();
+
+            handle.execute("UPDATE resource_groups SET hard_memory_limit = '1GB'");
+            assertThat(handle.createQuery("SELECT hard_memory_limit FROM resource_groups").mapTo(String.class).one()).isEqualTo("1GB");
+        });
+        dropAllTables();
+    }
+
     protected void verifyResourceGroupsSchema(int expectedPropertiesCount)
     {
         verifyResultSetCount("SELECT name FROM resource_groups_global_properties", expectedPropertiesCount);

@@ -329,6 +329,16 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.concurrent.CompletableFuture&lt;?&gt; io.trino.spi.connector.ConnectorMetadata::refreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getHardMemoryLimitBytes()</new>
+                                    <justification>Expose the configured hard memory limit for resource groups.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setHardMemoryLimitBytes(long)</new>
+                                    <justification>Allow configuration managers to set and clear the hard memory limit.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

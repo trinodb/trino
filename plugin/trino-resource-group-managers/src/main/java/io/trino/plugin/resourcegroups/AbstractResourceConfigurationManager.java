@@ -212,6 +212,7 @@ public abstract class AbstractResourceConfigurationManager
                 group.setSoftMemoryLimitBytes((long) (memoryPoolBytes * fraction));
             }
         }
+        group.setHardMemoryLimitBytes(match.getHardMemoryLimit().map(DataSize::toBytes).orElse(Long.MAX_VALUE));
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
         group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());

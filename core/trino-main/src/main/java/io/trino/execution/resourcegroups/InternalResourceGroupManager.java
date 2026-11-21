@@ -61,6 +61,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public final class InternalResourceGroupManager<C>
@@ -72,6 +73,7 @@ public final class InternalResourceGroupManager<C>
     private static final String NAME_PROPERTY = "resource-groups.configuration-manager";
 
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
+    private final ScheduledExecutorService memoryEnforcementExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupMemoryEnforcement"));
     private final List<InternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
@@ -181,6 +183,7 @@ public final class InternalResourceGroupManager<C>
     {
         configurationManager.get().shutdown();
         refreshExecutor.shutdownNow();
+        memoryEnforcementExecutor.shutdownNow();
     }
 
     @PostConstruct
@@ -188,6 +191,7 @@ public final class InternalResourceGroupManager<C>
     {
         if (started.compareAndSet(false, true)) {
             refreshExecutor.scheduleWithFixedDelay(this::refreshAndStartQueries, 1, 100, TimeUnit.MILLISECONDS);
+            memoryEnforcementExecutor.scheduleWithFixedDelay(this::enforceHardMemoryLimits, 1, 1, SECONDS);
         }
     }
 
@@ -217,6 +221,18 @@ public final class InternalResourceGroupManager<C>
             }
             catch (RuntimeException e) {
                 log.error(e, "Exception while processing queued queries for %s", group);
+            }
+        }
+    }
+
+    private void enforceHardMemoryLimits()
+    {
+        for (InternalResourceGroup group : rootGroups) {
+            try {
+                group.enforceHardMemoryLimits();
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception while enforcing hard memory limits for %s", group);
             }
         }
     }

@@ -32,6 +32,7 @@ public class ResourceGroupSpecBuilder
     private final long id;
     private final ResourceGroupNameTemplate nameTemplate;
     private final Optional<String> softMemoryLimit;
+    private final Optional<DataSize> hardMemoryLimit;
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
@@ -48,6 +49,7 @@ public class ResourceGroupSpecBuilder
             long id,
             ResourceGroupNameTemplate nameTemplate,
             Optional<String> softMemoryLimit,
+            Optional<String> hardMemoryLimit,
             int maxQueued,
             Optional<Integer> softConcurrencyLimit,
             int hardConcurrencyLimit,
@@ -62,6 +64,7 @@ public class ResourceGroupSpecBuilder
         this.id = id;
         this.nameTemplate = nameTemplate;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+        this.hardMemoryLimit = hardMemoryLimit.map(DataSize::valueOf);
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = requireNonNull(softConcurrencyLimit, "softConcurrencyLimit is null");
         this.hardConcurrencyLimit = hardConcurrencyLimit;
@@ -109,6 +112,7 @@ public class ResourceGroupSpecBuilder
         return new ResourceGroupSpec(
                 nameTemplate,
                 softMemoryLimit,
+                hardMemoryLimit,
                 maxQueued,
                 softConcurrencyLimit,
                 Optional.of(hardConcurrencyLimit),
@@ -132,6 +136,7 @@ public class ResourceGroupSpecBuilder
             long id = resultSet.getLong("resource_group_id");
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
             Optional<String> softMemoryLimit = Optional.ofNullable(resultSet.getString("soft_memory_limit"));
+            Optional<String> hardMemoryLimit = Optional.ofNullable(resultSet.getString("hard_memory_limit"));
             int maxQueued = resultSet.getInt("max_queued");
             Optional<Integer> softConcurrencyLimit = Optional.of(resultSet.getInt("soft_concurrency_limit"));
             if (resultSet.wasNull()) {
@@ -158,6 +163,7 @@ public class ResourceGroupSpecBuilder
                     id,
                     nameTemplate,
                     softMemoryLimit,
+                    hardMemoryLimit,
                     maxQueued,
                     softConcurrencyLimit,
                     hardConcurrencyLimit,

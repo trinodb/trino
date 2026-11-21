@@ -27,6 +27,15 @@ public interface ResourceGroup
      */
     void setSoftMemoryLimitBytes(long limit);
 
+    long getHardMemoryLimitBytes();
+
+    /**
+     * Threshold on total distributed memory usage of this group and its subgroups. When usage
+     * exceeds the threshold, new queries do not start and periodic enforcement fails the largest
+     * running query by memory usage. {@link Long#MAX_VALUE} disables this limit.
+     */
+    void setHardMemoryLimitBytes(long limit);
+
     Duration getSoftCpuLimit();
 
     /**

@@ -43,6 +43,7 @@ public interface ResourceGroupsDao
               resource_group_id BIGINT NOT NULL AUTO_INCREMENT,
               name VARCHAR(250) NOT NULL,
               soft_memory_limit VARCHAR(128),
+              hard_memory_limit VARCHAR(128),
               max_queued INT NOT NULL,
               soft_concurrency_limit INT NULL,
               hard_concurrency_limit INT NOT NULL,
@@ -62,7 +63,7 @@ public interface ResourceGroupsDao
 
     @SqlQuery(
             """
-            SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit,
+            SELECT resource_group_id, name, soft_memory_limit, hard_memory_limit, max_queued, soft_concurrency_limit,
               hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit,
               hard_cpu_limit, hard_physical_data_scan_limit, parent
             FROM resource_groups

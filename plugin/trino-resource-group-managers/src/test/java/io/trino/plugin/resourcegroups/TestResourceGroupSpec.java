@@ -51,6 +51,7 @@ public class TestResourceGroupSpec
         return new ResourceGroupSpec(
                 new ResourceGroupNameTemplate("global"),
                 softMemoryLimit,
+                Optional.empty(),
                 100,
                 Optional.empty(),
                 Optional.of(100),

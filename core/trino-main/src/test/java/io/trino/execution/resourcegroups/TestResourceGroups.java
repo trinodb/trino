@@ -19,6 +19,7 @@ import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.TrinoException;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -42,6 +43,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_QUEUE;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_RUN;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
@@ -512,6 +514,106 @@ public class TestResourceGroups
         root.updateGroupsAndProcessQueuedQueries();
         assertExceedsMemoryLimit(root, 4);
         assertWithinMemoryLimit(child, 2);
+    }
+
+    @Test
+    public void testHardMemoryLimitAdmission()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setHardMemoryLimitBytes(10);
+        root.setHardConcurrencyLimit(10);
+        root.setMaxQueuedQueries(10);
+        MockManagedQueryExecution memoryUser = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(DataSize.ofBytes(9)).build();
+        root.run(memoryUser);
+        root.updateGroupsAndProcessQueuedQueries();
+        root.enforceHardMemoryLimits();
+        assertThat(memoryUser.getState()).isEqualTo(RUNNING);
+
+        MockManagedQueryExecution belowLimit = new MockManagedQueryExecutionBuilder().build();
+        root.run(belowLimit);
+        assertThat(belowLimit.getState()).isEqualTo(RUNNING);
+
+        memoryUser.setMemoryUsage(DataSize.ofBytes(10));
+        root.updateGroupsAndProcessQueuedQueries();
+        root.enforceHardMemoryLimits();
+        assertThat(memoryUser.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution atLimit = new MockManagedQueryExecutionBuilder().build();
+        root.run(atLimit);
+        assertThat(atLimit.getState()).isEqualTo(RUNNING);
+
+        memoryUser.setMemoryUsage(DataSize.ofBytes(11));
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(memoryUser.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution aboveLimit = new MockManagedQueryExecutionBuilder().build();
+        root.run(aboveLimit);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(aboveLimit.getState()).isEqualTo(QUEUED);
+
+        memoryUser.setMemoryUsage(DataSize.ofBytes(10));
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(aboveLimit.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    public void testHardMemoryLimitFailsLargestQueryInSubtreeOncePerPass()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        InternalResourceGroup limited = root.getOrCreateSubGroup("limited");
+        InternalResourceGroup small = limited.getOrCreateSubGroup("small");
+        InternalResourceGroup large = limited.getOrCreateSubGroup("large");
+        InternalResourceGroup outside = root.getOrCreateSubGroup("outside");
+        for (InternalResourceGroup group : List.of(root, limited, small, large, outside)) {
+            group.setHardConcurrencyLimit(10);
+            group.setMaxQueuedQueries(10);
+        }
+        limited.setHardMemoryLimitBytes(50);
+        small.setHardMemoryLimitBytes(30);
+        large.setHardMemoryLimitBytes(60);
+
+        MockManagedQueryExecution smaller = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(DataSize.ofBytes(40)).build();
+        MockManagedQueryExecution larger = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(DataSize.ofBytes(80)).build();
+        MockManagedQueryExecution unrelated = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(DataSize.ofBytes(100)).build();
+        small.run(smaller);
+        large.run(larger);
+        outside.run(unrelated);
+        root.updateGroupsAndProcessQueuedQueries();
+        MockManagedQueryExecution waiting = new MockManagedQueryExecutionBuilder().build();
+        large.run(waiting);
+        assertThat(waiting.getState()).isEqualTo(QUEUED);
+
+        root.enforceHardMemoryLimits();
+        assertThat(larger.getState()).isEqualTo(FAILED);
+        assertThat(larger.getThrowable()).isInstanceOfSatisfying(TrinoException.class, failure -> {
+            assertThat(failure.getErrorCode()).isEqualTo(CLUSTER_OUT_OF_MEMORY.toErrorCode());
+            assertThat(failure).hasMessage("Resource group 'root.limited' exceeded hard memory limit 50B (usage: 120B)");
+        });
+        assertThat(smaller.getState()).isEqualTo(RUNNING);
+        assertThat(unrelated.getState()).isEqualTo(RUNNING);
+        assertThat(waiting.getState()).isEqualTo(RUNNING);
+
+        root.enforceHardMemoryLimits();
+        assertThat(smaller.getState()).isEqualTo(FAILED);
+        assertThat(smaller.getThrowable()).hasMessage("Resource group 'root.limited.small' exceeded hard memory limit 30B (usage: 40B)");
+        assertThat(unrelated.getState()).isEqualTo(RUNNING);
+        assertThat(waiting.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    public void testSoftMemoryLimitDoesNotFailRunningQueries()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(5);
+        root.setHardConcurrencyLimit(10);
+        root.setMaxQueuedQueries(10);
+        MockManagedQueryExecution running = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(DataSize.ofBytes(6)).build();
+        root.run(running);
+        root.updateGroupsAndProcessQueuedQueries();
+        MockManagedQueryExecution waiting = new MockManagedQueryExecutionBuilder().build();
+        root.run(waiting);
+
+        root.enforceHardMemoryLimits();
+        assertThat(running.getState()).isEqualTo(RUNNING);
+        assertThat(waiting.getState()).isEqualTo(QUEUED);
     }
 
     @Test

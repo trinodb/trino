@@ -223,6 +223,34 @@ public class TestDbResourceGroupConfigurationManager
     }
 
     @Test
+    public void testReloadHardMemoryLimit()
+    {
+        H2DaoProvider daoProvider = setup("test_hard_memory_limit");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "5MB", 10, 10, 10, null, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertSelector(1, 1, null, null, null, null, null, null, null, null, null);
+        DbResourceGroupConfigurationManager manager = createManagerAndLoad(daoProvider);
+        InternalResourceGroup group = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
+        manager.configure(group, new SelectionContext<>(group.getId(), new ResourceGroupIdTemplate("global")));
+        assertThat(group.getHardMemoryLimitBytes()).isEqualTo(Long.MAX_VALUE);
+
+        dao.updateHardMemoryLimit(1, "10MB");
+        manager.load();
+        assertThat(group.getHardMemoryLimitBytes()).isEqualTo(DataSize.valueOf("10MB").toBytes());
+
+        dao.updateHardMemoryLimit(1, "20MB");
+        manager.load();
+        assertThat(group.getHardMemoryLimitBytes()).isEqualTo(DataSize.valueOf("20MB").toBytes());
+
+        dao.updateHardMemoryLimit(1, null);
+        manager.load();
+        assertThat(group.getHardMemoryLimitBytes()).isEqualTo(Long.MAX_VALUE);
+    }
+
+    @Test
     public void testExactMatchSelector()
     {
         H2DaoProvider daoProvider = setup("test_exact_match_selector");

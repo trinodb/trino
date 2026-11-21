@@ -85,6 +85,9 @@ public interface H2ResourceGroupsDao
             @Bind("parent") Long parent,
             @Bind("environment") String environment);
 
+    @SqlUpdate("UPDATE resource_groups SET hard_memory_limit = :hard_memory_limit WHERE resource_group_id = :resource_group_id")
+    void updateHardMemoryLimit(@Bind("resource_group_id") long resourceGroupId, @Bind("hard_memory_limit") String hardMemoryLimit);
+
     @SqlUpdate("DELETE FROM resource_groups WHERE resource_group_id = :resource_group_id")
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 

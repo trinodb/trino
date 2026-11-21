@@ -3,8 +3,9 @@
 Resource groups place limits on resource usage, and can enforce queueing policies on
 queries that run within them, or divide their resources among sub-groups. A query
 belongs to a single resource group, and consumes resources from that group (and its ancestors).
-Except for the limit on queued queries, when a resource group runs out of a resource
-it does not cause running queries to fail; instead new queries become queued.
+Most resource limits prevent new queries from starting without affecting
+running queries. The hard memory limit can fail running queries, and the
+queued-query limit rejects new queries when the queue is full.
 A resource group may have sub-groups or may accept queries, but may not do both.
 
 The resource groups and associated selection rules are configured by a manager, which is pluggable.
@@ -105,6 +106,23 @@ are reflected automatically for incoming queries.
 - `softMemoryLimit` (optional): maximum amount of distributed memory this
   group may use, before new queries become queued. May be specified as
   an absolute value (i.e. `1GB`) or as a percentage (i.e. `10%`) of the cluster's memory.
+
+- `hardMemoryLimit` (optional): a threshold on the total distributed memory
+  reserved by running queries in this group and all its subgroups. Specify an
+  absolute value such as `1GB`. For the database manager, set the
+  `resource_groups.hard_memory_limit` column, or set it to `NULL` to remove the
+  limit. If the limit is not set, it does not affect query scheduling or
+  execution.
+
+  When measured memory usage exceeds the limit, new queries in the group and
+  its subgroups cannot start. They can start again once usage is at or below
+  the limit, subject to other limits. The coordinator checks hard memory limits
+  once per second, so usage can exceed the limit between checks.
+
+  For each top-level resource group, a check fails at most one query. It checks
+  parent limits before subgroup limits and chooses the running query with the
+  largest memory reservation in the group that exceeds its limit, including
+  its subgroups. The query fails with `CLUSTER_OUT_OF_MEMORY`.
 
 - `softCpuLimit` (optional): maximum amount of CPU time this
   group may use in a period (see `cpuQuotaPeriod`), before a penalty is applied to

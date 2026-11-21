@@ -52,6 +52,7 @@ final class TestingResourceGroups
         return new ResourceGroupSpec(
                 new ResourceGroupNameTemplate(segmentName),
                 Optional.of(DataSize.of(100, MEGABYTE).toString()),
+                Optional.empty(),
                 10,
                 Optional.empty(),
                 Optional.of(10),
