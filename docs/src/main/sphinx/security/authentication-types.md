@@ -85,3 +85,36 @@ Relative paths to the installation directory or absolute paths can be used.
 The pre-configured headers are first validated against the `xfcc` authenticator,
 then the `azureAD` authenticator. First successful authentication results in access,
 and no further authenticators are called.
+
+## Password authentication metrics
+
+Trino counts the results of `PASSWORD` authentication with the following
+metrics, available on the [`/metrics` endpoint](/admin/openmetrics) and with
+[](/admin/jmx) as the `trino.server.security:name=PasswordAuthenticator` MBean:
+
+- `trino_server_security_name_PasswordAuthenticator_AuthenticationSuccess`:
+  number of times the submitted username and password were accepted by a
+  password authenticator.
+- `trino_server_security_name_PasswordAuthenticator_AuthenticationFailure`:
+  number of times the submitted username and password were rejected by all
+  configured password authenticators, or the authenticated user could not be
+  [mapped](/security/user-mapping).
+
+Clients such as the [](/client/cli) and the [](/client/jdbc) send credentials
+with every HTTP request, and a query uses multiple requests. The metrics
+therefore count authenticated requests, and not logins or sessions.
+
+A request without credentials receives an HTTP 401 response with an
+authentication challenge, and is not counted. This response is a normal step of
+the HTTP authentication protocol, and is not a failed login. Requests with
+malformed credentials and errors, such as an unreachable LDAP server, are also
+not counted.
+
+With multiple password authenticators, a request counts as a success if any
+authenticator accepts the credentials, and as a single failure if all of them
+reject the credentials. With multiple authentication types, a rejected password
+counts as a failure even if an authentication type listed later, such as
+`CERTIFICATE`, authenticates the request.
+
+Other authentication types, login with the form of the [](/admin/web-interface),
+and internal communication between cluster nodes are not counted.
