@@ -21,12 +21,15 @@ import jakarta.validation.constraints.NotEmpty;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 
 public class RangerConfig
 {
     private String serviceName;
     private List<File> pluginConfigResource = ImmutableList.of();
     private List<File> hadoopConfigResource = ImmutableList.of();
+    private Optional<String> extraCredentialsGroupsKey = Optional.empty();
+    private String extraCredentialsGroupsSeparator = "|";
 
     @NotEmpty
     public String getServiceName()
@@ -66,6 +69,36 @@ public class RangerConfig
     public RangerConfig setHadoopConfigResource(List<File> hadoopConfigResource)
     {
         this.hadoopConfigResource = ImmutableList.copyOf(hadoopConfigResource);
+        return this;
+    }
+
+    public Optional<String> getExtraCredentialsGroupsKey()
+    {
+        return extraCredentialsGroupsKey;
+    }
+
+    @Config("ranger.extra-credentials.groups-key")
+    @ConfigDescription("Extra credential key whose value contains group names " +
+            "(split by ranger.extra-credentials.groups-separator) to include in Ranger access requests. " +
+            "When set, groups from X-Trino-Extra-Credential under this key are merged with Identity.getGroups(). " +
+            "Disabled by default. Only enable behind a trusted identity proxy that removes client-supplied " +
+            "values for this key, injects authenticated groups, and prevents clients from bypassing the proxy.")
+    public RangerConfig setExtraCredentialsGroupsKey(String extraCredentialsGroupsKey)
+    {
+        this.extraCredentialsGroupsKey = Optional.ofNullable(extraCredentialsGroupsKey);
+        return this;
+    }
+
+    public String getExtraCredentialsGroupsSeparator()
+    {
+        return extraCredentialsGroupsSeparator;
+    }
+
+    @Config("ranger.extra-credentials.groups-separator")
+    @ConfigDescription("Separator used to split group names in the extra credential value specified by ranger.extra-credentials.groups-key. Defaults to '|'.")
+    public RangerConfig setExtraCredentialsGroupsSeparator(String extraCredentialsGroupsSeparator)
+    {
+        this.extraCredentialsGroupsSeparator = extraCredentialsGroupsSeparator;
         return this;
     }
 }
