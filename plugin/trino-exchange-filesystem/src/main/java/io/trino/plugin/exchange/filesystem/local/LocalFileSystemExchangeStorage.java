@@ -37,6 +37,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.List;
@@ -121,6 +122,22 @@ public class LocalFileSystemExchangeStorage
             return immediateFailedFuture(e);
         }
         return immediateFuture(builder.build());
+    }
+
+    @Override
+    public ListenableFuture<List<URI>> listDirectories(URI dir)
+    {
+        try (Stream<Path> stream = Files.list(Path.of(dir.getPath()))) {
+            return immediateFuture(stream.filter(Files::isDirectory)
+                    .map(Path::toUri)
+                    .toList());
+        }
+        catch (NoSuchFileException _) {
+            return immediateFuture(ImmutableList.of());
+        }
+        catch (IOException e) {
+            return immediateFailedFuture(e);
+        }
     }
 
     @Override

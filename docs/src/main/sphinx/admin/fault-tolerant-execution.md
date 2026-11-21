@@ -666,6 +666,53 @@ exchange-manager.name=filesystem
 exchange.base-directories=/tmp/trino-exchange-manager
 ```
 
+### Exchange storage cleanup
+
+Over time, exchange storage can accumulate orphan directories left behind
+by queries that are no longer active, for example after a coordinator
+restart. The orphan cleanup job periodically removes these stale
+directories, including empty ones.
+
+The job is disabled by default. When enabled, it runs on a fixed interval
+and only deletes exchange directories that belong to inactive queries and
+are older than the configured retention period.
+
+:::{warning}
+In deployments with two or more coordinators, each coordinator must use a
+unique value of `exchange.base-directories` in `exchange-manager.properties`.
+If coordinators share the same base directory, one coordinator can remove
+files still required by another, which may cause query failures.
+:::
+
+The following configuration properties control the orphan cleanup job:
+
+:::{list-table}
+:widths: 40, 15, 45
+:header-rows: 1
+
+* - Property name
+  - Default value
+  - Description
+* - `exchange-manager.orphan-cleanup.enabled`
+  - `false`
+  - Enables the orphan cleanup job.
+* - `exchange-manager.orphan-cleanup.interval`
+  - `4h`
+  - Time to wait between successive cleanup runs. Must be at least `1s`.
+* - `exchange-manager.orphan-cleanup.retention`
+  - `12h`
+  - Minimum age of an exchange directory before it becomes eligible for
+    deletion. Must be at least `1s`.
+:::
+
+These properties are set in `config.properties`:
+
+```properties
+exchange-manager.orphan-cleanup.enabled=true
+exchange-manager.orphan-cleanup.interval=3h
+exchange-manager.orphan-cleanup.retention=12h
+```
+
 ## Adaptive plan optimizations
 
 Fault-tolerant execution mode offers several adaptive plan 

@@ -71,6 +71,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -350,17 +351,26 @@ public class S3FileSystemExchangeStorage
                 toListenableFuture(listObjectsRecursively(dir)
                         .subscribe(listObjectsV2Response -> {
                             for (S3Object s3Object : listObjectsV2Response.contents()) {
-                                URI uri;
-                                try {
-                                    uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + s3Object.key(), dir.getFragment());
-                                }
-                                catch (URISyntaxException e) {
-                                    throw new IllegalArgumentException(e);
-                                }
+                                URI uri = buildChildUri(dir, s3Object.key());
                                 fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
                             }
                         })),
                 _ -> fileStatuses.build(),
+                directExecutor()));
+    }
+
+    @Override
+    public ListenableFuture<List<URI>> listDirectories(URI dir)
+    {
+        ImmutableList.Builder<URI> directories = ImmutableList.builder();
+        return stats.getListDirectories().record(Futures.transform(
+                toListenableFuture(listDirectoryObjects(dir)
+                        .subscribe(listObjectsV2Response -> {
+                            for (CommonPrefix commonPrefix : listObjectsV2Response.commonPrefixes()) {
+                                directories.add(buildChildUri(dir, commonPrefix.prefix()));
+                            }
+                        })),
+                _ -> directories.build(),
                 directExecutor()));
     }
 
@@ -389,6 +399,21 @@ public class S3FileSystemExchangeStorage
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(keyFromUri(dir) + PATH_SEPARATOR)
+                .build();
+
+        return s3Clients.getUnchecked(bucketName).listObjectsV2Paginator(request);
+    }
+
+    private ListObjectsV2Publisher listDirectoryObjects(URI dir)
+    {
+        checkArgument(isDirectory(dir), "listDirectoryObjects called on file uri %s", dir);
+
+        String bucketName = getBucketName(dir);
+        String key = keyFromUri(dir);
+        ListObjectsV2Request request = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(key.isEmpty() ? null : key + PATH_SEPARATOR)
+                .delimiter(PATH_SEPARATOR)
                 .build();
 
         return s3Clients.getUnchecked(bucketName).listObjectsV2Paginator(request);
@@ -427,6 +452,16 @@ public class S3FileSystemExchangeStorage
         }
 
         throw new IllegalArgumentException("Unable to determine S3 bucket from URI.");
+    }
+
+    private static URI buildChildUri(URI dir, String key)
+    {
+        try {
+            return new URI(dir.getScheme(), getBucketName(dir), PATH_SEPARATOR + key, null, dir.getFragment());
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     private static String keyFromUri(URI uri)

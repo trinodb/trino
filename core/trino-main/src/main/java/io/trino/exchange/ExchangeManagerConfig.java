@@ -14,14 +14,22 @@
 package io.trino.exchange;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import java.io.File;
 import java.util.Optional;
 
+import static java.util.concurrent.TimeUnit.HOURS;
+
 public class ExchangeManagerConfig
 {
     private Optional<File> exchangeManagerConfigFile = Optional.empty();
+    private boolean orphanCleanupEnabled;
+    private Duration orphanCleanupInterval = new Duration(4, HOURS);
+    private Duration orphanCleanupRetention = new Duration(12, HOURS);
 
     public Optional<@FileExists File> getExchangeManagerConfigFile()
     {
@@ -32,6 +40,47 @@ public class ExchangeManagerConfig
     public ExchangeManagerConfig setExchangeManagerConfigFile(File exchangeManagerConfigFile)
     {
         this.exchangeManagerConfigFile = Optional.ofNullable(exchangeManagerConfigFile);
+        return this;
+    }
+
+    public boolean isOrphanCleanupEnabled()
+    {
+        return orphanCleanupEnabled;
+    }
+
+    @Config("exchange-manager.orphan-cleanup.enabled")
+    @ConfigDescription("Enables the orphan cleanup job")
+    public ExchangeManagerConfig setOrphanCleanupEnabled(boolean orphanCleanupEnabled)
+    {
+        this.orphanCleanupEnabled = orphanCleanupEnabled;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getOrphanCleanupInterval()
+    {
+        return orphanCleanupInterval;
+    }
+
+    @Config("exchange-manager.orphan-cleanup.interval")
+    @ConfigDescription("Time to wait between successive cleanup runs. Must be at least `1s`")
+    public ExchangeManagerConfig setOrphanCleanupInterval(Duration orphanCleanupInterval)
+    {
+        this.orphanCleanupInterval = orphanCleanupInterval;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getOrphanCleanupRetention()
+    {
+        return orphanCleanupRetention;
+    }
+
+    @Config("exchange-manager.orphan-cleanup.retention")
+    @ConfigDescription("Minimum age of an exchange directory before it becomes eligible for deletion. Must be at least `1s`.")
+    public ExchangeManagerConfig setOrphanCleanupRetention(Duration orphanCleanupRetention)
+    {
+        this.orphanCleanupRetention = orphanCleanupRetention;
         return this;
     }
 }
