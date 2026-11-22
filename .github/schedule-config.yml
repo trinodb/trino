@@ -78,4 +78,5 @@
 - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
 - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive, timeout-minutes: 60 }
 - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-- { modules: testing/trino-tests, timeout-minutes: 60 }
+- { modules: testing/trino-tests }
+- { modules: testing/trino-tests, profile: test-spooling }
