@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -56,6 +57,8 @@ import static java.util.Objects.requireNonNull;
 public class EvaluateIsNull
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName NOT_NAME = builtinFunctionName(NOT_FUNCTION_NAME);
+
     private final PlannerContext plannerContext;
 
     public EvaluateIsNull(PlannerContext plannerContext)
@@ -82,7 +85,7 @@ public class EvaluateIsNull
                     new IsNull(comparison.right()))));
         }
 
-        if (value instanceof Call inner && inner.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
+        if (value instanceof Call inner && inner.function().name().equals(NOT_NAME)) {
             return Optional.of(new IsNull(inner.arguments().getFirst()));
         }
 

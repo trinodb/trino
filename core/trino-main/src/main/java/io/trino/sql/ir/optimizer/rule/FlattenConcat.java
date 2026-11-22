@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
@@ -40,6 +41,8 @@ import static java.util.Collections.nCopies;
 public class FlattenConcat
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName CONCAT_NAME = builtinFunctionName("concat");
+
     // Keep generated calls within the argument limit enforced by ExpressionAnalyzer.
     private static final int MAX_ARGUMENTS = 127;
 
@@ -81,7 +84,7 @@ public class FlattenConcat
 
     private static boolean isVarcharConcat(Call call)
     {
-        return call.function().name().equals(builtinFunctionName("concat")) &&
+        return call.function().name().equals(CONCAT_NAME) &&
                 call.type().equals(VARCHAR) &&
                 call.arguments().size() >= 2 &&
                 call.function().signature().getArgumentTypes().stream().allMatch(VARCHAR::equals);

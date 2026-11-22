@@ -14,6 +14,7 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -35,13 +36,15 @@ import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 public class SimplifyStackedNot
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName NOT_NAME = builtinFunctionName(NOT_FUNCTION_NAME);
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Call outer &&
-                outer.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME)) &&
+                outer.function().name().equals(NOT_NAME) &&
                 outer.arguments().getFirst() instanceof Call inner &&
-                inner.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
+                inner.function().name().equals(NOT_NAME)) {
             return Optional.of(inner.arguments().getFirst());
         }
 

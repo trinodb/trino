@@ -14,6 +14,7 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
@@ -42,6 +43,8 @@ import static io.trino.sql.ir.IrExpressions.mayFail;
 public class RemoveRedundantTry
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName TRY_NAME = builtinFunctionName(TRY_FUNCTION_NAME);
+
     private final PlannerContext context;
 
     public RemoveRedundantTry(PlannerContext context)
@@ -52,7 +55,7 @@ public class RemoveRedundantTry
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Call call) || !call.function().name().equals(builtinFunctionName(TRY_FUNCTION_NAME))) {
+        if (!(expression instanceof Call call) || !call.function().name().equals(TRY_NAME)) {
             return Optional.empty();
         }
 

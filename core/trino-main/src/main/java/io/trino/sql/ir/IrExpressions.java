@@ -68,6 +68,11 @@ import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 
 public final class IrExpressions
 {
+    private static final CatalogSchemaFunctionName NOT_NAME = builtinFunctionName(NOT_FUNCTION_NAME);
+    private static final CatalogSchemaFunctionName AT_TIME_ZONE_NAME = builtinFunctionName("at_timezone");
+    private static final CatalogSchemaFunctionName MODULO_NAME = builtinFunctionName(MODULO);
+    private static final CatalogSchemaFunctionName DIVIDE_NAME = builtinFunctionName(DIVIDE);
+
     private IrExpressions() {}
 
     /// Creates a cast that coerces `expression` to `type`, classifying its [Cast.Kind]:
@@ -116,7 +121,7 @@ public final class IrExpressions
     /// argument type check excludes any form that changes precision.
     public static boolean isAtTimeZone(Call call)
     {
-        return call.function().name().equals(builtinFunctionName("at_timezone")) &&
+        return call.function().name().equals(AT_TIME_ZONE_NAME) &&
                 call.arguments().size() == 2 &&
                 call.type() instanceof TimestampWithTimeZoneType &&
                 call.arguments().getFirst().type().equals(call.type());
@@ -135,7 +140,7 @@ public final class IrExpressions
         }
 
         List<Expression> arguments = call.arguments();
-        if (call.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME)) && arguments.size() == 1) {
+        if (call.function().name().equals(NOT_NAME) && arguments.size() == 1) {
             if (matchComparison(arguments.get(0)) instanceof Comparison.Equal(Expression left, Expression right)) {
                 return new Comparison.NotEqual(left, right);
             }
@@ -544,7 +549,7 @@ public final class IrExpressions
 
     private static boolean isModulsOrDivide(ResolvedFunction function)
     {
-        return (function.name().equals(builtinFunctionName(MODULO)) || function.name().equals(builtinFunctionName(DIVIDE))) && function.signature().getArity() == 2;
+        return (function.name().equals(MODULO_NAME) || function.name().equals(DIVIDE_NAME)) && function.signature().getArity() == 2;
     }
 
     private static boolean canCauseDivisionByZeroError(Constant divisor)

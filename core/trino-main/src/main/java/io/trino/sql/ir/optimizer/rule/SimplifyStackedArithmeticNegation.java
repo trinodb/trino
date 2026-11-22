@@ -14,6 +14,7 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -35,13 +36,15 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 public class SimplifyStackedArithmeticNegation
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName NEGATION_NAME = builtinFunctionName(NEGATION);
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Call outer &&
-                outer.function().name().equals(builtinFunctionName(NEGATION)) &&
+                outer.function().name().equals(NEGATION_NAME) &&
                 outer.arguments().getFirst() instanceof Call inner &&
-                inner.function().name().equals(builtinFunctionName(NEGATION))) {
+                inner.function().name().equals(NEGATION_NAME)) {
             return Optional.of(inner.arguments().getFirst());
         }
 

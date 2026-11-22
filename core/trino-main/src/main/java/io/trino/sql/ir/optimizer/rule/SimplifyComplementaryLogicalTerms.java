@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
@@ -52,6 +53,8 @@ import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 public class SimplifyComplementaryLogicalTerms
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName NOT_NAME = builtinFunctionName(NOT_FUNCTION_NAME);
+
     private final Metadata metadata;
 
     public SimplifyComplementaryLogicalTerms(PlannerContext context)
@@ -70,7 +73,7 @@ public class SimplifyComplementaryLogicalTerms
         Set<Expression> negatives = new HashSet<>();
         for (Expression term : terms) {
             if (isDeterministic(term)) {
-                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(NOT_NAME)) {
                     negatives.add(arguments.getFirst());
                 }
                 else {
@@ -89,7 +92,7 @@ public class SimplifyComplementaryLogicalTerms
         for (Expression term : terms) {
             if (isDeterministic(term)) {
                 Expression unwrapped = term;
-                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(NOT_NAME)) {
                     unwrapped = arguments.getFirst();
                 }
 

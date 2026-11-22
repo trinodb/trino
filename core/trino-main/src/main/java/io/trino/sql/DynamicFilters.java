@@ -63,6 +63,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
 {
+    private static final CatalogSchemaFunctionName DYNAMIC_FILTER_NAME = builtinFunctionName(Function.NAME);
+    private static final CatalogSchemaFunctionName NULLABLE_DYNAMIC_FILTER_NAME = builtinFunctionName(NullableFunction.NAME);
+
     private DynamicFilters() {}
 
     public static Expression createDynamicFilterExpression(
@@ -217,7 +220,7 @@ public final class DynamicFilters
 
     public static boolean isDynamicFilterFunction(CatalogSchemaFunctionName functionName)
     {
-        return functionName.equals(builtinFunctionName(Function.NAME)) || functionName.equals(builtinFunctionName(NullableFunction.NAME));
+        return functionName.equals(DYNAMIC_FILTER_NAME) || functionName.equals(NULLABLE_DYNAMIC_FILTER_NAME);
     }
 
     public record ExtractResult(List<Expression> staticConjuncts, List<Descriptor> dynamicConjuncts)

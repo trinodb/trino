@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.TimeField;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -49,11 +50,13 @@ import static io.trino.operator.scalar.DateTimeFunctions.isValidTimestampUnit;
 public class RemoveRedundantDateAdd
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName DATE_ADD_NAME = builtinFunctionName("date_add");
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Call(ResolvedFunction function, List<Expression> arguments)
-                && function.name().equals(builtinFunctionName("date_add"))
+                && function.name().equals(DATE_ADD_NAME)
                 && arguments.size() == 3) {
             Expression unitExpression = arguments.get(0);
             Expression amountExpression = arguments.get(1);

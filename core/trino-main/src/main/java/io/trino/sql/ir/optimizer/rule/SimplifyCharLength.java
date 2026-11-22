@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.CharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
@@ -48,6 +49,8 @@ import static io.trino.sql.ir.IrExpressions.mayBeNull;
 public class SimplifyCharLength
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName LENGTH_NAME = builtinFunctionName("length");
+
     private final PlannerContext context;
 
     public SimplifyCharLength(PlannerContext context)
@@ -59,7 +62,7 @@ public class SimplifyCharLength
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Call(ResolvedFunction function, List<Expression> arguments))
-                || !function.name().equals(builtinFunctionName("length"))
+                || !function.name().equals(LENGTH_NAME)
                 || arguments.size() != 1) {
             return Optional.empty();
         }

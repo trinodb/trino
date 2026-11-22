@@ -16,6 +16,7 @@ package io.trino.sql.ir.optimizer.rule;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
@@ -45,6 +46,8 @@ import static io.trino.sql.ir.IrExpressions.cast;
 public class SimplifyRedundantTryCast
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName TRY_CAST_NAME = builtinFunctionName(TRY_CAST_FUNCTION_NAME);
+
     private final Metadata metadata;
     private final TypeManager typeManager;
 
@@ -57,7 +60,7 @@ public class SimplifyRedundantTryCast
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Call call) || !call.function().name().equals(builtinFunctionName(TRY_CAST_FUNCTION_NAME))) {
+        if (!(expression instanceof Call call) || !call.function().name().equals(TRY_CAST_NAME)) {
             return Optional.empty();
         }
 

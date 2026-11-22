@@ -14,17 +14,31 @@
 package io.trino.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.function.OperatorType;
 
 import java.util.Locale;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class OperatorNameUtil
 {
     private static final String OPERATOR_PREFIX = "$operator$";
+    private static final Map<String, OperatorType> OPERATORS_BY_NAME = buildOperatorsByName();
 
     private OperatorNameUtil() {}
+
+    private static Map<String, OperatorType> buildOperatorsByName()
+    {
+        ImmutableMap.Builder<String, OperatorType> operators = ImmutableMap.builder();
+        for (OperatorType operatorType : OperatorType.values()) {
+            String name = mangleOperatorName(operatorType);
+            operators.put(name, operatorType);
+            operators.put(name.toLowerCase(Locale.ENGLISH), operatorType);
+        }
+        return operators.buildOrThrow();
+    }
 
     public static boolean isOperatorName(String mangledName)
     {
@@ -39,6 +53,10 @@ public final class OperatorNameUtil
     @VisibleForTesting
     public static OperatorType unmangleOperator(String mangledName)
     {
+        OperatorType operatorType = OPERATORS_BY_NAME.get(mangledName);
+        if (operatorType != null) {
+            return operatorType;
+        }
         checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
     }

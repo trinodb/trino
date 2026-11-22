@@ -80,6 +80,11 @@ import static java.lang.Math.toIntExact;
 public class RemoveRedundantArithmetic
         implements IrOptimizerRule
 {
+    private static final CatalogSchemaFunctionName ADD_NAME = builtinFunctionName(ADD);
+    private static final CatalogSchemaFunctionName SUBTRACT_NAME = builtinFunctionName(SUBTRACT);
+    private static final CatalogSchemaFunctionName MULTIPLY_NAME = builtinFunctionName(MULTIPLY);
+    private static final CatalogSchemaFunctionName DIVIDE_NAME = builtinFunctionName(DIVIDE);
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
@@ -92,7 +97,7 @@ public class RemoveRedundantArithmetic
         Type type = expression.type();
         CatalogSchemaFunctionName name = function.name();
 
-        if (name.equals(builtinFunctionName(ADD))) {
+        if (name.equals(ADD_NAME)) {
             if (isZero(right, -1) && left.type().equals(type)) {
                 return Optional.of(left);
             }
@@ -100,12 +105,12 @@ public class RemoveRedundantArithmetic
                 return Optional.of(right);
             }
         }
-        else if (name.equals(builtinFunctionName(SUBTRACT))) {
+        else if (name.equals(SUBTRACT_NAME)) {
             if (isZero(right, 1) && left.type().equals(type)) {
                 return Optional.of(left);
             }
         }
-        else if (name.equals(builtinFunctionName(MULTIPLY)) && isNumericType(type)) {
+        else if (name.equals(MULTIPLY_NAME) && isNumericType(type)) {
             if (isOne(right) && left.type().equals(type)) {
                 return Optional.of(left);
             }
@@ -113,7 +118,7 @@ public class RemoveRedundantArithmetic
                 return Optional.of(right);
             }
         }
-        else if (name.equals(builtinFunctionName(DIVIDE)) && isNumericType(type)) {
+        else if (name.equals(DIVIDE_NAME) && isNumericType(type)) {
             if (isOne(right) && left.type().equals(type)) {
                 return Optional.of(left);
             }
