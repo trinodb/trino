@@ -499,6 +499,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        forHandle(tableHandle).setNotNullConstraint(session, tableHandle, column);
+    }
+
+    @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
         hiveMetadata.setTableAuthorization(session, tableName, principal);

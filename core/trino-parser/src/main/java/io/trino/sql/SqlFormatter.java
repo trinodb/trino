@@ -200,6 +200,7 @@ import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -472,6 +473,7 @@ public final class SqlFormatter
                 case SetAuthorizationStatement node -> visitSetAuthorization(node);
                 case SetColumnType node -> visitSetColumnType(node);
                 case SetDefaultValue node -> visitSetDefaultValue(node);
+                case SetNotNullConstraint node -> visitSetNotNullConstraint(node);
                 case SetPath node -> visitSetPath(node);
                 case SetProperties node -> visitSetProperties(node);
                 case SetRole node -> visitSetRole(node);
@@ -2077,6 +2079,18 @@ public final class SqlFormatter
                     .append(" ALTER COLUMN ")
                     .append(formatName(node.getColumn()))
                     .append(" DROP NOT NULL");
+        }
+
+        private void visitSetNotNullConstraint(SetNotNullConstraint node)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" ALTER COLUMN ")
+                    .append(formatName(node.getColumn()))
+                    .append(" SET NOT NULL");
         }
 
         private void visitInsert(Insert node, Integer indent)

@@ -14,6 +14,7 @@ ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DEFAULT expression
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP DEFAULT
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP NOT NULL
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET NOT NULL
 ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
 ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
 ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
@@ -153,6 +154,13 @@ Drop a not null constraint on `id` column in the `users` table:
 
 ```
 ALTER TABLE users ALTER COLUMN id DROP NOT NULL;
+```
+
+Add a not null constraint on `id` column in the `users` table. The statement
+fails if the column contains null values:
+
+```
+ALTER TABLE users ALTER COLUMN id SET NOT NULL;
 ```
 
 Change owner of table `people` to user `alice`:

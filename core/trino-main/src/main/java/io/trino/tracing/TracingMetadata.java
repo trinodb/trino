@@ -597,6 +597,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        Span span = startSpan("setNotNullConstraint", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column)
     {
         Span span = startSpan("dropColumn", table);

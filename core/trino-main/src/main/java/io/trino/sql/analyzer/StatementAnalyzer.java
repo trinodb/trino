@@ -247,6 +247,7 @@ import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetSession;
@@ -610,6 +611,7 @@ class StatementAnalyzer
                 case SetAuthorizationStatement node -> createAndAssignScope(node, context);
                 case SetColumnType node -> createAndAssignScope(node, context);
                 case SetDefaultValue node -> createAndAssignScope(node, context);
+                case SetNotNullConstraint node -> createAndAssignScope(node, context);
                 case SetOperation node -> visitSetOperation(node, context);
                 case SetProperties node -> createAndAssignScope(node, context);
                 case SetSession node -> createAndAssignScope(node, context);

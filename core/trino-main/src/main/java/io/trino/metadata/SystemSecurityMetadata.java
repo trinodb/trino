@@ -255,6 +255,11 @@ public interface SystemSecurityMetadata
     void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
 
     /**
+     * Column's NOT NULL constraint was set
+     */
+    void columnNotNullConstraintSet(Session session, CatalogSchemaTableName table, String column);
+
+    /**
      * Set the owner of the entity of entity kind ownedKind, with dotted name from the components of the name list,
      * to the supplied principal.  The ownedKind string is guaranteed to be uppercase, and the name is guaranteed
      * to be fully qualified, i.e., if the entity is a table, the name is of size three.

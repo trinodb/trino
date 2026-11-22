@@ -561,6 +561,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        Span span = startSpan("setNotNull", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
         Span span = startSpan("setTableAuthorization", tableName);

@@ -500,12 +500,23 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
         {
+            setColumnNullability(tableHandle, columnHandle, true);
+        }
+
+        @Override
+        public void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+        {
+            setColumnNullability(tableHandle, columnHandle, false);
+        }
+
+        private void setColumnNullability(TableHandle tableHandle, ColumnHandle columnHandle, boolean nullable)
+        {
             SchemaTableName tableName = getTableName(tableHandle);
             ConnectorTableMetadata metadata = tables.get(tableName).metadata;
             String columnName = ((TestingColumnHandle) columnHandle).getName();
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
-                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setNullable(true).build() : column)
+                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setNullable(nullable).build() : column)
                     .collect(toImmutableList());
             tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns)));
         }

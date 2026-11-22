@@ -331,6 +331,9 @@ class TestingSystemSecurityMetadata
     public void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
+    public void columnNotNullConstraintSet(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
     public void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
     {
         List<String> name = entityKindAndName.name();

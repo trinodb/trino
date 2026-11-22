@@ -166,6 +166,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_DEFAULT_COL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_MAP;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
@@ -4009,6 +4010,50 @@ public abstract class BaseConnectorTest
 
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
         }
+    }
+
+    @Test
+    public void testSetNotNullConstraint()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        if (!hasBehavior(SUPPORTS_SET_NOT_NULL_CONSTRAINT)) {
+            try (TestTable table = newTrinoTable("test_set_not_null_", "(col integer)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL",
+                        "This connector does not support setting a not null constraint");
+            }
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_set_not_null_", "(col integer)", ImmutableList.of("1"))) {
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL");
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES NULL", "NULL value not allowed for NOT NULL column: col");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1");
+        }
+    }
+
+    @Test
+    public void testSetNotNullConstraintOnColumnWithNulls()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = newTrinoTable("test_set_not_null_", "(col integer)", ImmutableList.of("1", "NULL"))) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL",
+                    errorMessageForSetNotNullConstraintOnColumnWithNulls("col"));
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+        }
+    }
+
+    @Language("RegExp")
+    protected String errorMessageForSetNotNullConstraintOnColumnWithNulls(String columnName)
+    {
+        throw new UnsupportedOperationException("This method should be overridden");
     }
 
     @Test

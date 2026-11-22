@@ -337,6 +337,11 @@ public interface Metadata
     void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
+     * Set a not null constraint on the specified column.
+     */
+    void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column);

@@ -1046,6 +1046,19 @@ public class TestAccessControl
     }
 
     @Test
+    void testSetNotNullConstraint()
+    {
+        reset();
+
+        String tableName = "test_set_not_null" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET NOT NULL", "Cannot alter a column for table .*." + tableName + ".*", privilege(tableName, ALTER_COLUMN));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET NOT NULL"))
+                .hasMessageContaining("This connector does not support setting a not null constraint");
+    }
+
+    @Test
     public void testSetTableProperties()
     {
         reset();

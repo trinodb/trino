@@ -428,6 +428,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
     {
         throw new UnsupportedOperationException();

@@ -668,6 +668,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set a not null constraint on the specified column. The connector must fail
+     * if the column contains null values.
+     */
+    default void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting a not null constraint");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)

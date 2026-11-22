@@ -74,6 +74,7 @@ public abstract sealed class Statement
                 SetAuthorizationStatement,
                 SetColumnType,
                 SetDefaultValue,
+                SetNotNullConstraint,
                 SetPath,
                 SetProperties,
                 SetRole,

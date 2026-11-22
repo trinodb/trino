@@ -247,6 +247,9 @@ public class DisabledSystemSecurityMetadata
     public void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
+    public void columnNotNullConstraintSet(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
     public void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
     {
         throw notSupportedException(entityKindAndName.name().get(0));
