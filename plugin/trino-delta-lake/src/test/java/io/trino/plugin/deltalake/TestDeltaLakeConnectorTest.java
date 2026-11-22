@@ -65,6 +65,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
@@ -4008,6 +4009,23 @@ public class TestDeltaLakeConnectorTest
                 privilege(tableName, SELECT_COLUMN));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTableChangesReportsMemoryUsage()
+    {
+        try (TestTable table = newTrinoTable("test_table_changes_memory_", "(id integer, value varchar) WITH (change_data_feed_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
+            assertQueryStats(
+                    getSession(),
+                    "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + table.getName() + "'))",
+                    queryStats -> assertThat(queryStats.getOperatorSummaries().stream()
+                            .filter(summary -> summary.getOperatorType().equals("LeafTableFunctionOperator"))
+                            .collect(onlyElement())
+                            .getPeakUserMemoryReservation().toBytes())
+                            .isGreaterThan(0),
+                    _ -> {});
+        }
     }
 
     @Test
