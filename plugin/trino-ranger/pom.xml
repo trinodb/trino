@@ -17,9 +17,8 @@
     <properties>
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.graalvm.version>25.4.4.1.1</dep.graalvm.version>
-        <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
-        <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.9.0</dep.ranger.version>
+        <dep.solr.version>8.11.3</dep.solr.version>
     </properties>
 
     <dependencies>
@@ -59,6 +58,42 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-core</artifactId>
+            <version>${dep.ranger.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-auth</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-runtime</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.ranger</groupId>
             <artifactId>ranger-plugins-common</artifactId>
             <version>${dep.ranger.version}</version>
@@ -84,6 +119,120 @@
                     <artifactId>hadoop-client-runtime</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- Used by the Solr audit destination, which replaces ranger-audit-dest-solr to avoid its dependency on Jetty 11 -->
+        <dependency>
+            <groupId>org.apache.solr</groupId>
+            <artifactId>solr-solrj</artifactId>
+            <version>${dep.solr.version}</version>
+            <exclusions>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-buffer</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-common</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-resolver</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-unix-common</artifactId>
+                </exclusion>
+                <!-- Only used by Solr streaming expressions and statistics -->
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-math3</artifactId>
+                </exclusion>
+                <!-- Provided with a newer version by other dependencies -->
+                <exclusion>
+                    <groupId>org.codehaus.woodstox</groupId>
+                    <artifactId>stax2-api</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-alpn-client</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-alpn-java-client</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-client</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-http</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-io</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-util</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty.http2</groupId>
+                    <artifactId>http2-client</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty.http2</groupId>
+                    <artifactId>http2-common</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty.http2</groupId>
+                    <artifactId>http2-hpack</artifactId>
+                </exclusion>
+                <!-- Jetty 11 conflicts with the Jetty 12 used by Trino; only needed by Http2SolrClient, which the Solr audit destination does not use -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty.http2</groupId>
+                    <artifactId>http2-http-client-transport</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
 
         <dependency>
@@ -226,60 +375,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.ranger</groupId>
-            <artifactId>ranger-audit-dest-solr</artifactId>
-            <version>${dep.ranger.version}</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-alpn-client</artifactId>
-            <version>${dep.jetty11.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-client</artifactId>
-            <version>${dep.jetty11.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-http</artifactId>
-            <version>${dep.jetty11.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-io</artifactId>
-            <version>${dep.jetty11.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-util</artifactId>
-            <version>${dep.jetty11.version}</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -389,6 +486,12 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -403,16 +506,6 @@
                                 <include>com.amazonaws:*:*</include>
                             </includes>
                         </bannedDependencies>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <!-- Jetty 11 pinned until Ranger upgrades to Jetty 12 -->
-                                <exclude>org.eclipse.jetty:jetty-alpn-client</exclude>
-                                <exclude>org.eclipse.jetty:jetty-client</exclude>
-                                <exclude>org.eclipse.jetty:jetty-http</exclude>
-                                <exclude>org.eclipse.jetty:jetty-io</exclude>
-                                <exclude>org.eclipse.jetty:jetty-util</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
                     </rules>
                 </configuration>
             </plugin>
