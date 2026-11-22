@@ -127,6 +127,11 @@
             <artifactId>solr-solrj</artifactId>
             <version>${dep.solr.version}</version>
             <exclusions>
+                <!-- Only used by Solr streaming expressions and ZooKeeper maintenance commands -->
+                <exclusion>
+                    <groupId>commons-lang</groupId>
+                    <artifactId>commons-lang</artifactId>
+                </exclusion>
                 <!-- Provided with a newer version by other dependencies -->
                 <exclusion>
                     <groupId>io.netty</groupId>
