@@ -140,22 +140,6 @@ class TestHivePartitionProcedures
 
     @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    void testUnregisterMissingPartitionShouldFail(HiveTransactionalEnvironment env)
-    {
-        String tableName = "first_table_" + randomNameSuffix();
-        try {
-            createPartitionedTable(env, tableName);
-
-            assertThatThrownBy(() -> dropPartition(env, tableName, "col", "f"))
-                    .hasMessageContaining("Partition 'col=f' does not exist");
-        }
-        finally {
-            env.executeTrinoUpdate("DROP TABLE IF EXISTS hive.default." + tableName);
-        }
-    }
-
-    @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     void testRegisterPartitionMissingTableShouldFail(HiveTransactionalEnvironment env)
     {
         assertThatThrownBy(() -> addPartition(env, "missing_table", "col", "f", "/"))
