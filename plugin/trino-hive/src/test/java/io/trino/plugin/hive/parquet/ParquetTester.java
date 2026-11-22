@@ -328,11 +328,12 @@ class ParquetTester
 
         // write Trino parquet
         for (CompressionCodec compressionCodec : writerCompressions) {
-            for (ConnectorSession session : sessions) {
-                try (TempFile tempFile = new TempFile("test", "parquet")) {
-                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
-                    checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.orElseThrow(), compressionCodec, schemaOptions);
+            try (TempFile tempFile = new TempFile("test", "parquet")) {
+                OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
+                checkState(min.isPresent());
+                writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.orElseThrow(), compressionCodec, schemaOptions);
+                // the session only affects reading, so read the same file with each session
+                for (ConnectorSession session : sessions) {
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -361,22 +362,23 @@ class ParquetTester
     {
         for (WriterVersion version : versions) {
             for (CompressionCodec compressionCodec : compressions) {
-                for (ConnectorSession session : sessions) {
-                    try (TempFile tempFile = new TempFile("test", "parquet")) {
-                        JobConf jobConf = new JobConf(false);
-                        jobConf.setEnum(COMPRESSION, compressionCodec);
-                        jobConf.setBoolean(ENABLE_DICTIONARY, true);
-                        jobConf.setEnum(WRITER_VERSION, version);
-                        writeParquetColumn(
-                                jobConf,
-                                tempFile.getFile(),
-                                compressionCodec,
-                                createTableProperties(columnNames, objectInspectors),
-                                getStandardStructObjectInspector(columnNames, objectInspectors),
-                                getIterators(writeValues),
-                                parquetSchema,
-                                schemaOptions.isSingleLevelArray(),
-                                DateTimeZone.getDefault());
+                try (TempFile tempFile = new TempFile("test", "parquet")) {
+                    JobConf jobConf = new JobConf(false);
+                    jobConf.setEnum(COMPRESSION, compressionCodec);
+                    jobConf.setBoolean(ENABLE_DICTIONARY, true);
+                    jobConf.setEnum(WRITER_VERSION, version);
+                    writeParquetColumn(
+                            jobConf,
+                            tempFile.getFile(),
+                            compressionCodec,
+                            createTableProperties(columnNames, objectInspectors),
+                            getStandardStructObjectInspector(columnNames, objectInspectors),
+                            getIterators(writeValues),
+                            parquetSchema,
+                            schemaOptions.isSingleLevelArray(),
+                            DateTimeZone.getDefault());
+                    // the session only affects reading, so read the same file with each session
+                    for (ConnectorSession session : sessions) {
                         assertFileContents(
                                 session,
                                 tempFile.getFile(),
