@@ -81,7 +81,8 @@ public class TableChangesFunctionProcessor
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
             Optional<DeltaLakeTableCredentials> tableCredentials,
-            TableChangesSplit tableChangesSplit)
+            TableChangesSplit tableChangesSplit,
+            MemoryContext memoryContext)
     {
         requireNonNull(session, "session is null");
         requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -91,6 +92,7 @@ public class TableChangesFunctionProcessor
         requireNonNull(handle, "handle is null");
         requireNonNull(tableCredentials, "tableCredentials is null");
         requireNonNull(tableChangesSplit, "tableChangesSplit is null");
+        requireNonNull(memoryContext, "memoryContext is null");
 
         this.fileType = tableChangesSplit.fileType();
         this.deltaLakePageSource = createDeltaLakePageSource(
@@ -102,7 +104,8 @@ public class TableChangesFunctionProcessor
                 parquetReaderOptions,
                 handle,
                 tableCredentials,
-                tableChangesSplit);
+                tableChangesSplit,
+                memoryContext);
         this.currentVersionAsBlock = writeNativeValue(BIGINT, tableChangesSplit.currentVersion());
         this.currentVersionCommitTimestampAsBlock = writeNativeValue(
                 TIMESTAMP_TZ_MILLIS,
@@ -171,7 +174,8 @@ public class TableChangesFunctionProcessor
             ParquetReaderOptions parquetReaderOptions,
             TableChangesTableFunctionHandle handle,
             Optional<DeltaLakeTableCredentials> tableCredentials,
-            TableChangesSplit split)
+            TableChangesSplit split,
+            MemoryContext memoryContext)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
@@ -193,8 +197,6 @@ public class TableChangesFunctionProcessor
             case DATA_FILE -> handle.columns();
         };
 
-        // TODO (https://github.com/trinodb/trino/issues/29958) memory usage reporting
-        MemoryContext memoryContext = MemoryContext.NO_LIMIT;
         ConnectorPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,

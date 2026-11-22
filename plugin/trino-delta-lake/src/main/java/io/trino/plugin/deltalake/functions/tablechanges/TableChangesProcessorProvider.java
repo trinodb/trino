@@ -24,6 +24,7 @@ import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
@@ -61,7 +62,8 @@ public class TableChangesProcessorProvider
             ConnectorSession session,
             ConnectorTableFunctionHandle handle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorSplit split)
+            ConnectorSplit split,
+            MemoryContext memoryContext)
     {
         return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
                 session,
@@ -72,7 +74,8 @@ public class TableChangesProcessorProvider
                 parquetReaderOptions,
                 (TableChangesTableFunctionHandle) handle,
                 tableCredentials.map(DeltaLakeTableCredentials.class::cast),
-                (TableChangesSplit) split),
+                (TableChangesSplit) split,
+                memoryContext),
                 getClass().getClassLoader());
     }
 }
