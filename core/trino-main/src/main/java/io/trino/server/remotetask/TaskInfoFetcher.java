@@ -204,6 +204,8 @@ public class TaskInfoFetcher
     {
         scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
             try {
+                // A slow creation request must not indefinitely delay status polling.
+                taskStatusFetcher.startIfOverdue();
                 synchronized (this) {
                     // if the previous request still running, don't schedule a new request
                     if (future != null && !future.isDone()) {

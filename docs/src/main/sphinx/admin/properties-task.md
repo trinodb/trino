@@ -1,5 +1,15 @@
 # Task properties
 
+## `experimental.task-status-streaming-enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `false`
+
+Set this property on the coordinator to receive task status changes over a
+shared event stream from each worker. When a stream is unavailable, the
+coordinator polls for task status. Task creation and updates continue to use
+the existing HTTP requests.
+
 ## `task.concurrency`
 
 - **Type:** {ref}`prop-type-integer`

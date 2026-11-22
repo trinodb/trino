@@ -78,6 +78,7 @@ public class TaskManagerConfig
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(5, TimeUnit.MINUTES);
 
+    private boolean statusStreamingEnabled;
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
     private Duration taskTerminationTimeout = new Duration(1, TimeUnit.MINUTES);
@@ -125,6 +126,19 @@ public class TaskManagerConfig
     public boolean isThreadPerDriverSchedulerEnabled()
     {
         return threadPerDriverSchedulerEnabled;
+    }
+
+    public boolean isStatusStreamingEnabled()
+    {
+        return statusStreamingEnabled;
+    }
+
+    @Config("experimental.task-status-streaming-enabled")
+    @ConfigDescription("Receive task status changes over a shared event stream from each worker")
+    public TaskManagerConfig setStatusStreamingEnabled(boolean enabled)
+    {
+        statusStreamingEnabled = enabled;
+        return this;
     }
 
     @MinDuration("1ms")

@@ -44,5 +44,8 @@ public final class InternalHeaders
     public static final String TRINO_TASK_FAILED = "X-Trino-Task-Failed";
     public static final HeaderName TRINO_TASK_FAILED_HEADER = HeaderName.of(TRINO_TASK_FAILED);
 
+    public static final String TRINO_TASK_STATUS_STREAM = "X-Trino-Task-Status-Stream";
+    public static final HeaderName TRINO_TASK_STATUS_STREAM_HEADER = HeaderName.of(TRINO_TASK_STATUS_STREAM);
+
     private InternalHeaders() {}
 }

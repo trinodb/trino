@@ -13,17 +13,21 @@
  */
 package io.trino.server;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -39,6 +43,7 @@ import io.trino.node.InternalNode;
 import io.trino.operator.ForScheduler;
 import io.trino.server.remotetask.HttpRemoteTask;
 import io.trino.server.remotetask.RemoteTaskStats;
+import io.trino.server.remotetask.TaskStatusStreamClient;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -47,6 +52,7 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -56,6 +62,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -63,6 +70,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
+    private final Optional<NonEvictableLoadingCache<Worker, TaskStatusStreamClient>> statusStreams;
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
@@ -88,6 +96,7 @@ public class HttpRemoteTaskFactory
             QueryManagerConfig config,
             TaskManagerConfig taskConfig,
             @ForScheduler HttpClient httpClient,
+            @ForScheduler HttpClientConfig httpConfig,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
@@ -116,6 +125,15 @@ public class HttpRemoteTaskFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
+        // Keep at least one connection available for commands when using HTTP/1.1.
+        if (taskConfig.isStatusStreamingEnabled() && httpConfig.getMaxConnectionsPerServer() > 1) {
+            statusStreams = Optional.of(buildNonEvictableCache(CacheBuilder.newBuilder().weakValues(), CacheLoader.from(
+                    worker -> new TaskStatusStreamClient(worker.uri(), worker.nodeInstanceId(), httpClient, taskStatusRefreshMaxWait, taskInfoUpdateInterval, taskStatusCodec, stats))));
+        }
+        else {
+            statusStreams = Optional.empty();
+        }
+
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
     }
@@ -130,6 +148,7 @@ public class HttpRemoteTaskFactory
     @PreDestroy
     public void stop()
     {
+        statusStreams.ifPresent(streams -> streams.asMap().values().forEach(TaskStatusStreamClient::close));
         coreExecutor.shutdownNow();
         updateScheduledExecutor.shutdownNow();
         errorScheduledExecutor.shutdownNow();
@@ -151,13 +170,14 @@ public class HttpRemoteTaskFactory
             Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
+        URI location = locationFactory.createTaskLocation(node, taskId);
         return new HttpRemoteTask(
                 session,
                 stageSpan,
                 taskId,
                 node,
                 speculative,
-                locationFactory.createTaskLocation(node, taskId),
+                location,
                 fragment,
                 tableCredentials,
                 initialSplits,
@@ -172,6 +192,7 @@ public class HttpRemoteTaskFactory
                 taskTerminationTimeout,
                 summarizeTaskInfo,
                 taskStatusCodec,
+                statusStreams.map(streams -> streams.getUnchecked(new Worker(location.resolve("status-stream/"), node.getInstanceId()))),
                 dynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
@@ -183,4 +204,6 @@ public class HttpRemoteTaskFactory
                 outboundDynamicFilterIds,
                 estimatedMemory);
     }
+
+    private record Worker(URI uri, String nodeInstanceId) {}
 }

@@ -18,6 +18,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
@@ -32,11 +34,13 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.execution.SqlTaskManager.SqlTaskWithResults;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
+import jakarta.annotation.PreDestroy;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -62,8 +66,11 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -84,6 +91,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_TASK_STATUS_STREAM;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static jakarta.ws.rs.core.Response.status;
 import static java.util.Objects.requireNonNull;
@@ -102,6 +110,9 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
+    private final Map<UUID, WorkerTaskStatusStream> statusStreams = new ConcurrentHashMap<>();
+    private final JsonCodec<TaskStatus> statusCodec;
+    private final Duration clientTimeout;
     private final String nodeInstanceId;
     private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
@@ -116,6 +127,8 @@ public class TaskResource
     @Inject
     public TaskResource(
             NodeInfo nodeInfo,
+            TaskManagerConfig taskConfig,
+            JsonCodecFactory codecFactory,
             StartupStatus startupStatus,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
@@ -124,6 +137,8 @@ public class TaskResource
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
     {
+        this.statusCodec = codecFactory.jsonCodec(TaskStatus.class);
+        this.clientTimeout = taskConfig.getClientTimeout();
         this.nodeInstanceId = nodeInfo.getInstanceId();
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
@@ -152,6 +167,7 @@ public class TaskResource
     public void createOrUpdateTask(
             @PathParam("taskId") TaskId taskId,
             TaskUpdateRequest taskUpdateRequest,
+            @HeaderParam(TRINO_TASK_STATUS_STREAM) UUID streamId,
             @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
@@ -168,6 +184,12 @@ public class TaskResource
             return;
         }
 
+        WorkerTaskStatusStream stream = streamId == null ? null : statusStreams.get(streamId);
+        if (streamId != null && stream == null) {
+            asyncResponse.resume(new ServiceUnavailableException("Task status stream is closed"));
+            return;
+        }
+
         TaskInfo taskInfo = taskManager.updateTask(
                 session,
                 taskId,
@@ -179,11 +201,50 @@ public class TaskResource
                 taskUpdateRequest.dynamicFilterDomains(),
                 taskUpdateRequest.speculative());
 
+        if (stream != null && !taskInfo.taskStatus().state().isDone()) {
+            long version = taskInfo.taskStatus().version();
+            taskManager.findTaskForStatusStream(taskId).ifPresent(task -> stream.watch(task, version));
+        }
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
 
         asyncResponse.resume(Response.ok().entity(taskInfo).build());
+    }
+
+    @PreDestroy
+    public void closeStatusStreams()
+    {
+        statusStreams.values().forEach(WorkerTaskStatusStream::close);
+    }
+
+    @GET
+    @Path("status-stream/{streamId}")
+    @Produces(MediaType.SERVER_SENT_EVENTS)
+    public StreamingOutput streamTaskStatuses(
+            @PathParam("streamId") UUID streamId,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
+            @HeaderParam(TRINO_MAX_WAIT) Duration refreshInterval,
+            @QueryParam("infoIntervalMillis") long infoIntervalMillis)
+    {
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
+        if (!startupStatus.isStartupComplete() || refreshInterval == null || refreshInterval.toMillis() < 1 || refreshInterval.toMillis() > SECONDS.toMillis(60) ||
+                infoIntervalMillis < 1 || infoIntervalMillis >= clientTimeout.toMillis() / 2) {
+            throw new ServiceUnavailableException("Task status streaming unavailable");
+        }
+        return output -> {
+            WorkerTaskStatusStream stream = new WorkerTaskStatusStream(statusCodec, refreshInterval);
+            if (statusStreams.putIfAbsent(streamId, stream) != null) {
+                throw new IllegalStateException("Duplicate task status stream");
+            }
+            try {
+                stream.writeTo(output);
+            }
+            finally {
+                statusStreams.remove(streamId, stream);
+                stream.close();
+            }
+        };
     }
 
     @GET

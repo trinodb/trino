@@ -418,6 +418,12 @@ public class SqlTaskManager
         return sqlTask.getTaskInfo();
     }
 
+    // Observing a task from the worker must not extend its coordinator lease.
+    public Optional<SqlTask> findTaskForStatusStream(TaskId taskId)
+    {
+        return Optional.ofNullable(tasks.getIfPresent(taskId));
+    }
+
     /**
      * Gets the status for the specified task.
      */
