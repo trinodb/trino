@@ -22,7 +22,6 @@ public record DatabricksVersion(int majorVersion, int minorVersion)
         implements Comparable<DatabricksVersion>
 {
     public static final DatabricksVersion DATABRICKS_154_RUNTIME_VERSION = new DatabricksVersion(15, 4);
-    public static final DatabricksVersion DATABRICKS_122_RUNTIME_VERSION = new DatabricksVersion(12, 2);
     public static final DatabricksVersion DATABRICKS_183_RUNTIME_VERSION = new DatabricksVersion(18, 3);
 
     private static final Pattern DATABRICKS_VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)");
