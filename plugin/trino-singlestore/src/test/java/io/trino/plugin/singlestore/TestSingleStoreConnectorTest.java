@@ -487,4 +487,10 @@ public class TestSingleStoreConnectorTest
     {
         return singleStoreServer::execute;
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), "tpch." + namePrefix, "(k integer, v varchar(10) CHARACTER SET utf8 COLLATE utf8_bin)");
+    }
 }

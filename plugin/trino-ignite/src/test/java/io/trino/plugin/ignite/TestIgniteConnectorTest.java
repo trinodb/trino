@@ -565,4 +565,10 @@ public class TestIgniteConnectorTest
     {
         abort("Ignite table always has primary key");
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("Ignite has no column collations");
+    }
 }

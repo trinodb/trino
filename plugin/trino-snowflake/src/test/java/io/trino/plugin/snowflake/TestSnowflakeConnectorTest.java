@@ -420,4 +420,10 @@ public class TestSnowflakeConnectorTest
     {
         return "VALUES (BIGINT '4', DECIMAL '8')";
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), TEST_SCHEMA + "." + namePrefix, "(k integer, v varchar(10) COLLATE 'en-ci')");
+    }
 }

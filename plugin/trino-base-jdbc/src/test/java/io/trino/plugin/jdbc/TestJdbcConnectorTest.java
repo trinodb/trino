@@ -394,4 +394,10 @@ public class TestJdbcConnectorTest
     {
         return OptionalInt.of(256);
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("H2 has no column collations");
+    }
 }

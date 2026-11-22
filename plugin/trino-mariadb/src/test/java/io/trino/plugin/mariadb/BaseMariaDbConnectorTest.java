@@ -376,4 +376,10 @@ public abstract class BaseMariaDbConnectorTest
     {
         assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), "tpch." + namePrefix, "(k integer, v varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin)");
+    }
 }

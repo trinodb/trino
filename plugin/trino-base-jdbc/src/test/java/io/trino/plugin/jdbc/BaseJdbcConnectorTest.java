@@ -138,6 +138,13 @@ public abstract class BaseJdbcConnectorTest
 
     protected abstract SqlExecutor onRemoteDatabase();
 
+    /**
+     * Creates an empty table with columns {@code k integer} and {@code v varchar(10)}. The collation of {@code v} must
+     * differ from the remote database default in case sensitivity: when the default compares {@code 'a'} and
+     * {@code 'A'} as equal, {@code v} must tell them apart, and the other way round.
+     */
+    protected abstract TestTable createCollatedVarcharTable(String namePrefix);
+
     @AfterAll
     public void afterClass()
     {
@@ -197,6 +204,25 @@ public abstract class BaseJdbcConnectorTest
             assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test      '");
             assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
         }
+    }
+
+    @Test
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        assertSelectPushdownCorrectness(
+                () -> createCollatedVarcharTable("test_collated_varchar_pushdown_correctness"),
+                "varchar(10)",
+                varcharPushdownValues(),
+                varcharPushdownPredicates());
+    }
+
+    @Test
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        assertDeletePushdownCorrectness(
+                () -> createCollatedVarcharTable("test_delete_collated_varchar_pushdown_correctness"),
+                varcharPushdownValues(),
+                varcharPushdownPredicates());
     }
 
     @Test

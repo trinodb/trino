@@ -39,6 +39,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -650,5 +651,11 @@ public abstract class BaseOracleConnectorTest
     protected String getUser()
     {
         return TEST_USER;
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("Oracle column collations need MAX_STRING_SIZE=EXTENDED");
     }
 }

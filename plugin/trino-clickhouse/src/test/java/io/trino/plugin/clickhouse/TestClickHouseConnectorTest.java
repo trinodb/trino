@@ -1271,4 +1271,10 @@ public class TestClickHouseConnectorTest
     {
         return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("ClickHouse has no column collations");
+    }
 }

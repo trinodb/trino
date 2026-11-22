@@ -31,6 +31,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -775,5 +776,11 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT orderkey FROM orders ORDER BY __time DESC, orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
         // TopN above LIMIT would put the ORDER BY on a subquery, which Druid does not honor
         assertThat(query("SELECT __time FROM (SELECT __time FROM orders LIMIT 100) ORDER BY __time DESC LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("Druid has no column collations");
     }
 }

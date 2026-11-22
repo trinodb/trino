@@ -5610,7 +5610,7 @@ public abstract class BaseConnectorTest
                 charPushdownPredicates());
     }
 
-    private void assertSelectPushdownCorrectness(Supplier<TestTable> tableFactory, String type, List<String> values, List<String> predicates)
+    protected void assertSelectPushdownCorrectness(Supplier<TestTable> tableFactory, String type, List<String> values, List<String> predicates)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
 
@@ -5643,7 +5643,7 @@ public abstract class BaseConnectorTest
         assertCorrectness(softly, queryTemplate, () -> assertThat(query(queryTemplate.formatted(tableName))).ordered().hasCorrectResultsRegardlessOfPushdown());
     }
 
-    private void assertDeletePushdownCorrectness(Supplier<TestTable> tableFactory, List<String> values, List<String> predicates)
+    protected void assertDeletePushdownCorrectness(Supplier<TestTable> tableFactory, List<String> values, List<String> predicates)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_DELETE));
 
@@ -5695,7 +5695,7 @@ public abstract class BaseConnectorTest
         getQueryRunner().execute(getSession(), "INSERT INTO %s SELECT * FROM (VALUES %s) t(k, v) WHERE k NOT IN (SELECT k FROM %s)".formatted(tableName, rows, tableName));
     }
 
-    private static List<String> varcharPushdownValues()
+    protected static List<String> varcharPushdownValues()
     {
         return ImmutableList.<String>builder()
                 .addAll(stringPushdownValues())
@@ -5734,7 +5734,7 @@ public abstract class BaseConnectorTest
                 .build();
     }
 
-    private static List<String> varcharPushdownPredicates()
+    protected static List<String> varcharPushdownPredicates()
     {
         return ImmutableList.<String>builder()
                 .add("v = 'a'")

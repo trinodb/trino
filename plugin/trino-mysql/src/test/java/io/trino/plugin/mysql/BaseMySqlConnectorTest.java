@@ -25,6 +25,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -857,5 +858,33 @@ public abstract class BaseMySqlConnectorTest
         TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
         onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", testTable.getName(), primaryKey));
         return testTable;
+    }
+
+    @Test
+    @Override
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: MySQL treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: MySQL treats \ in LIKE patterns as an escape character
+        assertThatThrownBy(super::testDeleteWithCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), "tpch." + namePrefix, "(k integer, v varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin, PRIMARY KEY (k))");
     }
 }
