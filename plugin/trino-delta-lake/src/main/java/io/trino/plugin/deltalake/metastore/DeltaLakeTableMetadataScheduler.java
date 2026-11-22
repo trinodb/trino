@@ -35,6 +35,7 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,7 +47,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -54,12 +54,10 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isStoreTableMetadataInMetastoreEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMetadata;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.function.BinaryOperator.maxBy;
 
 public class DeltaLakeTableMetadataScheduler
 {
@@ -142,12 +140,18 @@ public class DeltaLakeTableMetadataScheduler
     {
         List<Callable<Void>> tasks = new ArrayList<>();
         synchronized (this) {
-            if (updateInfos.isEmpty()) {
+            // Remove entries individually, so that entries added concurrently by putAll are not lost
+            Map<SchemaTableName, TableUpdateInfo> updateTables = new HashMap<>();
+            for (SchemaTableName tableName : updateInfos.keySet()) {
+                TableUpdateInfo updateInfo = updateInfos.remove(tableName);
+                if (updateInfo != null) {
+                    // The iteration may return a re-added key again, so this keeps the value added last
+                    updateTables.put(tableName, updateInfo);
+                }
+            }
+            if (updateTables.isEmpty()) {
                 return;
             }
-
-            Map<SchemaTableName, TableUpdateInfo> updateTables = updateInfos.entrySet().stream()
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue, maxBy(comparing(TableUpdateInfo::version))));
 
             log.debug("Processing %s table(s): %s", updateTables.size(), updateTables.keySet());
             for (Entry<SchemaTableName, TableUpdateInfo> entry : updateTables.entrySet()) {
@@ -156,8 +160,6 @@ public class DeltaLakeTableMetadataScheduler
                     return null;
                 });
             }
-
-            updateInfos.clear();
         }
 
         try {
