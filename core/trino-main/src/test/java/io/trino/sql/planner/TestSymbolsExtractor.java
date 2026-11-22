@@ -13,8 +13,13 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -24,6 +29,63 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestSymbolsExtractor
 {
+    @Test
+    void testLeaves()
+    {
+        Symbol symbol = new Symbol(BIGINT, "x");
+        assertThat(SymbolsExtractor.extractUnique(symbol.toSymbolReference())).containsExactly(symbol);
+        assertThat(SymbolsExtractor.extractAll(symbol.toSymbolReference())).containsExactly(symbol);
+        assertThat(SymbolsExtractor.extractUnique(new Constant(BIGINT, 1L))).isEmpty();
+        assertThat(SymbolsExtractor.extractAll(new Constant(BIGINT, 1L))).isEmpty();
+    }
+
+    @Test
+    void testDuplicatesAndOrder()
+    {
+        Symbol first = new Symbol(BIGINT, "b");
+        Symbol second = new Symbol(BIGINT, "a");
+        Expression expression = new Row(ImmutableList.of(first.toSymbolReference(), second.toSymbolReference(), first.toSymbolReference()));
+
+        assertThat(SymbolsExtractor.extractAll(expression)).containsExactly(first, second, first);
+        assertThat(SymbolsExtractor.extractUnique(expression)).containsExactly(first, second);
+        assertThat(SymbolsExtractor.extractUnique(ImmutableList.of(expression, second.toSymbolReference())))
+                .containsExactly(first, second);
+    }
+
+    @Test
+    void testNestedLambdas()
+    {
+        Symbol outerBound = new Symbol(BIGINT, "x");
+        Symbol innerBound = new Symbol(BIGINT, "y");
+        Symbol free = new Symbol(BIGINT, "z");
+        Expression expression = new Lambda(ImmutableList.of(outerBound),
+                new Lambda(
+                        ImmutableList.of(innerBound),
+                        new Row(ImmutableList.of(outerBound.toSymbolReference(), innerBound.toSymbolReference(), free.toSymbolReference(), free.toSymbolReference()))));
+
+        assertThat(SymbolsExtractor.extractAll(expression)).containsExactly(free, free);
+        assertThat(SymbolsExtractor.extractUnique(expression)).containsExactly(free);
+        assertThat(SymbolsExtractor.extractUnique(ImmutableList.of(expression, outerBound.toSymbolReference(), innerBound.toSymbolReference(), free.toSymbolReference())))
+                .containsExactly(free, outerBound, innerBound);
+    }
+
+    @Test
+    void testBindingsDoNotLeakBetweenExpressions()
+    {
+        Symbol bound = new Symbol(BIGINT, "x");
+        Symbol free = new Symbol(BIGINT, "a");
+        Expression body = comparison(EQUAL, bound.toSymbolReference(), free.toSymbolReference());
+
+        assertThat(SymbolsExtractor.extractUnique(ImmutableList.of(
+                new Lambda(ImmutableList.of(bound), body),
+                bound.toSymbolReference())))
+                .containsExactly(free, bound);
+        assertThat(SymbolsExtractor.extractUnique(ImmutableList.of(
+                new Let(bound, free.toSymbolReference(), body),
+                bound.toSymbolReference())))
+                .containsExactly(free, bound);
+    }
+
     @Test
     void testLetBoundSymbolIsNotExtracted()
     {
@@ -36,6 +98,8 @@ class TestSymbolsExtractor
 
         assertThat(SymbolsExtractor.extractUnique(expression))
                 .containsExactly(outer);
+        assertThat(SymbolsExtractor.extractAll(expression))
+                .containsExactly(outer, outer);
     }
 
     @Test
@@ -48,6 +112,8 @@ class TestSymbolsExtractor
                 new Reference(BIGINT, "x"));
 
         assertThat(SymbolsExtractor.extractUnique(expression))
+                .containsExactly(shadowedOuter);
+        assertThat(SymbolsExtractor.extractAll(expression))
                 .containsExactly(shadowedOuter);
     }
 }

@@ -13,8 +13,10 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -40,38 +42,39 @@ public final class SymbolsExtractor
 
     public static Set<Symbol> extractUnique(PlanNode node)
     {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
+        return extractUnique(extractExpressions(node));
     }
 
     public static Set<Symbol> extractUniqueNonRecursive(PlanNode node)
     {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressionsNonRecursive(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
+        return extractUnique(extractExpressionsNonRecursive(node));
     }
 
     public static Set<Symbol> extractUnique(PlanNode node, Lookup lookup)
     {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressions(node, lookup).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
+        return extractUnique(extractExpressions(node, lookup));
     }
 
     public static Set<Symbol> extractUnique(Expression expression)
     {
-        return ImmutableSet.copyOf(extractAll(expression));
+        if (expression instanceof Reference reference) {
+            return ImmutableSet.of(Symbol.from(reference));
+        }
+        if (expression instanceof Constant) {
+            return ImmutableSet.of();
+        }
+        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
+        new SymbolBuilderVisitor().process(expression, new Context(ImmutableSet.of(), builder));
+        return builder.build();
     }
 
     public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
     {
         ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
+        SymbolBuilderVisitor visitor = new SymbolBuilderVisitor();
+        Context context = new Context(ImmutableSet.of(), unique);
         for (Expression expression : expressions) {
-            unique.addAll(extractAll(expression));
+            visitor.process(expression, context);
         }
         return unique.build();
     }
@@ -88,6 +91,12 @@ public final class SymbolsExtractor
 
     public static List<Symbol> extractAll(Expression expression)
     {
+        if (expression instanceof Reference reference) {
+            return ImmutableList.of(Symbol.from(reference));
+        }
+        if (expression instanceof Constant) {
+            return ImmutableList.of();
+        }
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         new SymbolBuilderVisitor().process(expression, new Context(ImmutableSet.of(), builder));
         return builder.build();
@@ -174,5 +183,5 @@ public final class SymbolsExtractor
         }
     }
 
-    private record Context(Set<Symbol> boundSymbols, ImmutableList.Builder<Symbol> builder) {}
+    private record Context(Set<Symbol> boundSymbols, ImmutableCollection.Builder<Symbol> builder) {}
 }
