@@ -36,6 +36,13 @@ The same data is available when using a browser, and logging manually.
 The user, `foo` in the example, must have read permission to system information
 on a secured deployment, and the URL and port must be adjusted accordingly.
 
+To allow access to the `/metrics` endpoint without authentication and
+authorization, set `management.metrics.anonymous-access-enabled=true` in
+[](config-properties) on the coordinator and all workers. Other endpoints are
+not affected. Only use this if the metrics can be exposed to anyone with network
+access to the cluster, including access through the external URL of the
+coordinator.
+
 Each Trino node, so the coordinator and all workers, provide separate metrics
 independently.
 
@@ -298,3 +305,7 @@ configuration:
 
 The coordinator authentication uses a user with access to the system information
 and requires authentication and access via HTTPS.
+
+With `management.metrics.anonymous-access-enabled=true` on all nodes, a single
+scrape configuration over HTTP without `basic_auth` works for the coordinator
+and the workers.

@@ -34,6 +34,7 @@ public class SecurityConfig
     private List<String> authenticationTypes = ImmutableList.of("insecure");
     private Optional<String> fixedManagementUser = Optional.empty();
     private boolean fixedManagementUserForHttps;
+    private boolean metricsAnonymousAccessEnabled;
 
     public boolean isInsecureAuthenticationOverHttpAllowed()
     {
@@ -86,6 +87,19 @@ public class SecurityConfig
     public SecurityConfig setFixedManagementUserForHttps(boolean fixedManagementUserForHttps)
     {
         this.fixedManagementUserForHttps = fixedManagementUserForHttps;
+        return this;
+    }
+
+    public boolean isMetricsAnonymousAccessEnabled()
+    {
+        return metricsAnonymousAccessEnabled;
+    }
+
+    @Config("management.metrics.anonymous-access-enabled")
+    @ConfigDescription("Allow access to the metrics endpoint without authentication and authorization")
+    public SecurityConfig setMetricsAnonymousAccessEnabled(boolean metricsAnonymousAccessEnabled)
+    {
+        this.metricsAnonymousAccessEnabled = metricsAnonymousAccessEnabled;
         return this;
     }
 }

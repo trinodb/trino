@@ -54,15 +54,19 @@ public class ServerSecurityModule
         binder.bind(AuthenticationFilter.class);
         jaxrsBinder(binder).bind(ResourceSecurityDynamicFeature.class);
 
-        resourceSecurityBinder(binder)
-                .managementReadResource(MetricsResource.class);
-
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HeaderAuthenticatorManager.class);
 
         SecurityConfig securityConfig = buildConfigObject(SecurityConfig.class);
         insecureHttpAuthenticationDefaults(securityConfig);
+
+        if (securityConfig.isMetricsAnonymousAccessEnabled()) {
+            resourceSecurityBinder(binder).publicResource(MetricsResource.class);
+        }
+        else {
+            resourceSecurityBinder(binder).managementReadResource(MetricsResource.class);
+        }
 
         authenticatorBinder(binder); // create empty map binder
         install(authenticatorModule(securityConfig, "certificate", CertificateAuthenticator.class, certificateBinder -> {
