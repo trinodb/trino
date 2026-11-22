@@ -947,9 +947,8 @@ jobs:
       - name: Product tests artifact
         uses: actions/upload-artifact@v7
         with:
-          name: product tests and server tarball
+          name: product tests image and CLI
           path: |
-            core/trino-server/target/*.tar.gz
             client/trino-cli/target/*-executable.jar
             product-tests-trino-image.tar.gz
           retention-days: 1
@@ -1032,7 +1031,7 @@ jobs:
       - name: Product tests artifact
         uses: actions/download-artifact@v8
         with:
-          name: product tests and server tarball
+          name: product tests image and CLI
       - name: Product test distribution
         uses: actions/download-artifact@v8
         with:
