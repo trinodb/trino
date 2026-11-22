@@ -13,32 +13,21 @@
  */
 package io.trino.tests.product.deltalake;
 
+import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.tests.product.ConfiguredFeatures.assertDefaultConnectors;
 
+@ProductTest
 @RequiresEnvironment(DeltaLakeFlociEnvironment.class)
-class TestDeltaLakeOssDeltaLakeFlociReads
-        extends BaseTestDeltaLakeFlociReadsJunit
+class TestDeltaLakeFlociConfiguredConnectors
 {
     @Test
     @TestGroup.DeltaLakeFloci
     void testConfiguredConnectors(DeltaLakeFlociEnvironment env)
     {
         assertDefaultConnectors(env, "hive", "delta_lake", "iceberg");
-    }
-
-    @Override
-    protected String tableName()
-    {
-        return "region_deltalake";
-    }
-
-    @Override
-    protected String regionResourcePath()
-    {
-        return "io/trino/plugin/deltalake/testing/resources/ossdeltalake/region";
     }
 }
