@@ -316,6 +316,12 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'::1/128'", "IPADDRESS '2001::'"))
                 .isEqualTo(false);
 
+        // IPv6 addresses with the high bit set
+        assertThat(assertions.function("contains", "'fe80::/10'", "IPADDRESS 'fe80::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'fe80::/10'", "IPADDRESS 'ff00::1'"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/64'", "IPADDRESS '2001:abcd:ef01:2345::1'"))
                 .isEqualTo(true);
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/64'", "IPADDRESS '2001:abcd:ef01:2345::'"))

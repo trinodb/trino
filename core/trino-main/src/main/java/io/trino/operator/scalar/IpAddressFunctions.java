@@ -81,15 +81,7 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
         }
 
-        if (prefixLength == 0) {
-            return true;
-        }
-
-        byte[] ipAddress = address.getBytes();
-        BigInteger cidrPrefix = new BigInteger(cidrBytes).shiftRight(cidrBytes.length * Byte.SIZE - prefixLength);
-        BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(ipAddress.length * Byte.SIZE - prefixLength);
-
-        return cidrPrefix.equals(addressPrefix);
+        return contains(cidrBytes, prefixLength, address);
     }
 
     @Description("Determines whether given IP address exists in the subnet")
@@ -111,14 +103,18 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length");
         }
 
-        int effectivePrefixLength = prefixLength + (ipv4 ? 96 : 0);
-        if (effectivePrefixLength == 0) {
+        return contains(subnetBytes, prefixLength + (ipv4 ? 96 : 0), address);
+    }
+
+    private static boolean contains(byte[] subnetBytes, int prefixLength, Slice address)
+    {
+        if (prefixLength == 0) {
             return true;
         }
 
         byte[] addressBytes = address.getBytes();
-        BigInteger subnetPrefix = new BigInteger(1, subnetBytes).shiftRight(subnetBytes.length * Byte.SIZE - effectivePrefixLength);
-        BigInteger addressPrefix = new BigInteger(1, addressBytes).shiftRight(addressBytes.length * Byte.SIZE - effectivePrefixLength);
+        BigInteger subnetPrefix = new BigInteger(1, subnetBytes).shiftRight(subnetBytes.length * Byte.SIZE - prefixLength);
+        BigInteger addressPrefix = new BigInteger(1, addressBytes).shiftRight(addressBytes.length * Byte.SIZE - prefixLength);
 
         return subnetPrefix.equals(addressPrefix);
     }
