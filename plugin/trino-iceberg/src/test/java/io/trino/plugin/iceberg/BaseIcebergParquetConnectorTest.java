@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
@@ -193,6 +194,25 @@ public abstract class BaseIcebergParquetConnectorTest
                     FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))
                     """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+        }
+    }
+
+    @Test
+    void testTableChangesReportsMemoryUsage()
+    {
+        try (TestTable table = newTrinoTable("test_table_changes_memory_", "AS SELECT CAST(1 AS integer) id, CAST('a' AS varchar) value WITH NO DATA")) {
+            long initialSnapshot = getMostRecentSnapshotId(table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
+            long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
+            assertQueryStats(
+                    getSession(),
+                    "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                    queryStats -> assertThat(queryStats.getOperatorSummaries().stream()
+                            .filter(summary -> summary.getOperatorType().equals("LeafTableFunctionOperator"))
+                            .collect(onlyElement())
+                            .getPeakUserMemoryReservation().toBytes())
+                            .isGreaterThan(0),
+                    _ -> {});
         }
     }
 

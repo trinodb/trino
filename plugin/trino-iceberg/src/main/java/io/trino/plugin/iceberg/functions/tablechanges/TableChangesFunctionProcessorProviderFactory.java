@@ -52,7 +52,7 @@ public class TableChangesFunctionProcessorProviderFactory
             implements TableFunctionProcessorProvider
     {
         @Override
-        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorSplit split)
+        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorSplit split, MemoryContext memoryContext)
         {
             return new ClassLoaderSafeTableFunctionSplitProcessor(
                     new TableChangesFunctionProcessor(
@@ -60,7 +60,8 @@ public class TableChangesFunctionProcessorProviderFactory
                             (TableChangesFunctionHandle) handle,
                             tableCredentials,
                             (TableChangesSplit) split,
-                            icebergPageSourceProvider),
+                            icebergPageSourceProvider,
+                            memoryContext),
                     getClass().getClassLoader());
         }
     }
