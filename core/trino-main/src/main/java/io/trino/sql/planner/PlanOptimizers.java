@@ -909,6 +909,35 @@ public class PlanOptimizers
                         .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
                         .build()));
 
+        // Projection pushdown over a newly pushed join introduces aliases that can hide the scan from aggregation pushdown.
+        builder.add(new UnaliasSymbolReferences());
+        builder.add(new IterativeOptimizer(
+                "PushAggregationAfterJoinPushdown",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new RemoveRedundantIdentityProjections(),
+                        new PruneTableScanColumns(metadata),
+                        new PushAggregationIntoTableScan(plannerContext))));
+
+        // Aggregation pushdown also introduces aliases. Normalize them before retrying filters and TopN over the scan.
+        builder.add(new UnaliasSymbolReferences());
+        builder.add(new IterativeOptimizer(
+                "PushTopNAfterAggregationPushdown",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .add(new PruneTableScanColumns(metadata))
+                        .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
+                        .add(new PushTopNIntoTableScan(metadata))
+                        .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
+                        .build()));
+
         if (!forceSingleNode) {
             builder.add(
                     new IterativeOptimizer(
@@ -918,9 +947,6 @@ public class PlanOptimizers
                             statsCalculator,
                             costCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            // unalias symbols before adding exchanges to use same partitioning symbols in joins, aggregations and other
-            // operators that require node partitioning
-            builder.add(new UnaliasSymbolReferences());
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, statsCalculator, taskCountEstimator, nodePartitioningManager)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator, taskCountEstimator)));
