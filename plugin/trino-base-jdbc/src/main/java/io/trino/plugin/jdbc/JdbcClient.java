@@ -201,6 +201,8 @@ public interface JdbcClient
 
     void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
+    void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
+
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 
     default void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)

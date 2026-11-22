@@ -59,6 +59,7 @@ public final class JdbcClientStats
     private final JdbcApiStats renameColumn = new JdbcApiStats();
     private final JdbcApiStats setColumnType = new JdbcApiStats();
     private final JdbcApiStats dropNotNullConstraint = new JdbcApiStats();
+    private final JdbcApiStats setNotNullConstraint = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
     private final JdbcApiStats setTableProperties = new JdbcApiStats();
     private final JdbcApiStats rollbackDestinationTableCreation = new JdbcApiStats();
@@ -361,6 +362,13 @@ public final class JdbcClientStats
     public JdbcApiStats getDropNotNullConstraint()
     {
         return dropNotNullConstraint;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getSetNotNullConstraint()
+    {
+        return setNotNullConstraint;
     }
 
     @Managed

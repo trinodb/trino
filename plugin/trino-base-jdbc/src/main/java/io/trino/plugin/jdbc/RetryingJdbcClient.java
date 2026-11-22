@@ -347,6 +347,13 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        // safe to retry, but retry needs to handle exceptions in case the constraint is already set
+        delegate.setNotNullConstraint(session, handle, column);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         // no retrying as it could be not idempotent operation

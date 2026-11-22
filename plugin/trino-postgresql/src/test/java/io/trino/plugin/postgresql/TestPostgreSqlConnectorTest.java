@@ -125,6 +125,7 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
                  SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_ADD_COLUMN_WITH_POSITION,
@@ -1057,6 +1058,12 @@ public class TestPostgreSqlConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("(?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
+    }
+
+    @Override
+    protected String errorMessageForSetNotNullConstraintOnColumnWithNulls(String columnName)
+    {
+        return format("ERROR: column \"%s\" contains null values", columnName);
     }
 
     @Test
