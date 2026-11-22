@@ -221,7 +221,7 @@ public final class TableStatisticsReader
 
         IcebergStatistics summary = icebergStatisticsBuilder.build();
 
-        if (summary.fileCount() == 0) {
+        if (summary.recordCount() == 0) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();

@@ -1572,6 +1572,27 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testStatsWithZeroRecordDataFiles()
+    {
+        IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
+        try (TestTable testTable = newTrinoTable("test_stats_zero_record_data_files_", "(a INT)")) {
+            BaseTable table = loadTable(testTable.getName());
+            table.newAppend()
+                    .appendFile(DataFiles.builder(table.spec())
+                            .withFormat(ORC)
+                            .withPath(table.location() + "/data/zero_records.orc")
+                            .withFileSizeInBytes(1)
+                            .withMetrics(new Metrics(0L, null, null, ImmutableMap.of(1, 0L), null))
+                            .build())
+                    .commit();
+
+            TableStatistics statistics = tableStatistics(testTable.getName(), ImmutableSet.of(column));
+            assertThat(statistics.getRowCount()).isEqualTo(Estimate.of(0));
+            assertThat(statistics.getColumnStatistics()).isEmpty();
+        }
+    }
+
+    @Test
     public void testStatsManifestDecoding()
     {
         int threshold = TableStatisticsReader.INLINE_MANIFEST_DECODE_THRESHOLD;
