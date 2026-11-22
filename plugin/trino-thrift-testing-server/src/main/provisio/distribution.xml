@@ -1,0 +1,14 @@
+<runtime>
+    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" />
+
+    <artifactSet to="lib" ref="runtime.classpath" />
+
+    <artifactSet to="bin">
+        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.launcher.version}">
+            <unpack />
+        </artifact>
+        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.launcher.version}">
+            <unpack filter="true" />
+        </artifact>
+    </artifactSet>
+</runtime>
