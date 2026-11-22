@@ -1029,7 +1029,18 @@ jobs:
           cache: 'false'
           maven: 'false'
       - name: Product tests artifact
+        id: product-tests-artifact
         uses: actions/download-artifact@v8
+        # The download occasionally slows to a trickle, so give up early and retry once
+        # TODO: remove the timeout and the retry when https://github.com/actions/toolkit/pull/2584 is fixed
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          name: product tests image and CLI
+      - name: Product tests artifact (retry)
+        if: steps.product-tests-artifact.outcome != 'success'
+        uses: actions/download-artifact@v8
+        timeout-minutes: 10
         with:
           name: product tests image and CLI
       - name: Product test distribution
