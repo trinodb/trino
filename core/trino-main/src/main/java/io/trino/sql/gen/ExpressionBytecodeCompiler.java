@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
@@ -56,16 +57,19 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.CharVarcharCoercion;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.trino.sql.gen.BytecodeUtils.fitsJitCompilableMethod;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
@@ -85,6 +89,7 @@ public class ExpressionBytecodeCompiler
     private final CharVarcharCoercion charVarcharCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
+    private final Map<Row, List<MethodDefinition>> partialRowConstructors = new IdentityHashMap<>();
 
     public ExpressionBytecodeCompiler(
             ClassDefinition classDefinition,
@@ -109,6 +114,16 @@ public class ExpressionBytecodeCompiler
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
     }
 
+    List<MethodDefinition> partialRowConstructors(Row row, Supplier<List<MethodDefinition>> generator)
+    {
+        List<MethodDefinition> methods = partialRowConstructors.get(row);
+        if (methods == null) {
+            methods = generator.get();
+            partialRowConstructors.put(row, methods);
+        }
+        return methods;
+    }
+
     public BytecodeNode compile(Expression expression, Scope scope)
     {
         return compile(expression, scope, Optional.empty(), ImmutableMap.of());
@@ -126,6 +141,11 @@ public class ExpressionBytecodeCompiler
 
     public BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, BytecodeExpression blockBuilder)
     {
+        return compileToBlock(expression, type, scope, blockBuilder, true);
+    }
+
+    private BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, BytecodeExpression blockBuilder, boolean measure)
+    {
         Variable wasNull = scope.getVariable("wasNull");
         BytecodeBlock block = new BytecodeBlock();
         if (expression instanceof Row row && row.items().size() <= MEGAMORPHIC_FIELD_COUNT) {
@@ -135,11 +155,16 @@ public class ExpressionBytecodeCompiler
             Variable entry = scope.getOrCreateTempVariable(RowEntryBuilder.class);
             block.append(entry.set(blockBuilder.cast(RowBlockBuilder.class).invoke("buildEntry", RowEntryBuilder.class)));
             for (int field = 0; field < row.items().size(); field++) {
-                block.append(compileToBlock(row.items().get(field), fieldTypes.get(field), scope, entry.invoke("getFieldBuilder", BlockBuilder.class, constantInt(field))));
+                block.append(compileToBlock(row.items().get(field), fieldTypes.get(field), scope, entry.invoke("getFieldBuilder", BlockBuilder.class, constantInt(field)), false));
             }
             block.append(entry.invoke("build", void.class));
             scope.releaseTempVariableForReuse(entry);
-            return block.append(wasNull.set(constantFalse()));
+            block.append(wasNull.set(constantFalse()));
+            // rows over the JIT method size limit take the generic path, which splits them into methods
+            if (!measure || fitsJitCompilableMethod(block, scope)) {
+                return block;
+            }
+            block = new BytecodeBlock();
         }
         return block.append(wasNull.set(constantFalse()))
                 .append(blockBuilder)
