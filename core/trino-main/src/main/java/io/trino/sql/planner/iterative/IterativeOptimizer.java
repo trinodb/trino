@@ -43,13 +43,13 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.planprinter.PlanPrinter;
+import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,7 +110,7 @@ public class IterativeOptimizer
 
         Set<PlanNodeId> changedPlanNodeIds = new HashSet<>();
         Memo memo = new Memo(context.idAllocator(), plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(memo::resolve);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(context.session());
         Context optimizerContext = new Context(
@@ -147,6 +147,11 @@ public class IterativeOptimizer
 
     private boolean exploreGroup(int group, Context context, Set<PlanNodeId> changedPlanNodeIds)
     {
+        if (context.memo.isExplored(group)) {
+            context.checkTimeoutNotExhausted();
+            return false;
+        }
+
         // tracks whether this group or any children groups change as
         // this method executes
         boolean progress = exploreNode(group, context, changedPlanNodeIds);
@@ -162,6 +167,10 @@ public class IterativeOptimizer
             }
         }
 
+        // A changing pass may invalidate a previously visited branch through a shared descendant.
+        if (!progress || context.memo.areChildrenExplored(group)) {
+            context.memo.markExplored(group);
+        }
         return progress;
     }
 
@@ -209,9 +218,12 @@ public class IterativeOptimizer
     @SuppressWarnings("unchecked")
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Context context)
     {
-        Rule.Context ruleContext = ruleContext(context);
+        Rule.Context ruleContext = null;
         MatchCursor cursor = rule.getPattern().matchCursor(node, context.lookup);
         while (cursor.matches()) {
+            if (ruleContext == null) {
+                ruleContext = ruleContext(context);
+            }
             Captures captures = cursor.current();
             long duration;
             Rule.Result result;
@@ -275,11 +287,13 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
-
         return new Rule.Context()
         {
+            @Nullable
+            private StatsProvider statsProvider;
+            @Nullable
+            private CostProvider costProvider;
+
             @Override
             public Lookup getLookup()
             {
@@ -307,12 +321,18 @@ public class IterativeOptimizer
             @Override
             public StatsProvider getStatsProvider()
             {
+                if (statsProvider == null) {
+                    statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
+                }
                 return statsProvider;
             }
 
             @Override
             public CostProvider getCostProvider()
             {
+                if (costProvider == null) {
+                    costProvider = new CachingCostProvider(costCalculator, getStatsProvider(), Optional.of(context.memo), context.session);
+                }
                 return costProvider;
             }
 

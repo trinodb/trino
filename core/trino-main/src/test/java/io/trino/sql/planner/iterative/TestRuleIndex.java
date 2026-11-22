@@ -25,9 +25,17 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
+import java.lang.ref.WeakReference;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRuleIndex
@@ -53,9 +61,67 @@ public class TestRuleIndex
         FilterNode filterNode = planBuilder.filter(Booleans.TRUE, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 
-        assertThat(ruleIndex.getCandidates(projectNode)).containsExactlyInAnyOrder(projectRule1, projectRule2, anyRule);
-        assertThat(ruleIndex.getCandidates(filterNode)).containsExactlyInAnyOrder(filterRule, anyRule);
-        assertThat(ruleIndex.getCandidates(valuesNode)).containsExactlyInAnyOrder(anyRule);
+        assertThat(ruleIndex.getCandidates(projectNode)).containsExactly(projectRule1, projectRule2, anyRule);
+        assertThat(ruleIndex.getCandidates(filterNode)).containsExactly(filterRule, anyRule);
+        assertThat(ruleIndex.getCandidates(valuesNode)).containsExactly(anyRule);
+    }
+
+    @Test
+    public void testIndependentIndexes()
+    {
+        Rule<?> firstRule = new NoOpRule<>(Pattern.typeOf(AB.class));
+        Rule<?> secondRule = new NoOpRule<>(Pattern.typeOf(AB.class));
+        RuleIndex firstIndex = RuleIndex.builder().register(firstRule).build();
+        RuleIndex secondIndex = RuleIndex.builder().register(secondRule).build();
+        RuleIndex emptyIndex = RuleIndex.builder().build();
+
+        for (int iteration = 0; iteration < 2; iteration++) {
+            assertThat(firstIndex.getCandidates(new AB())).containsExactly(firstRule);
+            assertThat(secondIndex.getCandidates(new AB())).containsExactly(secondRule);
+            assertThat(emptyIndex.getCandidates(new AB())).isEmpty();
+        }
+    }
+
+    @Test
+    public void testDoesNotRetainRules()
+    {
+        WeakReference<Rule<?>> rule = populateTemporaryIndex();
+        assertEventually(() -> {
+            System.gc();
+            assertThat(rule.refersTo(null)).isTrue();
+        });
+    }
+
+    private static WeakReference<Rule<?>> populateTemporaryIndex()
+    {
+        Rule<?> rule = new NoOpRule<>(Pattern.typeOf(CacheLifetimeNode.class));
+        RuleIndex index = RuleIndex.builder().register(rule).build();
+        assertThat(index.getCandidates(new CacheLifetimeNode())).containsExactly(rule);
+        return new WeakReference<>(rule);
+    }
+
+    @Test
+    public void testConcurrentAccess()
+            throws Exception
+    {
+        Rule<?> specificRule = new NoOpRule<>(Pattern.typeOf(AB.class));
+        Rule<?> interfaceRule = new NoOpRule<>(Pattern.typeOf(A.class));
+        RuleIndex ruleIndex = RuleIndex.builder()
+                .register(specificRule)
+                .register(interfaceRule)
+                .build();
+
+        int threads = 8;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        Callable<Set<Rule<?>>> lookup = () -> {
+            barrier.await();
+            return ruleIndex.getCandidates(new AB());
+        };
+        try (var executor = Executors.newFixedThreadPool(threads)) {
+            for (var result : executor.invokeAll(nCopies(threads, lookup))) {
+                assertThat(result.get()).containsExactly(specificRule, interfaceRule);
+            }
+        }
     }
 
     @Test
@@ -110,6 +176,8 @@ public class TestRuleIndex
     private interface A {}
 
     private interface B {}
+
+    private static class CacheLifetimeNode {}
 
     private static class AB
             implements A, B {}

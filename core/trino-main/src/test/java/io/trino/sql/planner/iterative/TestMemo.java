@@ -21,11 +21,14 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMemo
@@ -205,6 +208,62 @@ public class TestMemo
                         node(y2.getId(), node(z.getId()))));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {2, 5})
+    public void testDuplicateReferences(int referenceCount)
+    {
+        PlanNode leaf = node();
+        Memo memo = new Memo(idAllocator, node(node(leaf)));
+        int root = memo.getRootGroup();
+        int child = getChildGroup(memo, root);
+        GroupReference shared = (GroupReference) getOnlyElement(memo.getNode(child).getSources());
+
+        PlanNode replacement = node(nCopies(referenceCount, shared).toArray(PlanNode[]::new));
+        memo.replace(root, replacement, "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(2);
+        assertMatchesStructure(memo.extract(), node(replacement.getId(), nCopies(referenceCount, leaf).toArray(PlanNode[]::new)));
+
+        // Removing duplicate edges must preserve the child until the last edge is removed.
+        replacement = node(shared);
+        memo.replace(root, replacement, "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(2);
+        assertMatchesStructure(memo.extract(), node(replacement.getId(), leaf));
+
+        memo.replace(root, node(), "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(1);
+    }
+
+    @Test
+    public void testDuplicateReferencesWithAnotherParent()
+    {
+        Memo memo = new Memo(idAllocator, node(node(node())));
+        int root = memo.getRootGroup();
+        GroupReference shared = (GroupReference) getOnlyElement(memo.getNode(getChildGroup(memo, root)).getSources());
+        memo.replace(root, node(node(shared, shared), node(shared)), "rule");
+        int left = ((GroupReference) memo.getNode(root).getSources().get(0)).getGroupId();
+        int right = ((GroupReference) memo.getNode(root).getSources().get(1)).getGroupId();
+
+        for (int group : ImmutableList.of(root, left, right, shared.getGroupId())) {
+            memo.storeStats(group, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build());
+            memo.markExplored(group);
+        }
+        memo.replace(shared.getGroupId(), node(), "rule");
+        for (int group : ImmutableList.of(root, left, right, shared.getGroupId())) {
+            assertThat(memo.getStats(group)).isEmpty();
+            assertThat(memo.isExplored(group)).isFalse();
+        }
+
+        memo.replace(left, node(), "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(4);
+        assertThat(getChildGroup(memo, right)).isEqualTo(shared.getGroupId());
+
+        memo.replace(right, node(), "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(3);
+
+        memo.replace(root, node(), "rule");
+        assertThat(memo.getGroupCount()).isEqualTo(1);
+    }
+
     @Test
     public void testEvictStatsOnReplace()
     {
@@ -251,6 +310,55 @@ public class TestMemo
 
         assertThat(memo.getCost(yGroup)).isEqualTo(Optional.empty());
         assertThat(memo.getCost(xGroup)).isEqualTo(Optional.empty());
+    }
+
+    @Test
+    public void testExplorationInvalidatedThroughAllParents()
+    {
+        Memo memo = new Memo(idAllocator, node(node(node())));
+        int root = memo.getRootGroup();
+        int child = getChildGroup(memo, root);
+        GroupReference shared = (GroupReference) getOnlyElement(memo.getNode(child).getSources());
+        memo.replace(root, node(node(shared), node(shared), node()), "rule");
+
+        List<Integer> branches = memo.getNode(root).getSources().stream()
+                .map(source -> ((GroupReference) source).getGroupId())
+                .toList();
+        for (int group : ImmutableList.of(root, branches.get(0), branches.get(1), branches.get(2), shared.getGroupId())) {
+            assertThat(memo.isExplored(group)).isFalse();
+            memo.markExplored(group);
+            assertThat(memo.isExplored(group)).isTrue();
+        }
+        assertThat(memo.areChildrenExplored(root)).isTrue();
+
+        memo.replace(shared.getGroupId(), node(), "rule");
+
+        assertThat(memo.areChildrenExplored(root)).isFalse();
+        assertThat(memo.areChildrenExplored(branches.get(0))).isFalse();
+        assertThat(memo.areChildrenExplored(branches.get(1))).isFalse();
+        assertThat(memo.isExplored(shared.getGroupId())).isFalse();
+        assertThat(memo.isExplored(branches.get(0))).isFalse();
+        assertThat(memo.isExplored(branches.get(1))).isFalse();
+        assertThat(memo.isExplored(root)).isFalse();
+        assertThat(memo.isExplored(branches.get(2))).isTrue();
+    }
+
+    @Test
+    public void testExplorationInvalidatedWhenStatsChange()
+    {
+        Memo memo = new Memo(idAllocator, node(node()));
+        int root = memo.getRootGroup();
+        int child = getChildGroup(memo, root);
+        memo.markExplored(child);
+        memo.markExplored(root);
+
+        memo.storeStats(child, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build());
+        assertThat(memo.isExplored(child)).isTrue();
+        assertThat(memo.isExplored(root)).isTrue();
+
+        memo.storeStats(child, PlanNodeStatsEstimate.builder().setOutputRowCount(2).build());
+        assertThat(memo.isExplored(child)).isFalse();
+        assertThat(memo.isExplored(root)).isFalse();
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)

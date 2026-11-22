@@ -16,35 +16,16 @@ package io.trino.sql.planner.iterative;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
+import static java.util.Objects.requireNonNull;
 
 public interface Lookup
 {
     /**
-     * Resolves a node by materializing GroupReference nodes
-     * representing symbolic references to other nodes. This method
-     * is deprecated since is assumes group contains only one node.
-     * <p>
-     * If the node is not a GroupReference, it returns the
-     * argument as is.
+     * Resolves a GroupReference to the node it represents.
+     * Other nodes are returned unchanged.
      */
-    default PlanNode resolve(PlanNode node)
-    {
-        if (node instanceof GroupReference) {
-            return resolveGroup(node).collect(toOptional()).get();
-        }
-        return node;
-    }
-
-    /**
-     * Resolves nodes by materializing GroupReference nodes
-     * representing symbolic references to other nodes.
-     *
-     * @throws IllegalArgumentException if the node is not a GroupReference
-     */
-    Stream<PlanNode> resolveGroup(PlanNode node);
+    PlanNode resolve(PlanNode node);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -52,18 +33,19 @@ public interface Lookup
      */
     static Lookup noLookup()
     {
-        return _ -> {
+        return from(_ -> {
             throw new UnsupportedOperationException();
-        };
+        });
     }
 
-    static Lookup from(Function<GroupReference, Stream<PlanNode>> resolver)
+    static Lookup from(Function<GroupReference, PlanNode> resolver)
     {
+        requireNonNull(resolver, "resolver is null");
         return node -> {
-            if (!(node instanceof GroupReference groupReference)) {
-                throw new IllegalArgumentException("Node '%s' is not a GroupReference".formatted(node.getClass().getSimpleName()));
+            if (node instanceof GroupReference groupReference) {
+                return resolver.apply(groupReference);
             }
-            return resolver.apply(groupReference);
+            return node;
         };
     }
 }

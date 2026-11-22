@@ -41,7 +41,6 @@ import io.trino.testing.PlanTester;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -149,7 +148,7 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(memo::resolve);
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 

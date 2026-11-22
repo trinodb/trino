@@ -40,18 +40,18 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
 {
     private final Capture<N> targetCapture = newCapture();
 
-    private final Pattern<N> targetPattern;
+    private final Pattern<ProjectNode> pattern;
 
     protected ProjectOffPushDownRule(Pattern<N> targetPattern)
     {
-        this.targetPattern = targetPattern;
+        this.pattern = project()
+                .with(source().matching(targetPattern.capturedAs(targetCapture)));
     }
 
     @Override
     public Pattern<ProjectNode> getPattern()
     {
-        return project()
-                .with(source().matching(targetPattern.capturedAs(targetCapture)));
+        return pattern;
     }
 
     @Override

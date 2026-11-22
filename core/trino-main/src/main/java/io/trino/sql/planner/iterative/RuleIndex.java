@@ -14,39 +14,36 @@
 
 package io.trino.sql.planner.iterative;
 
-import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
-import io.trino.cache.EvictableCacheBuilder;
 import io.trino.matching.Pattern;
 import io.trino.matching.TypeOfPattern;
 
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RuleIndex
 {
     private final ListMultimap<Class<?>, Rule<?>> rulesByRootType;
-    private final Cache<Class<?>, Set<Rule<?>>> rulesByClass;
+    // Rules can reference planner services, so cached values must not outlive this index.
+    private final Map<Class<?>, Set<Rule<?>>> rulesByClass = new ConcurrentHashMap<>();
 
     private RuleIndex(ListMultimap<Class<?>, Rule<?>> rulesByRootType)
     {
         this.rulesByRootType = ImmutableListMultimap.copyOf(rulesByRootType);
-        this.rulesByClass = EvictableCacheBuilder.newBuilder()
-                .maximumSize(128) // we have a limited number of node types, so this is more than enough
-                .build();
     }
 
     public Set<Rule<?>> getCandidates(Object object)
     {
-        try {
-            return rulesByClass.get(object.getClass(), () -> computeCandidates(object.getClass()));
+        Class<?> type = object.getClass();
+        Set<Rule<?>> candidates = rulesByClass.get(type);
+        if (candidates != null) {
+            return candidates;
         }
-        catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return rulesByClass.computeIfAbsent(type, this::computeCandidates);
     }
 
     public Set<Rule<?>> computeCandidates(Class<?> key)

@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -27,8 +26,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,6 +92,26 @@ public class Memo
         return getGroup(group).membership;
     }
 
+    boolean isExplored(int group)
+    {
+        return getGroup(group).explored;
+    }
+
+    void markExplored(int group)
+    {
+        getGroup(group).explored = true;
+    }
+
+    boolean areChildrenExplored(int group)
+    {
+        for (PlanNode child : getNode(group).getSources()) {
+            if (!isExplored(referencedGroup(child))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public PlanNode resolve(GroupReference groupReference)
     {
         return getNode(groupReference.getGroupId());
@@ -107,7 +124,7 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(planNode -> Stream.of(this.resolve(planNode))));
+        return resolveGroupReferences(node, Lookup.from(this::resolve));
     }
 
     public PlanNode replace(int groupId, PlanNode node, String reason)
@@ -131,18 +148,19 @@ public class Memo
         incrementReferenceCounts(node, groupId);
         group.membership = node;
         decrementReferenceCounts(old, groupId);
-        evictStatisticsAndCost(group);
+        invalidateGroup(group);
 
         return node;
     }
 
-    private void evictStatisticsAndCost(Group group)
+    private void invalidateGroup(Group group)
     {
+        group.explored = false;
         group.stats = null;
         group.cost = null;
         for (int parentGroup : group.incomingReferences.elementSet()) {
             if (parentGroup != ROOT_GROUP_REF) {
-                evictStatisticsAndCost(getGroup(parentGroup));
+                invalidateGroup(getGroup(parentGroup));
             }
         }
     }
@@ -156,7 +174,7 @@ public class Memo
     {
         Group group = getGroup(groupId);
         if (group.stats != null) {
-            evictStatisticsAndCost(group); // cost is derived from stats, also needs eviction
+            invalidateGroup(group); // cost is derived from stats, also needs eviction
         }
         group.stats = requireNonNull(stats, "stats is null");
     }
@@ -173,18 +191,15 @@ public class Memo
 
     private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
     {
-        Set<Integer> references = getAllReferences(fromNode);
-
-        for (int group : references) {
-            groups.get(group).incomingReferences.add(fromGroup);
+        for (PlanNode source : fromNode.getSources()) {
+            groups.get(referencedGroup(source)).incomingReferences.add(fromGroup);
         }
     }
 
     private void decrementReferenceCounts(PlanNode fromNode, int fromGroup)
     {
-        Set<Integer> references = getAllReferences(fromNode);
-
-        for (int group : references) {
+        for (PlanNode source : fromNode.getSources()) {
+            int group = referencedGroup(source);
             Group childGroup = groups.get(group);
             checkState(childGroup.incomingReferences.remove(fromGroup), "Reference to remove not found");
 
@@ -194,16 +209,12 @@ public class Memo
         }
     }
 
-    private Set<Integer> getAllReferences(PlanNode node)
+    private static int referencedGroup(PlanNode node)
     {
-        ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builderWithExpectedSize(node.getSources().size());
-        for (PlanNode source : node.getSources()) {
-            if (!(source instanceof GroupReference groupReference)) {
-                throw new IllegalArgumentException("Expected %s to be a group reference".formatted(source));
-            }
-            groupIds.add(groupReference.getGroupId());
+        if (!(node instanceof GroupReference groupReference)) {
+            throw new IllegalArgumentException("Expected %s to be a group reference".formatted(node));
         }
-        return groupIds.build();
+        return groupReference.getGroupId();
     }
 
     private void deleteGroup(int group)
@@ -255,6 +266,9 @@ public class Memo
         }
 
         private PlanNode membership;
+        // The group and its subtree have reached a fixed point for this optimizer.
+        private boolean explored;
+        // Count edges, including multiple references from the same parent.
         private final Multiset<Integer> incomingReferences = HashMultiset.create();
         @Nullable
         private PlanNodeStatsEstimate stats;

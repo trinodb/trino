@@ -27,8 +27,6 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
 
-import java.util.stream.Stream;
-
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -77,7 +75,7 @@ public final class PlanAssert
 
     private static boolean containsGroupReferences(PlanNode node)
     {
-        return PlanNodeSearcher.searchFrom(node, Lookup.from(Stream::of))
+        return PlanNodeSearcher.searchFrom(node, Lookup.from(groupReference -> groupReference))
                 .where(GroupReference.class::isInstance)
                 .matches();
     }
