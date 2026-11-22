@@ -30,6 +30,7 @@ public class ProjectNode
 {
     private final PlanNode source;
     private final Assignments assignments;
+    private final List<Symbol> outputSymbols;
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
@@ -45,12 +46,13 @@ public class ProjectNode
 
         this.source = source;
         this.assignments = assignments;
+        this.outputSymbols = ImmutableList.copyOf(assignments.assignments().keySet());
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(assignments.outputs());
+        return outputSymbols;
     }
 
     @JsonProperty
