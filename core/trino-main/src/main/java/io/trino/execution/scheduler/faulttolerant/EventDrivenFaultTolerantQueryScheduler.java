@@ -31,6 +31,7 @@ import com.google.common.primitives.ImmutableLongArray;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -72,6 +73,7 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
 import io.trino.execution.scheduler.QueryScheduler;
+import io.trino.execution.scheduler.QuerySchedulingTask;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.ExchangeFailureClassifier.ExchangeFailureKind;
@@ -137,17 +139,16 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 
@@ -158,6 +159,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerQuery;
@@ -390,7 +395,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     stageEstimationForEagerParentEnabled,
                     adaptivePlanner,
                     nodePartitioningManager::getBucketCount);
-            queryExecutor.submit(scheduler::run);
+            scheduler.start();
         }
         catch (Throwable t) {
             try {
@@ -793,7 +798,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final int maxPartitionCount;
         private final boolean stageEstimationForEagerParentEnabled;
 
-        private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
+        @GuardedBy("eventQueue")
+        private final Queue<Event> eventQueue = new ArrayDeque<>();
+        @GuardedBy("eventQueue")
+        @Nullable
+        private SettableFuture<Void> eventAvailable;
+        @GuardedBy("eventQueue")
+        private boolean closed;
+
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
         private final Stopwatch noEventsStopwatch = Stopwatch.createUnstarted();
         private final Stopwatch debugInfoStopwatch = Stopwatch.createUnstarted();
@@ -901,36 +913,65 @@ public class EventDrivenFaultTolerantQueryScheduler
             noEventsStopwatch.start();
         }
 
-        public void run()
+        public void start()
         {
-            checkState(!started, "already started");
-            started = true;
+            ListenableFuture<Void> completion = QuerySchedulingTask.submit(queryExecutor, this::process, this::finish);
+            addExceptionCallback(completion, queryStateMachine::transitionToFailed);
+        }
 
-            queryStateMachine.addStateChangeListener(state -> {
-                if (state.isDone()) {
-                    eventQueue.add(Event.WAKE_UP);
-                }
-            });
-
-            Optional<Throwable> failure = Optional.empty();
-            try {
-                // schedule() is the main logic, but expensive, so we do not want to call it after every event.
-                // Process events for some time (measured by schedulingDelayer) before invoking schedule() next time.
-                if (schedule()) {
-                    while (processEvents()) {
-                        if (schedulingDelayer.getRemainingDelayInMillis() > 0) {
-                            continue;
-                        }
-                        if (!schedule()) {
-                            break;
-                        }
+        private Optional<ListenableFuture<Void>> process()
+        {
+            if (!started) {
+                started = true;
+                queryStateMachine.addStateChangeListener(state -> {
+                    if (state.isDone()) {
+                        enqueue(Event.WAKE_UP);
                     }
-                }
+                });
             }
-            catch (Throwable t) {
-                failure = Optional.of(t);
+            else if (!processEvents()) {
+                return Optional.empty();
             }
 
+            if (schedulingDelayer.getRemainingDelayInMillis() == 0 && !schedule()) {
+                return Optional.empty();
+            }
+
+            synchronized (eventQueue) {
+                if (!eventQueue.isEmpty()) {
+                    return Optional.of(immediateVoidFuture());
+                }
+                eventAvailable = SettableFuture.create();
+                return Optional.of(addTimeout(eventAvailable, () -> null, new Duration(EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS, MILLISECONDS), scheduledExecutorService));
+            }
+        }
+
+        private void enqueue(Event event)
+        {
+            SettableFuture<Void> wakeup;
+            synchronized (eventQueue) {
+                if (closed) {
+                    return;
+                }
+                if (event == Event.ABORT) {
+                    eventQueue.clear();
+                }
+                eventQueue.add(event);
+                wakeup = eventAvailable;
+                eventAvailable = null;
+            }
+            if (wakeup != null) {
+                wakeup.set(null);
+            }
+        }
+
+        private void finish(Optional<Throwable> failure)
+        {
+            synchronized (eventQueue) {
+                closed = true;
+                eventQueue.clear();
+                eventAvailable = null;
+            }
             for (StageExecution execution : stageExecutions.values()) {
                 failure = closeAndAddSuppressed(failure, execution::abort);
             }
@@ -968,40 +1009,28 @@ public class EventDrivenFaultTolerantQueryScheduler
          */
         private boolean processEvents()
         {
-            try {
-                Event event = eventQueue.poll(EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS, MILLISECONDS);
-                if (event != null) {
-                    eventBuffer.add(event);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-
             boolean eventDebugInfoRecorded = false;
             boolean aborted = false;
-            while (!aborted) {
-                // poll multiple events from the queue in one shot to improve efficiency
-                eventQueue.drainTo(eventBuffer, EVENT_BUFFER_CAPACITY - eventBuffer.size());
-                if (eventBuffer.isEmpty()) {
+            // poll multiple events from the queue in one shot to improve efficiency
+            synchronized (eventQueue) {
+                while (eventBuffer.size() < EVENT_BUFFER_CAPACITY && !eventQueue.isEmpty()) {
+                    eventBuffer.add(eventQueue.remove());
+                }
+            }
+
+            for (Event e : eventBuffer) {
+                eventDebugInfoRecorded |= recordEventsDebugInfo(e);
+                if (e == Event.ABORT) {
+                    aborted = true;
                     break;
                 }
-
-                for (Event e : eventBuffer) {
-                    eventDebugInfoRecorded |= recordEventsDebugInfo(e);
-                    if (e == Event.ABORT) {
-                        aborted = true;
-                        break;
-                    }
-                    if (e == Event.WAKE_UP) {
-                        continue;
-                    }
-                    e.accept(this);
+                if (e == Event.WAKE_UP) {
+                    continue;
                 }
-
-                eventBuffer.clear();
+                e.accept(this);
             }
+
+            eventBuffer.clear();
 
             // handle diagnostics logging on query failure
             queryStateMachine.getFailureInfo().ifPresent(failureInfo -> {
@@ -1662,7 +1691,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
-                lease.getNode().addListener(() -> eventQueue.add(new TaskNodeLeaseCompletedEvent(scheduledTask.task())), queryExecutor);
+                lease.getNode().addListener(() -> enqueue(new TaskNodeLeaseCompletedEvent(scheduledTask.task())), directExecutor());
                 preSchedulingTaskContexts.addContext(scheduledTask.task(), lease, scheduledTask.getExecutionClass());
                 tasksWaitingForNode++;
             }
@@ -1694,10 +1723,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                         CompletableFuture<ExchangeSinkInstanceHandle> sinkInstanceHandleFuture = getExchangeSinkInstanceHandleResult.get().exchangeSinkInstanceHandleFuture();
                         sinkInstanceHandleFuture.whenComplete((sinkInstanceHandle, throwable) -> {
                             if (throwable != null) {
-                                eventQueue.add(new StageFailureEvent(scheduledTask.stageId, throwable));
+                                enqueue(new StageFailureEvent(scheduledTask.stageId, throwable));
                             }
                             else {
-                                eventQueue.add(new SinkInstanceHandleAcquiredEvent(
+                                enqueue(new SinkInstanceHandleAcquiredEvent(
                                         scheduledTask.stageId(),
                                         scheduledTask.partitionId(),
                                         nodeLease,
@@ -1779,7 +1808,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                                 log.error("Did not receive final task info for task %s after it %s; internal inconsistency; finalizing task info locally and marking task failed in scheduler", task.getTaskId(), taskStatus.state());
                                 task.forceFinalizationUsingTaskStatus();
                                 if (taskCompletedEventSent.compareAndSet(false, true)) {
-                                    eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
+                                    enqueue(new RemoteTaskCompletedEvent(taskStatus));
                                 }
                             }
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
@@ -1791,7 +1820,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 task.addFinalTaskInfoListener(taskExecutionStats::update);
                 task.addFinalTaskInfoListener(taskInfo -> {
                     if (taskCompletedEventSent.compareAndSet(false, true)) {
-                        eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.taskStatus()));
+                        enqueue(new RemoteTaskCompletedEvent(taskInfo.taskStatus()));
                     }
                     else {
                         log.warn("Final task info for task %s received late; state = %s", task.getTaskId(), taskInfo.taskStatus().state());
@@ -1835,7 +1864,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         break;
                     }
                     if (respondedToVersion.compareAndSet(localVersion, remoteVersion)) {
-                        eventQueue.add(new RemoteTaskExchangeSinkUpdateRequiredEvent(taskStatus));
+                        enqueue(new RemoteTaskExchangeSinkUpdateRequiredEvent(taskStatus));
                         break;
                     }
                 }
@@ -1855,23 +1884,22 @@ public class EventDrivenFaultTolerantQueryScheduler
                             // We need to process even empty events here so stageExecution.taskDescriptorLoadingComplete()
                             // is called in event handler. Otherwise, IdempotentSplitSource may be not called again
                             // if there is no other SplitAssignmentEvent for this stage in queue.
-                            eventQueue.add(new SplitAssignmentEvent(stageExecution.getStageId(), result));
+                            enqueue(new SplitAssignmentEvent(stageExecution.getStageId(), result));
                         }
 
                         @Override
                         public void onFailure(Throwable t)
                         {
-                            eventQueue.add(new StageFailureEvent(stageExecution.getStageId(), t));
+                            enqueue(new StageFailureEvent(stageExecution.getStageId(), t));
                         }
-                    }, queryExecutor));
+                    }, directExecutor()));
                 }
             }
         }
 
         public void abort()
         {
-            eventQueue.clear();
-            eventQueue.add(Event.ABORT);
+            enqueue(Event.ABORT);
         }
 
         @Override
@@ -1902,7 +1930,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // When tasks fail for some intermittent reason, delay scheduling retries
                 if (shouldDelayScheduling(failureInfo.errorCode())) {
                     schedulingDelayer.startOrProlongDelayIfNecessary();
-                    scheduledExecutorService.schedule(() -> eventQueue.add(Event.WAKE_UP), schedulingDelayer.getRemainingDelayInMillis(), MILLISECONDS);
+                    scheduledExecutorService.schedule(() -> enqueue(Event.WAKE_UP), schedulingDelayer.getRemainingDelayInMillis(), MILLISECONDS);
                 }
             }
 
@@ -1919,7 +1947,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             TaskId taskId = event.getTaskStatus().taskId();
             StageExecution stageExecution = getStageExecution(taskId.stageId());
-            stageExecution.initializeUpdateOfExchangeSinkInstanceHandle(taskId, eventQueue);
+            stageExecution.initializeUpdateOfExchangeSinkInstanceHandle(taskId, this::enqueue);
             return null;
         }
 
@@ -2517,7 +2545,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return result.buildOrThrow();
         }
 
-        public void initializeUpdateOfExchangeSinkInstanceHandle(TaskId taskId, BlockingQueue<Event> eventQueue)
+        public void initializeUpdateOfExchangeSinkInstanceHandle(TaskId taskId, Consumer<Event> enqueueEvent)
         {
             if (getState().isDone()) {
                 return;
@@ -2527,10 +2555,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             exchangeSinkInstanceHandleFuture.whenComplete((sinkInstanceHandle, throwable) -> {
                 if (throwable != null) {
-                    eventQueue.add(new StageFailureEvent(taskId.stageId(), throwable));
+                    enqueueEvent.accept(new StageFailureEvent(taskId.stageId(), throwable));
                 }
                 else {
-                    eventQueue.add(new RemoteTaskExchangeUpdatedSinkAcquired(taskId, sinkInstanceHandle));
+                    enqueueEvent.accept(new RemoteTaskExchangeUpdatedSinkAcquired(taskId, sinkInstanceHandle));
                 }
             });
         }
