@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -812,7 +813,7 @@ public abstract class BaseMySqlConnectorTest
                     LIMIT 1
                     """.formatted(events.getName(), profiles.getName())))
                     .hasPlan(anyTree(tableScan(
-                            handle -> handle instanceof JdbcTableHandle table && table.getSortOrder().isPresent() && table.getLimit().equals(Optional.of(1L)),
+                            handle -> handle instanceof JdbcTableHandle table && table.getSortOrder().isPresent() && table.getLimit().equals(OptionalLong.of(1)),
                             TupleDomain.all(),
                             ImmutableMap.of())))
                     .matches("VALUES (BIGINT '1', BIGINT '60')");
