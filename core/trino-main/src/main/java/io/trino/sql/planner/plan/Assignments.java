@@ -91,11 +91,27 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
     {
-        ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builderWithExpectedSize(assignments.size());
-        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            builder.put(entry.getKey(), rewrite.apply(entry.getValue()));
+        var iterator = assignments.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Entry<Symbol, Expression> entry = iterator.next();
+            Expression rewritten = rewrite.apply(entry.getValue());
+            if (rewritten != entry.getValue()) {
+                ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builderWithExpectedSize(assignments.size());
+                for (Entry<Symbol, Expression> unchanged : assignments.entrySet()) {
+                    if (unchanged.getKey().equals(entry.getKey())) {
+                        break;
+                    }
+                    builder.put(unchanged);
+                }
+                builder.put(entry.getKey(), rewritten);
+                while (iterator.hasNext()) {
+                    Entry<Symbol, Expression> remaining = iterator.next();
+                    builder.put(remaining.getKey(), rewrite.apply(remaining.getValue()));
+                }
+                return new Assignments(builder.buildOrThrow());
+            }
         }
-        return new Assignments(builder.buildOrThrow());
+        return this;
     }
 
     public Assignments filter(Collection<Symbol> symbols)

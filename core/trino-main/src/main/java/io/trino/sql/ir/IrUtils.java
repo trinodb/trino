@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -267,5 +268,26 @@ public final class IrUtils
         return stream(
                 Traverser.forTree((SuccessorsFunction<Expression>) Expression::children)
                         .depthFirstPreOrder(requireNonNull(node, "node is null")));
+    }
+
+    /**
+     * Applies {@code rewriter} to every item in order and returns {@code items} itself if no item changed.
+     */
+    public static <T> List<T> rewriteItems(List<T> items, UnaryOperator<T> rewriter)
+    {
+        for (int index = 0; index < items.size(); index++) {
+            T item = items.get(index);
+            T rewritten = rewriter.apply(item);
+            if (rewritten != item) {
+                ImmutableList.Builder<T> result = ImmutableList.builderWithExpectedSize(items.size());
+                result.addAll(items.subList(0, index));
+                result.add(rewritten);
+                for (int remaining = index + 1; remaining < items.size(); remaining++) {
+                    result.add(rewriter.apply(items.get(remaining)));
+                }
+                return result.build();
+            }
+        }
+        return items;
     }
 }

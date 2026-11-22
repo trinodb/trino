@@ -83,6 +83,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.sql.ir.IrUtils.rewriteItems;
 
 public class IrExpressionOptimizer
 {
@@ -167,8 +168,8 @@ public class IrExpressionOptimizer
 
     public Optional<Expression> process(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        // No rule rewrites a constant
-        if (expression instanceof Constant) {
+        // No rule rewrites a constant or a reference without bindings.
+        if (expression instanceof Constant || (expression instanceof Reference && bindings.isEmpty())) {
             return Optional.empty();
         }
 
@@ -232,66 +233,44 @@ public class IrExpressionOptimizer
             case Match e -> {
                 Optional<Expression> operand = process(e.operand(), session, symbolAllocator, bindings);
                 Optional<Expression> defaultValue = process(e.defaultValue(), session, symbolAllocator, bindings);
-                Optional<List<MatchClause>> clauses = processMatchClauses(e.clauses(), session, symbolAllocator, bindings);
-                yield operand.isPresent() || clauses.isPresent() || defaultValue.isPresent() ?
+                List<MatchClause> clauses = rewriteItems(e.clauses(), clause -> process(clause, session, symbolAllocator, bindings));
+                yield operand.isPresent() || clauses != e.clauses() || defaultValue.isPresent() ?
                         Optional.of(new Match(
                                 operand.orElse(e.operand()),
-                                clauses.orElse(e.clauses()),
+                                clauses,
                                 defaultValue.orElse(e.defaultValue()))) :
                         Optional.empty();
             }
             case Case e -> {
                 Optional<Expression> defaultValue = process(e.defaultValue(), session, symbolAllocator, bindings);
-                Optional<List<WhenClause>> clauses = processClauses(e.whenClauses(), session, symbolAllocator, bindings);
-                yield clauses.isPresent() || defaultValue.isPresent() ?
+                List<WhenClause> clauses = rewriteItems(e.whenClauses(), clause -> process(clause, session, symbolAllocator, bindings));
+                yield clauses != e.whenClauses() || defaultValue.isPresent() ?
                         Optional.of(new Case(
-                                clauses.orElse(e.whenClauses()),
+                                clauses,
                                 defaultValue.orElse(e.defaultValue()))) :
                         Optional.empty();
             }
         };
     }
 
-    /**
-     * @return Optional.empty() if none of the clauses changed
-     */
-    private Optional<List<WhenClause>> processClauses(List<WhenClause> clauses, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
+    private WhenClause process(WhenClause clause, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        boolean changed = false;
-        ImmutableList.Builder<WhenClause> optimized = ImmutableList.builder();
-        for (WhenClause clause : clauses) {
-            Optional<Expression> operand = process(clause.operand(), session, symbolAllocator, bindings);
-            Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
-            if (operand.isPresent() || result.isPresent()) {
-                optimized.add(new WhenClause(operand.orElse(clause.operand()), result.orElse(clause.result())));
-            }
-            else {
-                optimized.add(clause);
-            }
-            changed = changed || operand.isPresent() || result.isPresent();
+        Optional<Expression> operand = process(clause.operand(), session, symbolAllocator, bindings);
+        Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
+        if (operand.isPresent() || result.isPresent()) {
+            return new WhenClause(operand.orElse(clause.operand()), result.orElse(clause.result()));
         }
-
-        return changed ? Optional.of(optimized.build()) : Optional.empty();
+        return clause;
     }
 
-    /// @return Optional.empty() if none of the clauses changed
-    private Optional<List<MatchClause>> processMatchClauses(List<MatchClause> clauses, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
+    private MatchClause process(MatchClause clause, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        boolean changed = false;
-        ImmutableList.Builder<MatchClause> optimized = ImmutableList.builder();
-        for (MatchClause clause : clauses) {
-            Optional<Expression> predicate = process(clause.predicate(), session, symbolAllocator, bindings);
-            Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
-            if (predicate.isPresent() || result.isPresent()) {
-                optimized.add(new MatchClause(predicate.orElse(clause.predicate()), result.orElse(clause.result())));
-            }
-            else {
-                optimized.add(clause);
-            }
-            changed = changed || predicate.isPresent() || result.isPresent();
+        Optional<Expression> predicate = process(clause.predicate(), session, symbolAllocator, bindings);
+        Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
+        if (predicate.isPresent() || result.isPresent()) {
+            return new MatchClause(predicate.orElse(clause.predicate()), result.orElse(clause.result()));
         }
-
-        return changed ? Optional.of(optimized.build()) : Optional.empty();
+        return clause;
     }
 
     /**
@@ -299,15 +278,8 @@ public class IrExpressionOptimizer
      */
     private Optional<List<Expression>> process(List<Expression> expressions, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        boolean changed = false;
-        ImmutableList.Builder<Expression> result = ImmutableList.builder();
-        for (Expression expression : expressions) {
-            Optional<Expression> optimized = process(expression, session, symbolAllocator, bindings);
-            changed = changed || optimized.isPresent();
-            result.add(optimized.orElse(expression));
-        }
-
-        return changed ? Optional.of(result.build()) : Optional.empty();
+        List<Expression> result = rewriteItems(expressions, expression -> process(expression, session, symbolAllocator, bindings).orElse(expression));
+        return result == expressions ? Optional.empty() : Optional.of(result);
     }
 
     private Optional<Expression> applyRules(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
