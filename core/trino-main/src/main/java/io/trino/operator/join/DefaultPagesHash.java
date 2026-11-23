@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +45,14 @@ public final class DefaultPagesHash
         implements PagesHash
 {
     private static final int INSTANCE_SIZE = instanceSize(DefaultPagesHash.class);
+    // When position count fits in 24 bits (up to 16,777,216 rows per partition), pack a 7-bit hash
+    // tag (bits 24..30) in the upper byte of keys[] with bit 31 cleared so every occupied entry is
+    // non-negative and distinct from the -1 empty sentinel. This avoids both allocating
+    // positionToHashes[] and taking a second random memory read on hash collisions and probes.
+    static final int MAX_PACKED_POSITIONS = 1 << 24;
+    private static final int KEY_MASK = MAX_PACKED_POSITIONS - 1;
+    private static final int TAG_MASK = 0x7F00_0000;
+
     private final int positionCount;
     private final PagesHashStrategy pagesHashStrategy;
     // Resolves a row number to its (block index, position) for output.
@@ -53,9 +62,8 @@ public final class DefaultPagesHash
     private final int[] keys;
     private final long size;
 
-    // Native array of hashes for faster collisions resolution compared
-    // to accessing values in blocks. We use bytes to reduce memory foot print
-    // and there is no performance gain from storing full hashes
+    // Non-null only when positionCount > MAX_PACKED_POSITIONS (unpacked fallback)
+    @Nullable
     private final byte[] positionToHashes;
 
     public DefaultPagesHash(
@@ -67,6 +75,28 @@ public final class DefaultPagesHash
             InterpretedHashGenerator hashGenerator,
             PositionLinks.FactoryBuilder positionLinks,
             HashArraySizeSupplier hashArraySizeSupplier)
+    {
+        this(addresses,
+                pagesHashStrategy,
+                channels,
+                positionCounts,
+                joinChannels,
+                hashGenerator,
+                positionLinks,
+                hashArraySizeSupplier,
+                addresses.size() <= MAX_PACKED_POSITIONS);
+    }
+
+    DefaultPagesHash(
+            LongArrayList addresses,
+            PagesHashStrategy pagesHashStrategy,
+            List<ObjectArrayList<Block>> channels,
+            IntArrayList positionCounts,
+            List<Integer> joinChannels,
+            InterpretedHashGenerator hashGenerator,
+            PositionLinks.FactoryBuilder positionLinks,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            boolean usePackedTags)
     {
         requireNonNull(addresses, "addresses is null");
         this.positionCount = addresses.size();
@@ -80,8 +110,7 @@ public final class DefaultPagesHash
         mask = hashSize - 1;
         keys = new int[hashSize];
         Arrays.fill(keys, -1);
-
-        positionToHashes = new byte[positionCount];
+        positionToHashes = (usePackedTags && positionCount <= MAX_PACKED_POSITIONS) ? null : new byte[positionCount];
 
         int pageCount = positionCounts.size();
         int maxPagePositions = 0;
@@ -120,49 +149,75 @@ public final class DefaultPagesHash
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
-                sizeOf(keys) + sizeOf(positionToHashes) + blockPositionIndex.getRetainedSizeInBytes();
+                sizeOf(keys) + (positionToHashes == null ? 0 : sizeOf(positionToHashes)) +
+                blockPositionIndex.getRetainedSizeInBytes();
+    }
+
+    private static int encodeTag(@Nullable byte[] positionToHashes, long rawHash)
+    {
+        return positionToHashes == null ? (((int) rawHash) & 0x7F) << 24 : (byte) rawHash;
+    }
+
+    private static int recordTag(@Nullable byte[] positionToHashes, int position, long rawHash)
+    {
+        if (positionToHashes == null) {
+            return (((int) rawHash) & 0x7F) << 24;
+        }
+        byte hashByte = (byte) rawHash;
+        positionToHashes[position] = hashByte;
+        return hashByte;
     }
 
     private void indexRange(PositionLinks.FactoryBuilder positionLinks, int offset, int length, long[] pageHashes)
     {
+        byte[] positionToHashes = this.positionToHashes;
+        int mask = this.mask;
         for (int index = 0; index < length; index++) {
             int position = offset + index;
             long hash = pageHashes[index];
-            positionToHashes[position] = (byte) hash;
+            int tag = recordTag(positionToHashes, position, hash);
             int bucket = getHashPosition(hash, mask);
-            insertValue(positionLinks, position, (byte) hash, bucket);
+            insertValue(positionLinks, position, tag, bucket);
         }
     }
 
     private void indexPositions(PositionLinks.FactoryBuilder positionLinks, int offset, int[] positions, long[] pageHashes)
     {
+        byte[] positionToHashes = this.positionToHashes;
+        int mask = this.mask;
         for (int index : positions) {
             int position = offset + index;
             long hash = pageHashes[index];
-            positionToHashes[position] = (byte) hash;
+            int tag = recordTag(positionToHashes, position, hash);
             int bucket = getHashPosition(hash, mask);
-            insertValue(positionLinks, position, (byte) hash, bucket);
+            insertValue(positionLinks, position, tag, bucket);
         }
     }
 
-    private void insertValue(PositionLinks.FactoryBuilder positionLinks, int realPosition, byte hash, int pos)
+    private void insertValue(PositionLinks.FactoryBuilder positionLinks, int realPosition, int tag, int pos)
     {
+        int[] keys = this.keys;
+        byte[] positionToHashes = this.positionToHashes;
+        int mask = this.mask;
         // look for an empty slot or a slot containing this key
-        while (keys[pos] != -1) {
-            int currentKey = keys[pos];
-            if (hash == positionToHashes[currentKey] && positionEqualsPositionIgnoreNulls(currentKey, realPosition)) {
-                // found a slot for this key
-                // link the new key position to the current key position
-                realPosition = positionLinks.link(realPosition, currentKey);
+        int entry;
+        while ((entry = keys[pos]) != -1) {
+            if ((positionToHashes == null ? (entry & TAG_MASK) : positionToHashes[entry]) == tag) {
+                int currentKey = positionToHashes == null ? entry & KEY_MASK : entry;
+                if (positionEqualsPositionIgnoreNulls(currentKey, realPosition)) {
+                    // found a slot for this key
+                    // link the new key position to the current key position
+                    realPosition = positionLinks.link(realPosition, currentKey);
 
-                // key[pos] updated outside of this loop
-                break;
+                    // keys[pos] updated outside of this loop
+                    break;
+                }
             }
-            // increment position and mask to handler wrap around
+            // increment position and mask to handle wrap around
             pos = (pos + 1) & mask;
         }
 
-        keys[pos] = realPosition;
+        keys[pos] = positionToHashes == null ? tag | realPosition : realPosition;
     }
 
     @Override
@@ -186,13 +241,21 @@ public final class DefaultPagesHash
     @Override
     public int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash)
     {
+        int[] keys = this.keys;
+        byte[] positionToHashes = this.positionToHashes;
+        int mask = this.mask;
         int pos = getHashPosition(rawHash, mask);
+        int tag = encodeTag(positionToHashes, rawHash);
 
-        while (keys[pos] != -1) {
-            if (positionEqualsCurrentRowIgnoreNulls(keys[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
-                return keys[pos];
+        int entry;
+        while ((entry = keys[pos]) != -1) {
+            if ((positionToHashes == null ? (entry & TAG_MASK) : positionToHashes[entry]) == tag) {
+                int key = positionToHashes == null ? entry & KEY_MASK : entry;
+                if (positionEqualsCurrentRowIgnoreNulls(key, rightPosition, hashChannelsPage)) {
+                    return key;
+                }
             }
-            // increment position and mask to handler wrap around
+            // increment position and mask to handle wrap around
             pos = (pos + 1) & mask;
         }
         return -1;
@@ -209,16 +272,23 @@ public final class DefaultPagesHash
         int[] result = new int[positionCount];
         findPositions(positionCount, hashPositions, result);
 
+        byte[] positionToHashes = this.positionToHashes;
         int[] remaining = new int[positionCount];
         int remainingCount = 0;
         for (int i = 0; i < positionCount; i++) {
-            int key = result[i];
-            if (key != -1) {
+            int entry = result[i];
+            if (entry != -1) {
                 int rightPosition = positions[i];
-                if (!positionEqualsCurrentRowIgnoreNulls(key, (byte) rawHashes[rightPosition], rightPosition, hashChannelsPage)) {
-                    result[i] = -1;
-                    remaining[remainingCount++] = i;
+                int tag = encodeTag(positionToHashes, rawHashes[rightPosition]);
+                if ((positionToHashes == null ? (entry & TAG_MASK) : positionToHashes[entry]) == tag) {
+                    int key = positionToHashes == null ? entry & KEY_MASK : entry;
+                    if (positionEqualsCurrentRowIgnoreNulls(key, rightPosition, hashChannelsPage)) {
+                        result[i] = key;
+                        continue;
+                    }
                 }
+                result[i] = -1;
+                remaining[remainingCount++] = i;
             }
         }
 
@@ -231,17 +301,23 @@ public final class DefaultPagesHash
 
     private void findRemainingPositions(int[] positions, Page hashChannelsPage, long[] rawHashes, int[] hashPositions, int[] result, int remainingCount, int[] remaining)
     {
+        int[] keys = this.keys;
+        byte[] positionToHashes = this.positionToHashes;
+        int mask = this.mask;
         for (int i = 0; i < remainingCount; i++) {
             int index = remaining[i];
             int position = (hashPositions[index] + 1) & mask; // hashPositions[index] position has already been checked
             int rightPosition = positions[index];
-            byte hashByte = (byte) rawHashes[rightPosition];
+            int tag = encodeTag(positionToHashes, rawHashes[rightPosition]);
 
-            int key;
-            while ((key = keys[position]) != -1) {
-                if (positionEqualsCurrentRowIgnoreNulls(key, hashByte, rightPosition, hashChannelsPage)) {
-                    result[index] = key;
-                    break;
+            int entry;
+            while ((entry = keys[position]) != -1) {
+                if ((positionToHashes == null ? (entry & TAG_MASK) : positionToHashes[entry]) == tag) {
+                    int key = positionToHashes == null ? entry & KEY_MASK : entry;
+                    if (positionEqualsCurrentRowIgnoreNulls(key, rightPosition, hashChannelsPage)) {
+                        result[index] = key;
+                        break;
+                    }
                 }
                 // increment position and mask to handle wrap around
                 position = (position + 1) & mask;
@@ -274,12 +350,8 @@ public final class DefaultPagesHash
         pagesHashStrategy.appendTo(blockIndex, blockPositionIndex.decodePosition(rowNumber, blockIndex), pageBuilder, outputChannelOffset);
     }
 
-    private boolean positionEqualsCurrentRowIgnoreNulls(int leftPosition, byte rawHash, int rightPosition, Page rightPage)
+    private boolean positionEqualsCurrentRowIgnoreNulls(int leftPosition, int rightPosition, Page rightPage)
     {
-        if (positionToHashes[leftPosition] != rawHash) {
-            return false;
-        }
-
         int blockIndex = blockPositionIndex.decodeBlockIndex(leftPosition);
         int blockPosition = blockPositionIndex.decodePosition(leftPosition, blockIndex);
 
@@ -312,7 +384,7 @@ public final class DefaultPagesHash
                 (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
                 blocksSizeInBytes +
                 sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
-                sizeOfByteArray(positionCount) +
+                (positionCount <= MAX_PACKED_POSITIONS ? 0 : sizeOfByteArray(positionCount)) +
                 BlockPositionIndex.getEstimatedRetainedSizeInBytes(blockCount, positionCount);
     }
 }
