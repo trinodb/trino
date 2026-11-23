@@ -480,9 +480,8 @@
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
+                <configuration combine.children="append">
                     <ignoredResourcePatterns>
-                        <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>LICENSE-EDL-1.0.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>LICENSE-EPL-1.0.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
