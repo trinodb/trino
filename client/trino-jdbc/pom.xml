@@ -409,6 +409,7 @@
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
+                                    <!-- JDK11 support dropped by units 1.9+ -->
                                     <exclude>io.airlift:units</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
