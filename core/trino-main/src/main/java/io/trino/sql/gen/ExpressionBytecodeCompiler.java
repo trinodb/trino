@@ -51,6 +51,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
 import java.util.IdentityHashMap;
@@ -75,7 +76,7 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionBytecodeCompiler
 {
     // matched on disjoint shapes, so the order does not change the result
-    private static final List<ProjectionWriter> PROJECTION_WRITERS = ImmutableList.of(new RowProjectionWriter(), new CaseProjectionWriter());
+    private static final List<ProjectionWriter> PROJECTION_WRITERS = ImmutableList.of(new RowProjectionWriter(), new CaseProjectionWriter(), new LetProjectionWriter());
 
     private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
@@ -192,6 +193,15 @@ public class ExpressionBytecodeCompiler
         public BytecodeNode write(Expression expression, Type type, BytecodeExpression output)
         {
             return compileToBlock(expression, type, scope, lets, output, false);
+        }
+
+        @Override
+        public ProjectionWriter.Context withLet(Symbol name, Variable value, Variable wasNull)
+        {
+            return new WriteContext(scope, ImmutableMap.<String, LetBinding>builder()
+                    .putAll(lets)
+                    .put(name.name(), new LetBinding(value, wasNull))
+                    .buildOrThrow());
         }
     }
 

@@ -15,9 +15,11 @@ package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.Symbol;
 
 /**
  * Generates code that evaluates an expression of a particular shape and writes the result straight into a
@@ -57,5 +59,10 @@ public interface ProjectionWriter
          * Writes a nested expression to {@code output}.
          */
         BytecodeNode write(Expression expression, Type type, BytecodeExpression output);
+
+        /**
+         * A context in which {@code name} refers to the given temp variables, as bound by a LET.
+         */
+        Context withLet(Symbol name, Variable value, Variable wasNull);
     }
 }

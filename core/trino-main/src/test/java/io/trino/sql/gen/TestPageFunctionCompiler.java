@@ -626,6 +626,47 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testRowProjectionInLet()
+    {
+        // the body of a LET is written straight into the output, with the binding still visible to it
+        RowType inputType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        RowType resultType = RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR));
+        Symbol y = new Symbol(inputType, "y");
+        Expression body = new Case(
+                ImmutableList.of(new WhenClause(new IsNull(new Reference(inputType, "y")), new Constant(resultType, null))),
+                new Row(ImmutableList.of(new FieldReference(new Reference(inputType, "y"), 1), new FieldReference(new Reference(inputType, "y"), 0)), resultType));
+        Expression let = new Let(y, new Reference(inputType, "x"), body);
+        // the null field before the LET must not be visible to it
+        RowType outerType = RowType.anonymous(ImmutableList.of(VARCHAR, resultType));
+        Expression outer = new Row(ImmutableList.of(new Constant(VARCHAR, null), let), outerType);
+
+        RowBlockBuilder input = (RowBlockBuilder) inputType.createBlockBuilder(null, 3);
+        input.buildEntry(fields -> {
+            VARCHAR.writeSlice(fields.get(0), utf8Slice("a"));
+            BIGINT.writeLong(fields.get(1), 1);
+        });
+        input.appendNull();
+        input.buildEntry(fields -> {
+            fields.get(0).appendNull();
+            fields.get(1).appendNull();
+        });
+        Page page = new Page(input.build());
+
+        for (Expression expression : ImmutableList.of(let, outer)) {
+            PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                    .compileProjection(expression, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                    .get();
+            Block result = project(projection, page, SelectedPositions.positionsRange(0, 3));
+            Type type = expression.type();
+            List<Object> expected = Arrays.asList(Arrays.asList(1L, "a"), null, Arrays.asList(null, null));
+            for (int position = 0; position < 3; position++) {
+                Object value = expression == let ? expected.get(position) : Arrays.asList(null, expected.get(position));
+                assertThat(type.getObjectValue(result, position)).isEqualTo(value);
+            }
+        }
+    }
+
+    @Test
     public void testCompiledClassesAreHidden()
             throws ReflectiveOperationException
     {
