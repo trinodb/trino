@@ -277,7 +277,7 @@ public class VariableWidthBlockBuilder
         positionCount += length;
 
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION);
+            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION + totalSize);
         }
     }
 
@@ -318,7 +318,6 @@ public class VariableWidthBlockBuilder
             int sourceStart = rawOffsets[rawArrayBase + position];
             int sourceLength = rawOffsets[rawArrayBase + position + 1] - sourceStart;
             System.arraycopy(sourceBytes, sourceBytesOffset + sourceStart, bytes, offsets[positionCount + i], sourceLength);
-            totalSize += sourceLength;
         }
 
         // update nulls

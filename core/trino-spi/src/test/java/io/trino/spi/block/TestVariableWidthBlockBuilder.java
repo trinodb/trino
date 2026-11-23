@@ -392,4 +392,22 @@ final class TestVariableWidthBlockBuilder
         }
         return actualValues;
     }
+
+    @Test
+    public void testAppendReportsSizeToStatus()
+    {
+        VariableWidthBlockBuilder sourceBuilder = new VariableWidthBlockBuilder(null, 4, 0);
+        sourceBuilder.writeEntry(utf8Slice("a"));
+        sourceBuilder.appendNull();
+        sourceBuilder.writeEntry(utf8Slice("bcd"));
+        sourceBuilder.writeEntry(utf8Slice("efghij"));
+        VariableWidthBlock source = sourceBuilder.buildValueBlock();
+
+        PageBuilderStatus status = new PageBuilderStatus(1000);
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(status.createBlockBuilderStatus(), 0, 0);
+        builder.appendRange(source, 1, 3);
+        assertThat(status.getSizeInBytes()).isEqualTo(builder.getSizeInBytes());
+        builder.appendPositions(source, new int[] {3, 0, 2}, 0, 3);
+        assertThat(status.getSizeInBytes()).isEqualTo(builder.getSizeInBytes());
+    }
 }
