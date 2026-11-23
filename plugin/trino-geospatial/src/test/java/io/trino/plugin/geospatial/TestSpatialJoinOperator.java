@@ -413,15 +413,12 @@ public class TestSpatialJoinOperator
 
         // we will yield 40 times due to filterFunction
         for (int i = 0; i < 40; i++) {
-            driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
             assertThat(operator.getOutput()).isNull();
             assertThat(filterFunctionCalls.get())
                     .describedAs("Expected join to stop processing (yield) after calling filter function once")
                     .isEqualTo(i + 1);
-            driverContext.getYieldSignal().reset();
+            driverContext.getYieldSignal().resetYieldForTesting();
         }
-        // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
-        driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
         Page output = operator.getOutput();
         assertThat(output).isNotNull();
 
