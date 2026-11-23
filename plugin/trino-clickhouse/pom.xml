@@ -186,6 +186,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- Pulled in by clickhouse client with the "cloud" classifier in compile scope -->
+                    <groupId>com.github.luben</groupId>
+                    <artifactId>zstd-jni</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -261,23 +268,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <!-- Version pinned by the ClickHouse client (cloud classifier); newer one comes only from test dependencies -->
-                                <exclude>com.github.luben:zstd-jni</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
-                    </rules>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

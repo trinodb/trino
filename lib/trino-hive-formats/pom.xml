@@ -153,7 +153,6 @@
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
-            <version>1.5.7-28</version>
             <scope>runtime</scope>
         </dependency>
 

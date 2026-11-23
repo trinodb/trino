@@ -369,7 +369,6 @@
                             <excludes combine.children="append">
                                 <!-- Versions pinned by opensearch; newer ones come only from test dependencies -->
                                 <exclude>org.apache.lucene:lucene-analysis-common</exclude>
-                                <exclude>com.github.luben:zstd-jni</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>

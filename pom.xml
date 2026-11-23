@@ -212,6 +212,7 @@
         <dep.tcnative.version>2.0.86.Final</dep.tcnative.version>
         <dep.testng.version>7.8.0</dep.testng.version>
         <dep.zookeeper.version>3.9.7</dep.zookeeper.version>
+        <dep.zstd-jni.version>1.5.7-28</dep.zstd-jni.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -397,6 +398,19 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>3.3.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${dep.zstd-jni.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${dep.zstd-jni.version}</version>
+                <classifier>cloud</classifier>
             </dependency>
 
             <dependency>
@@ -1991,10 +2005,6 @@
                 <version>${dep.parquet.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.github.luben</groupId>
-                        <artifactId>zstd-jni</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>commons-pool</groupId>
                         <artifactId>commons-pool</artifactId>
                     </exclusion>
@@ -2496,18 +2506,6 @@
                                     <resource>opencensus/proto/trace/v1/trace.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace_config.proto</resource>
                                 </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>com.github.luben</groupId>
-                                        <artifactId>zstd-jni</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>net.snowflake</groupId>
-                                        <artifactId>snowflake-jdbc</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
                             </exception>
                             <exception>
                                 <conflictingDependencies>
