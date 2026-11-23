@@ -204,30 +204,27 @@ public final class DefaultPagesHash
         int positionCount = positions.length;
         int[] hashPositions = calculateHashPositions(positions, rawHashes, positionCount);
 
-        int[] found = new int[positionCount];
-        int foundCount = 0;
+        // Search for positions in the hash array directly into result[] to maximize
+        // memory-level parallelism without allocating a separate foundKeys[] array.
         int[] result = new int[positionCount];
-        Arrays.fill(result, -1);
-        int[] foundKeys = new int[positionCount];
+        findPositions(positionCount, hashPositions, result);
 
-        // Search for positions in the hash array. This is the most CPU-consuming part as
-        // it relies on random memory accesses
-        findPositions(positionCount, hashPositions, foundKeys);
-        // Found positions are put into `found` array
+        int[] remaining = new int[positionCount];
+        int remainingCount = 0;
         for (int i = 0; i < positionCount; i++) {
-            if (foundKeys[i] != -1) {
-                found[foundCount++] = i;
+            int key = result[i];
+            if (key != -1) {
+                int rightPosition = positions[i];
+                if (!positionEqualsCurrentRowIgnoreNulls(key, (byte) rawHashes[rightPosition], rightPosition, hashChannelsPage)) {
+                    result[i] = -1;
+                    remaining[remainingCount++] = i;
+                }
             }
         }
 
-        // At this step we determine if the found keys were indeed the proper ones or it is a hash collision.
-        // The result array is updated for the found ones, while the collisions land into `remaining` array.
-        int remainingCount = checkFoundPositions(positions, hashChannelsPage, rawHashes, found, foundCount, result, foundKeys);
-        int[] remaining = found; // Rename for readability
-
-        // At this point for any reasoable load factor of a hash array (< .75), there is no more than
-        // 10 - 15% of positions left. We search for them in a sequential order and update the result array.
-        findRemainingPositions(positions, hashChannelsPage, rawHashes, hashPositions, result, remainingCount, remaining);
+        if (remainingCount > 0) {
+            findRemainingPositions(positions, hashChannelsPage, rawHashes, hashPositions, result, remainingCount, remaining);
+        }
 
         return result;
     }
@@ -237,45 +234,25 @@ public final class DefaultPagesHash
         for (int i = 0; i < remainingCount; i++) {
             int index = remaining[i];
             int position = (hashPositions[index] + 1) & mask; // hashPositions[index] position has already been checked
+            int rightPosition = positions[index];
+            byte hashByte = (byte) rawHashes[rightPosition];
 
-            while (keys[position] != -1) {
-                if (positionEqualsCurrentRowIgnoreNulls(keys[position], (byte) rawHashes[positions[index]], positions[index], hashChannelsPage)) {
-                    result[index] = keys[position];
+            int key;
+            while ((key = keys[position]) != -1) {
+                if (positionEqualsCurrentRowIgnoreNulls(key, hashByte, rightPosition, hashChannelsPage)) {
+                    result[index] = key;
                     break;
                 }
-                // increment position and mask to handler wrap around
+                // increment position and mask to handle wrap around
                 position = (position + 1) & mask;
             }
         }
     }
 
-    private int checkFoundPositions(
-            int[] positions,
-            Page hashChannelsPage,
-            long[] rawHashes,
-            int[] found,
-            int foundCount,
-            int[] result,
-            int[] foundKeys)
-    {
-        int[] remaining = found; // Rename for readability
-        int remainingCount = 0;
-        for (int i = 0; i < foundCount; i++) {
-            int index = found[i];
-            if (positionEqualsCurrentRowIgnoreNulls(foundKeys[index], (byte) rawHashes[positions[index]], positions[index], hashChannelsPage)) {
-                result[index] = foundKeys[index];
-            }
-            else {
-                remaining[remainingCount++] = index;
-            }
-        }
-        return remainingCount;
-    }
-
-    private void findPositions(int positionCount, int[] hashPositions, int[] foundKeys)
+    private void findPositions(int positionCount, int[] hashPositions, int[] result)
     {
         for (int i = 0; i < positionCount; i++) {
-            foundKeys[i] = keys[hashPositions[i]];
+            result[i] = keys[hashPositions[i]];
         }
     }
 
