@@ -541,23 +541,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <exclude>org.apache.thrift:libthrift</exclude>
-                                <exclude>io.netty:netty</exclude>
-                                <exclude>io.grpc:grpc-netty-shaded</exclude>
-                                <exclude>io.grpc:grpc-protobuf</exclude>
-                                <exclude>io.grpc:grpc-stub</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
-                    </rules>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
