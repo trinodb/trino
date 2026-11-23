@@ -552,7 +552,6 @@
                                 <exclude>io.grpc:grpc-netty-shaded</exclude>
                                 <exclude>io.grpc:grpc-protobuf</exclude>
                                 <exclude>io.grpc:grpc-stub</exclude>
-                                <exclude>org.apache.lucene:lucene-analysis-common</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
