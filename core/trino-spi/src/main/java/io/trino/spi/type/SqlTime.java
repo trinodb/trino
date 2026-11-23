@@ -15,14 +15,7 @@ package io.trino.spi.type;
 
 import java.util.Objects;
 
-import static io.trino.spi.type.TimeType.MAX_PRECISION;
-import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
-import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.String.format;
@@ -86,33 +79,6 @@ public final class SqlTime
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder(8 + (precision == 0 ? 0 : 1 + precision));
-        appendTwoDigits((int) (picos / PICOSECONDS_PER_HOUR), builder);
-        builder.append(':');
-        appendTwoDigits((int) ((picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR), builder);
-        builder.append(':');
-        appendTwoDigits((int) ((picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE), builder);
-
-        if (precision > 0) {
-            long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append('.');
-            builder.setLength(builder.length() + precision);
-
-            for (int index = builder.length() - 1; index > 8; index--) {
-                long temp = scaledFraction / 10;
-                int digit = (int) (scaledFraction - (temp * 10));
-                scaledFraction = temp;
-                builder.setCharAt(index, (char) ('0' + digit));
-            }
-        }
-        return builder.toString();
-    }
-
-    private static void appendTwoDigits(int value, StringBuilder builder)
-    {
-        if (value < 10) {
-            builder.append('0');
-        }
-        builder.append(value);
+        return Timestamps.formatTime(precision, picos);
     }
 }

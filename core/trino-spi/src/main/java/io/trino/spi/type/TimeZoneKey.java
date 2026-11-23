@@ -203,6 +203,8 @@ public final class TimeZoneKey
     private final String id;
 
     private final short key;
+    // Lazily cached because ZoneId.of is comparatively expensive on hot formatting paths
+    private volatile ZoneId zoneId;
 
     TimeZoneKey(String id, short key)
     {
@@ -220,7 +222,12 @@ public final class TimeZoneKey
 
     public ZoneId getZoneId()
     {
-        return ZoneId.of(id);
+        ZoneId result = zoneId;
+        if (result == null) {
+            result = ZoneId.of(id);
+            zoneId = result;
+        }
+        return result;
     }
 
     @JsonValue

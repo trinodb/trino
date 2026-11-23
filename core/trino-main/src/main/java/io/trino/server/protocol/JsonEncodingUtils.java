@@ -41,7 +41,6 @@ import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
@@ -58,16 +57,12 @@ import io.trino.util.variant.VariantUtil;
 import tools.jackson.core.JsonGenerator;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -86,27 +81,18 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.formatTime;
+import static io.trino.spi.type.Timestamps.formatTimeWithTimeZone;
+import static io.trino.spi.type.Timestamps.formatTimestamp;
+import static io.trino.spi.type.Timestamps.formatTimestampWithTimeZone;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
-import static io.trino.type.DateTimes.rescale;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
-import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -115,8 +101,6 @@ public final class JsonEncodingUtils
     private JsonEncodingUtils() {}
 
     private static final boolean VALIDATE_VALUES = JsonEncodingUtils.class.desiredAssertionStatus();
-
-    private static final AtomicReferenceArray<ZoneId> ZONE_IDS = new AtomicReferenceArray<>(MAX_TIME_ZONE_KEY + 1);
 
     private static final BigintEncoder BIGINT_ENCODER = new BigintEncoder();
     private static final BooleanEncoder BOOLEAN_ENCODER = new BooleanEncoder();
@@ -566,79 +550,6 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static int writeDigits(char[] buffer, int offset, long value, int digits)
-    {
-        int end = offset + digits;
-        for (int index = end - 1; index >= offset; index--) {
-            buffer[index] = (char) ('0' + value % 10);
-            value /= 10;
-        }
-        return end;
-    }
-
-    private static int writeDate(char[] buffer, LocalDate date)
-    {
-        int year = date.getYear();
-        int offset = 0;
-        if (year < 0) {
-            buffer[offset] = '-';
-            offset++;
-        }
-        else if (year > 9999) {
-            buffer[offset] = '+';
-            offset++;
-        }
-        int yearDigits = 4;
-        for (int remaining = Math.abs(year) / 10_000; remaining != 0; remaining /= 10) {
-            yearDigits++;
-        }
-        offset = writeDigits(buffer, offset, Math.abs(year), yearDigits);
-        buffer[offset] = '-';
-        offset++;
-        offset = writeDigits(buffer, offset, date.getMonthValue(), 2);
-        buffer[offset] = '-';
-        offset++;
-        return writeDigits(buffer, offset, date.getDayOfMonth(), 2);
-    }
-
-    private static int writeTime(char[] buffer, int offset, long picos, int precision)
-    {
-        offset = writeDigits(buffer, offset, picos / PICOSECONDS_PER_HOUR, 2);
-        buffer[offset] = ':';
-        offset++;
-        offset = writeDigits(buffer, offset, (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR, 2);
-        buffer[offset] = ':';
-        offset++;
-        offset = writeDigits(buffer, offset, (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE, 2);
-        if (precision > 0) {
-            buffer[offset] = '.';
-            offset++;
-            long fraction = rescale(picos % PICOSECONDS_PER_SECOND, TimeType.MAX_PRECISION, precision);
-            writeDigits(buffer, offset, fraction, precision);
-            offset += precision;
-        }
-        return offset;
-    }
-
-    private static void writeTimestamp(JsonGenerator generator, LocalDateTime dateTime, long fraction, int precision, String zone)
-            throws IOException
-    {
-        // Sign, up to nine year digits, -MM-dd, space, HH:mm:ss, fraction, and optional zone.
-        char[] buffer = new char[1 + 9 + 3 + 3 + 1 + 8 + (precision == 0 ? 0 : 1 + precision) + (zone == null ? 0 : zone.length() + 1)];
-        int length = writeDate(buffer, dateTime.toLocalDate());
-        buffer[length] = ' ';
-        length++;
-        long picos = dateTime.toLocalTime().toSecondOfDay() * PICOSECONDS_PER_SECOND + fraction;
-        length = writeTime(buffer, length, picos, precision);
-        if (zone != null) {
-            buffer[length] = ' ';
-            length++;
-            zone.getChars(0, zone.length(), buffer, length);
-            length += zone.length();
-        }
-        generator.writeString(buffer, 0, length);
-    }
-
     private record ShortDecimalEncoder(DecimalType type)
             implements TypeEncoder
     {
@@ -691,10 +602,7 @@ public final class JsonEncodingUtils
                 return;
             }
             validateValue(DATE, block, position);
-            // Sign, at most seven year digits for an int epoch day, and -MM-dd.
-            char[] buffer = new char[1 + 7 + 3 + 3];
-            int length = writeDate(buffer, LocalDate.ofEpochDay(DATE.getInt(block, position)));
-            generator.writeString(buffer, 0, length);
+            generator.writeString(LocalDate.ofEpochDay(DATE.getInt(block, position)).toString());
         }
     }
 
@@ -716,9 +624,7 @@ public final class JsonEncodingUtils
                 picos = round(picos, 9) % PICOSECONDS_PER_DAY;
                 precision = 3;
             }
-            char[] buffer = new char[8 + (precision == 0 ? 0 : 1 + precision)];
-            int length = writeTime(buffer, 0, picos, precision);
-            generator.writeString(buffer, 0, length);
+            generator.writeString(formatTime(precision, picos));
         }
     }
 
@@ -752,15 +658,7 @@ public final class JsonEncodingUtils
                 picos = round(picos, 9) % PICOSECONDS_PER_DAY;
                 precision = 3;
             }
-            char[] buffer = new char[8 + (precision == 0 ? 0 : 1 + precision) + 6];
-            int length = writeTime(buffer, 0, picos, precision);
-            buffer[length] = offsetMinutes >= 0 ? '+' : '-';
-            length++;
-            length = writeDigits(buffer, length, Math.abs(offsetMinutes / 60), 2);
-            buffer[length] = ':';
-            length++;
-            length = writeDigits(buffer, length, Math.abs(offsetMinutes % 60), 2);
-            generator.writeString(buffer, 0, length);
+            generator.writeString(formatTimeWithTimeZone(precision, picos, offsetMinutes));
         }
     }
 
@@ -794,9 +692,7 @@ public final class JsonEncodingUtils
                 picosOfMicro = 0;
                 precision = 3;
             }
-            LocalDateTime dateTime = LocalDateTime.ofEpochSecond(floorDiv(epochMicros, MICROSECONDS_PER_SECOND), 0, UTC);
-            long fraction = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
-            writeTimestamp(generator, dateTime, fraction, precision, null);
+            generator.writeString(formatTimestamp(precision, epochMicros, picosOfMicro));
         }
     }
 
@@ -833,15 +729,7 @@ public final class JsonEncodingUtils
                 picosOfMilli = 0;
                 precision = 3;
             }
-            TimeZoneKey zoneKey = unpackZoneKey(packedEpochMillis);
-            ZoneId zone = ZONE_IDS.get(zoneKey.getKey());
-            if (zone == null) {
-                zone = zoneKey.getZoneId();
-                ZONE_IDS.compareAndSet(zoneKey.getKey(), null, zone);
-            }
-            LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zone);
-            long fraction = (long) floorMod(epochMillis, MILLISECONDS_PER_SECOND) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
-            writeTimestamp(generator, dateTime, fraction, precision, zone.getId());
+            generator.writeString(formatTimestampWithTimeZone(precision, epochMillis, picosOfMilli, unpackZoneKey(packedEpochMillis).getZoneId()));
         }
     }
 
