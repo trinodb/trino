@@ -74,7 +74,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -272,23 +271,19 @@ public class TestHashJoinOperator
 
             // we will yield 40 times due to filterFunction
             for (int i = 0; i < entries; i++) {
-                driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
                 filterFunctionCalls.set(0);
                 assertThat(operator.getOutput()).isNull();
                 assertThat(filterFunctionCalls.get())
                         .describedAs("Expected join to stop processing (yield) after calling filter function once")
                         .isEqualTo(1);
-                driverContext.getYieldSignal().reset();
+                driverContext.getYieldSignal().resetYieldForTesting();
             }
-            // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
-            driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
             // expect output page to be produced within few calls to getOutput(), e.g. to facilitate spill
             Page output = null;
             for (int i = 0; output == null && i < 5; i++) {
                 output = operator.getOutput();
             }
             assertThat(output).isNotNull();
-            driverContext.getYieldSignal().reset();
 
             // make sure we have all 4 entries
             assertThat(output.getPositionCount()).isEqualTo(entries);
