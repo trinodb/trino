@@ -903,7 +903,7 @@ public class PlanOptimizers
                         // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
                         // otherwise too early pushdown could prevent optimal plan from being selected.
                         .add(new PushJoinIntoTableScan(plannerContext))
-                        // DetermineTableScanNodePartitioning is needed to needs to ensure all table handles have proper partitioning determined
+                        // DetermineTableScanNodePartitioning is needed to ensure all table handles have proper partitioning determined
                         // Must run before AddExchanges
                         .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
                         .build()));
