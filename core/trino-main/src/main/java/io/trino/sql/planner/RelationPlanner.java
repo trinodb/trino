@@ -1245,17 +1245,23 @@ class RelationPlanner
                 ImmutableMap.of(),
                 Optional.empty());
 
-        // Add a projection to produce the outputs of the columns in the USING clause,
-        // which are defined as coalesce(l.k, r.k)
+        // The USING output is defined as coalesce(l.k, r.k). For a left or right join that
+        // value is the preserved side's key, so project that key. A predicate on the output
+        // can then be pushed into the scan. A full join can take the value from either side,
+        // so it keeps the coalesce.
         Assignments.Builder assignments = Assignments.builder();
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
             Symbol output = symbolAllocator.newSymbol(column.getValue(), analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, new Coalesce(
-                    leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+            assignments.put(output, switch (node.getType()) {
+                case LEFT -> leftJoinColumns.get(column).toSymbolReference();
+                case RIGHT -> rightJoinColumns.get(column).toSymbolReference();
+                case INNER, FULL, CROSS, IMPLICIT -> new Coalesce(
+                        leftJoinColumns.get(column).toSymbolReference(),
+                        rightJoinColumns.get(column).toSymbolReference());
+            });
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {

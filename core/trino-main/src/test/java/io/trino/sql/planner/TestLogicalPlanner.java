@@ -190,6 +190,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -730,6 +731,52 @@ public class TestLogicalPlanner
                                                                         ImmutableMap.of(
                                                                                 "L_ORDERKEY", "orderkey",
                                                                                 "L_PARTKEY", "partkey")))))))));
+    }
+
+    @Test
+    public void testPredicateOnUsingColumnPushedThroughOuterJoin()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders LEFT JOIN lineitem USING (orderkey) WHERE orderkey > 1000",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                                .left(
+                                        filter(
+                                                comparison(LESS_THAN, new Constant(BIGINT, 1000L), new Reference(BIGINT, "O_ORDERKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(LESS_THAN, new Constant(BIGINT, 1000L), new Reference(BIGINT, "L_ORDERKEY")),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+
+        assertPlan(
+                "SELECT orderkey FROM lineitem RIGHT JOIN orders USING (orderkey) WHERE orderkey > 1000",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                                .left(
+                                        filter(
+                                                comparison(LESS_THAN, new Constant(BIGINT, 1000L), new Reference(BIGINT, "O_ORDERKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(LESS_THAN, new Constant(BIGINT, 1000L), new Reference(BIGINT, "L_ORDERKEY")),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+
+        assertPlan(
+                "SELECT orderkey FROM orders FULL JOIN lineitem USING (orderkey) WHERE orderkey > 1000",
+                anyTree(
+                        filter(
+                                comparison(LESS_THAN, new Constant(BIGINT, 1000L), new Coalesce(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
+                                join(FULL, builder -> builder
+                                        .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                        .left(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))
+                                        .right(
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
     }
 
     @Test

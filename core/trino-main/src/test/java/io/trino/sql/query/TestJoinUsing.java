@@ -169,6 +169,46 @@ public class TestJoinUsing
     }
 
     @Test
+    public void testOuterFilterOnJoinKey()
+    {
+        assertThat(assertions.query(
+                "SELECT id FROM (VALUES 1, 2, CAST(NULL AS integer)) a(id) " +
+                        "LEFT JOIN (VALUES 1, 3, CAST(NULL AS integer)) b(id) USING (id) " +
+                        "WHERE id > 0 ORDER BY id"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query(
+                "SELECT id FROM (VALUES 1, 2, CAST(NULL AS integer)) a(id) " +
+                        "RIGHT JOIN (VALUES 1, 3, CAST(NULL AS integer)) b(id) USING (id) " +
+                        "WHERE id > 0 ORDER BY id"))
+                .matches("VALUES 1, 3");
+
+        assertThat(assertions.query(
+                "SELECT id FROM (VALUES 1, 2, CAST(NULL AS integer)) a(id) " +
+                        "FULL JOIN (VALUES 1, 3, CAST(NULL AS integer)) b(id) USING (id) " +
+                        "WHERE id > 0 ORDER BY id"))
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query(
+                "SELECT id, k FROM (VALUES (1, 10), (2, 20), (3, CAST(NULL AS integer))) a(id, k) " +
+                        "LEFT JOIN (VALUES (1, 10), (4, 40), (3, CAST(NULL AS integer))) b(id, k) USING (id, k) " +
+                        "WHERE id > 0 AND k > 0 ORDER BY id"))
+                .matches("VALUES (1, 10), (2, 20)");
+
+        assertThat(assertions.query(
+                "SELECT id, k FROM (VALUES (1, 10), (2, 20), (3, CAST(NULL AS integer))) a(id, k) " +
+                        "RIGHT JOIN (VALUES (1, 10), (4, 40), (3, CAST(NULL AS integer))) b(id, k) USING (id, k) " +
+                        "WHERE id > 0 AND k > 0 ORDER BY id"))
+                .matches("VALUES (1, 10), (4, 40)");
+
+        assertThat(assertions.query(
+                "SELECT id, k FROM (VALUES (1, 10), (2, 20), (3, CAST(NULL AS integer))) a(id, k) " +
+                        "FULL JOIN (VALUES (1, 10), (4, 40), (3, CAST(NULL AS integer))) b(id, k) USING (id, k) " +
+                        "WHERE id > 0 AND k > 0 ORDER BY id"))
+                .matches("VALUES (1, 10), (2, 20), (4, 40)");
+    }
+
+    @Test
     public void testDuplicateAliases()
     {
         assertThat(assertions.query(
