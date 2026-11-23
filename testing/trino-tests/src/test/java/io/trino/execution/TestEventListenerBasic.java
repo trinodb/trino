@@ -1595,7 +1595,7 @@ public class TestEventListenerBasic
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "135",
+                                        "137",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
@@ -1605,7 +1605,7 @@ public class TestEventListenerBasic
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                                         ImmutableList.of(new JsonRenderedNode(
-                                                "106",
+                                                "108",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
                                                 ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
@@ -1613,7 +1613,7 @@ public class TestEventListenerBasic
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
                 "1", new JsonRenderedNode(
-                        "105",
+                        "107",
                         "LimitPartial",
                         ImmutableMap.of(
                                 "count", "10",
