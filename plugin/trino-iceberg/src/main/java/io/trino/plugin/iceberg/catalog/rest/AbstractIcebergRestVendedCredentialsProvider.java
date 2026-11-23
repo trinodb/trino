@@ -116,7 +116,8 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
             AuthSession authSession = authManager.catalogSession(httpClient, properties);
             return httpClient.withAuthSession(authSession).get(
                     credentialsEndpoint.orElseThrow(),
-                    null,
+                    // Carries the views the table was loaded through, so the refreshed credentials are scoped like the initial ones
+                    RESTUtil.credentialsQueryParams(properties),
                     LoadCredentialsResponse.class,
                     Map.of(),
                     ErrorHandlers.defaultErrorHandler());

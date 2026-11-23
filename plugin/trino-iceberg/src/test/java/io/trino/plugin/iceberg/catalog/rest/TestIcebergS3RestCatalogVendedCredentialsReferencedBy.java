@@ -20,35 +20,42 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Floci;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.aws.AwsClientProperties;
 import org.apache.iceberg.aws.s3.S3FileIO;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.HTTPRequest;
-import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.apache.iceberg.rest.RESTResponse;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
@@ -56,12 +63,15 @@ import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Checks that the views a table is read through are sent to the REST catalog when the credentials
  * vended for the table are loaded, not only when the table handle is created.
  */
 @TestInstance(PER_CLASS)
+// The tests share the vended credentials expiry and the recorded refresh requests
+@Execution(SAME_THREAD)
 final class TestIcebergS3RestCatalogVendedCredentialsReferencedBy
         extends AbstractTestQueryFramework
 {
@@ -72,6 +82,8 @@ final class TestIcebergS3RestCatalogVendedCredentialsReferencedBy
     private final String bucketName = "test-iceberg-vended-credentials-referenced-by-" + randomNameSuffix();
     private final List<LoadRequest> tableLoadRequests = new CopyOnWriteArrayList<>();
     private final List<LoadRequest> viewLoadRequests = new CopyOnWriteArrayList<>();
+    private final List<String> credentialsRefreshQueries = new CopyOnWriteArrayList<>();
+    private final AtomicReference<Instant> sessionTokenExpirationTime = new AtomicReference<>(Instant.now().plus(1, ChronoUnit.HOURS));
     private Floci floci;
 
     @Override
@@ -111,20 +123,41 @@ final class TestIcebergS3RestCatalogVendedCredentialsReferencedBy
             @Override
             protected Map<String, String> getVendedCredentialsConfig(String restServerUri)
             {
-                Credentials sessionCredentials = sessionCredentials();
                 return ImmutableMap.<String, String>builder()
-                        .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
-                        .put(S3FileIOProperties.ACCESS_KEY_ID, sessionCredentials.accessKeyId())
-                        .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
-                        .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
+                        .putAll(credentialsConfig())
+                        .put(AwsClientProperties.REFRESH_CREDENTIALS_ENDPOINT, restServerUri + "/credentials")
                         .buildOrThrow();
+            }
+        };
+        VendedCredentialsRestCatalogServlet servlet = new VendedCredentialsRestCatalogServlet(adapter)
+        {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                    throws IOException
+            {
+                if (request.getRequestURI().equals("/credentials")) {
+                    credentialsRefreshQueries.add(Optional.ofNullable(request.getQueryString()).orElse(""));
+                }
+                super.doGet(request, response);
+            }
+
+            @Override
+            protected String getPrefix()
+            {
+                return "s3://";
+            }
+
+            @Override
+            protected Map<String, String> getCredentialsConfig()
+            {
+                return credentialsConfig();
             }
         };
 
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig().setHttpEnabled(true);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
-        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, new RESTCatalogServlet(adapter), ServerFeature.builder()
+        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
                 .withLegacyUriCompliance(true)
                 .build());
         testServer.start();
@@ -246,6 +279,54 @@ final class TestIcebergS3RestCatalogVendedCredentialsReferencedBy
         assertUpdate("DROP TABLE " + table);
     }
 
+    @Test
+    void testCredentialsRefreshSendsViews()
+    {
+        String table = "t_" + randomNameSuffix();
+        String view = "v_" + randomNameSuffix();
+        // Vend credentials that are about to expire, so reading the table refreshes them
+        sessionTokenExpirationTime.set(Instant.now().plusSeconds(60));
+        try {
+            assertUpdate("CREATE TABLE " + table + " AS SELECT 1 x", 1);
+            assertUpdate("CREATE VIEW " + view + " AS SELECT * FROM " + table);
+            icebergRestCatalogFileSystemFactory().flushVendedCredentialsCache();
+            int refreshesBefore = credentialsRefreshQueries.size();
+
+            assertThat(query("SELECT * FROM " + view)).matches("VALUES 1");
+
+            assertThat(credentialsRefreshQueries.subList(refreshesBefore, credentialsRefreshQueries.size()))
+                    .isNotEmpty()
+                    .allSatisfy(query -> assertThat(query).contains(REFERENCED_BY + "=").contains(view));
+        }
+        finally {
+            sessionTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
+            assertUpdate("DROP VIEW IF EXISTS " + view);
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    void testCredentialsRefreshOfDirectReadSendsNoViews()
+    {
+        String table = "t_" + randomNameSuffix();
+        sessionTokenExpirationTime.set(Instant.now().plusSeconds(60));
+        try {
+            assertUpdate("CREATE TABLE " + table + " AS SELECT 1 x", 1);
+            icebergRestCatalogFileSystemFactory().flushVendedCredentialsCache();
+            int refreshesBefore = credentialsRefreshQueries.size();
+
+            assertThat(query("SELECT * FROM " + table)).matches("VALUES 1");
+
+            assertThat(credentialsRefreshQueries.subList(refreshesBefore, credentialsRefreshQueries.size()))
+                    .isNotEmpty()
+                    .allSatisfy(query -> assertThat(query).doesNotContain(REFERENCED_BY));
+        }
+        finally {
+            sessionTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     private static List<String> referencedByOf(HTTPRequest request)
     {
         String referencedBy = request.queryParameters().get(REFERENCED_BY);
@@ -271,6 +352,24 @@ final class TestIcebergS3RestCatalogVendedCredentialsReferencedBy
     private String schema()
     {
         return getSession().getSchema().orElseThrow();
+    }
+
+    private IcebergRestCatalogFileSystemFactory icebergRestCatalogFileSystemFactory()
+    {
+        return (IcebergRestCatalogFileSystemFactory) getConnectorService(getQueryRunner(), IcebergFileSystemFactory.class);
+    }
+
+    private Map<String, String> credentialsConfig()
+    {
+        Credentials sessionCredentials = sessionCredentials();
+        return ImmutableMap.<String, String>builder()
+                .put(AwsClientProperties.CLIENT_REGION, FLOCI_REGION)
+                .put(S3FileIOProperties.ACCESS_KEY_ID, sessionCredentials.accessKeyId())
+                .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
+                .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
+                .put(AwsClientProperties.REFRESH_CREDENTIALS_ENABLED, "true")
+                .put(S3FileIOProperties.SESSION_TOKEN_EXPIRES_AT_MS, Long.toString(sessionTokenExpirationTime.get().toEpochMilli()))
+                .buildOrThrow();
     }
 
     private Credentials sessionCredentials()

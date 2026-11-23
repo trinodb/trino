@@ -30,6 +30,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
+import org.apache.iceberg.rest.RESTCatalogProperties;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -167,7 +168,8 @@ public class IcebergRestCatalogFileSystemFactory
                 identity.getUser(),
                 createS3VendedCredentials(fileIoProperties, storageCredentials),
                 createGcsVendedCredentials(fileIoProperties, storageCredentials),
-                createAzureVendedCredentials(fileIoProperties, storageCredentials));
+                createAzureVendedCredentials(fileIoProperties, storageCredentials),
+                Optional.ofNullable(fileIoProperties.get(RESTCatalogProperties.REST_REFERENCED_BY)));
     }
 
     private static Map<String, S3VendedCredentials> createS3VendedCredentials(Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentialsList)
@@ -305,11 +307,14 @@ public class IcebergRestCatalogFileSystemFactory
             String user,
             Map<String, S3VendedCredentials> s3VendedCredentials,
             Map<String, GcsVendedCredentials> gcsVendedCredentials,
-            Map<String, AzureVendedCredentials> azureVendedCredentials)
+            Map<String, AzureVendedCredentials> azureVendedCredentials,
+            // Providers refresh credentials scoped to the views the table was loaded through
+            Optional<String> referencedBy)
     {
         public VendedCredentialsCacheKey
         {
             requireNonNull(user, "user is null");
+            requireNonNull(referencedBy, "referencedBy is null");
             s3VendedCredentials = ImmutableMap.copyOf(s3VendedCredentials);
             gcsVendedCredentials = ImmutableMap.copyOf(gcsVendedCredentials);
             azureVendedCredentials = ImmutableMap.copyOf(azureVendedCredentials);
