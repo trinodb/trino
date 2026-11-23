@@ -166,10 +166,38 @@ public class ExpressionBytecodeCompiler
             }
             block = new BytecodeBlock();
         }
+        else if (expression instanceof Case caseExpression && type instanceof RowType) {
+            // write each branch straight into the output, so a row built in a branch is not materialized and copied again
+            BytecodeNode result = compileToBlock(caseExpression.defaultValue(), type, scope, blockBuilder, false);
+            for (WhenClause clause : caseExpression.whenClauses().reversed()) {
+                result = new IfStatement()
+                        .condition(caseCondition(generatorContext(scope, ImmutableMap.of()), clause))
+                        .ifTrue(compileToBlock(clause.result(), type, scope, blockBuilder, false))
+                        .ifFalse(result);
+            }
+            // a method over the JIT limit is never compiled, so fall back to the generic path
+            // the previous field may have left wasNull set, which the first condition must not see
+            result = new BytecodeBlock().append(wasNull.set(constantFalse())).append(result);
+            if (!measure || fitsJitCompilableMethod(result, scope)) {
+                return result;
+            }
+        }
         return block.append(wasNull.set(constantFalse()))
                 .append(blockBuilder)
                 .append(compile(expression, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNull, type));
+    }
+
+    private static BytecodeBlock caseCondition(BytecodeGeneratorContext generatorContext, WhenClause clause)
+    {
+        Variable wasNull = generatorContext.wasNull();
+        return new BytecodeBlock()
+                .append(generatorContext.generate(clause.operand()))
+                .comment("... and condition value was not null")
+                .append(wasNull)
+                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
+                .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
+                .append(wasNull.set(constantFalse()));
     }
 
     private BytecodeGeneratorContext generatorContext(Scope scope, Map<String, LetBinding> lets)
@@ -320,17 +348,8 @@ public class ExpressionBytecodeCompiler
             BytecodeNode result = generatorContext.generate(node.defaultValue());
 
             for (WhenClause clause : node.whenClauses().reversed()) {
-                Variable wasNull = generatorContext.wasNull();
-                BytecodeBlock conditionBlock = new BytecodeBlock()
-                        .append(generatorContext.generate(clause.operand()))
-                        .comment("... and condition value was not null")
-                        .append(wasNull)
-                        .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
-                        .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
-                        .append(wasNull.set(constantFalse()));
-
                 result = new IfStatement()
-                        .condition(conditionBlock)
+                        .condition(caseCondition(generatorContext, clause))
                         .ifTrue(generatorContext.generate(clause.result()))
                         .ifFalse(result);
             }
