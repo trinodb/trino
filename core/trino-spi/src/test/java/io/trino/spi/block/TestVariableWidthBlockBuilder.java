@@ -14,12 +14,16 @@
 package io.trino.spi.block;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.PageBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -409,5 +413,101 @@ final class TestVariableWidthBlockBuilder
         assertThat(status.getSizeInBytes()).isEqualTo(builder.getSizeInBytes());
         builder.appendPositions(source, new int[] {3, 0, 2}, 0, 3);
         assertThat(status.getSizeInBytes()).isEqualTo(builder.getSizeInBytes());
+    }
+
+    @Test
+    public void testAppendPositionsOfVariousLengths()
+    {
+        Random random = new Random(8473);
+        // lengths around the sizes of the chunks that values are copied in
+        for (int maxLength : new int[] {0, 12, 16, 17, 32, 33, 64, 65, 300}) {
+            for (boolean longValues : new boolean[] {false, true}) {
+                VariableWidthBlock block = randomBlock(random, 500, maxLength, longValues);
+                // a block whose values are in the middle of an array, and a block that does not start at the first offset
+                Slice padded = Slices.allocate(block.getRawSlice().length() + 200);
+                padded.setBytes(13, block.getRawSlice());
+                VariableWidthBlock inArray = new VariableWidthBlock(500, padded.slice(13, block.getRawSlice().length()), block.getRawOffsets(), Optional.ofNullable(block.getRawValueIsValid()));
+                for (VariableWidthBlock source : List.of(block, inArray, block.getRegion(100, 300))) {
+                    int[] positions = random.ints(400, 0, source.getPositionCount()).toArray();
+                    assertAppendPositions(source, positions);
+                    Arrays.sort(positions);
+                    assertAppendPositions(source, positions);
+                    // the last positions, whose values are at the end of the array
+                    assertAppendPositions(source, new int[] {source.getPositionCount() - 1, source.getPositionCount() - 2, source.getPositionCount() - 1});
+                }
+            }
+        }
+    }
+
+    private static void assertAppendPositions(VariableWidthBlock source, int[] positions)
+    {
+        List<Slice> expected = new ArrayList<>();
+        int size = 0;
+        int maxLength = 0;
+        for (int position : positions) {
+            Slice value = null;
+            if (!source.isNull(position)) {
+                value = source.getSlice(position);
+            }
+            expected.add(value);
+            size += source.getSliceLength(position);
+            maxLength = Math.max(maxLength, source.getSliceLength(position));
+        }
+
+        // a builder that has no room for the values, and one that has room for exactly the values
+        for (int expectedBytes : new int[] {0, size}) {
+            VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positions.length, expectedBytes);
+            builder.appendPositions(source, positions, 0, positions.length);
+            assertThat(toSlices(builder.buildValueBlock())).isEqualTo(expected);
+            // values appended after values that the builder already has
+            builder.appendPositions(source, positions, 1, positions.length - 1);
+            assertThat(toSlices(builder.buildValueBlock()).subList(positions.length, 2 * positions.length - 1)).isEqualTo(expected.subList(1, positions.length));
+        }
+
+        // copying in chunks and copying the bytes of the values give the same bytes
+        int[] targetOffsets = new int[positions.length + 1];
+        for (int i = 0; i < positions.length; i++) {
+            targetOffsets[i + 1] = targetOffsets[i] + source.getSliceLength(positions[i]);
+        }
+        Slice rawSlice = source.getRawSlice();
+        byte[] copiedInChunks = new byte[size];
+        VariableWidthBlockBuilder.copyValues(rawSlice.byteArray(), rawSlice.byteArrayOffset(), source.getRawOffsets(), source.getRawArrayBase(), positions, 0, positions.length, copiedInChunks, targetOffsets, 0, size, maxLength, true);
+        byte[] copiedBytes = new byte[size];
+        VariableWidthBlockBuilder.copyValues(rawSlice.byteArray(), rawSlice.byteArrayOffset(), source.getRawOffsets(), source.getRawArrayBase(), positions, 0, positions.length, copiedBytes, targetOffsets, 0, size, maxLength, false);
+        assertThat(copiedInChunks).isEqualTo(copiedBytes);
+    }
+
+    private static VariableWidthBlock randomBlock(Random random, int positionCount, int maxLength, boolean longValues)
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionCount, 0);
+        for (int i = 0; i < positionCount; i++) {
+            if (random.nextInt(10) == 0) {
+                builder.appendNull();
+                continue;
+            }
+            int length = random.nextInt(maxLength + 1);
+            if (longValues && random.nextInt(20) == 0) {
+                length *= 10;
+            }
+            byte[] value = new byte[length];
+            random.nextBytes(value);
+            builder.writeEntry(Slices.wrappedBuffer(value));
+        }
+        // a copy, so that the array of the block has no bytes after the values
+        VariableWidthBlock built = builder.buildValueBlock();
+        return new VariableWidthBlock(positionCount, built.getRawSlice().copy(), built.getRawOffsets(), Optional.ofNullable(built.getRawValueIsValid()));
+    }
+
+    private static List<Slice> toSlices(VariableWidthBlock block)
+    {
+        List<Slice> values = new ArrayList<>();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            Slice value = null;
+            if (!block.isNull(position)) {
+                value = block.getSlice(position);
+            }
+            values.add(value);
+        }
+        return values;
     }
 }

@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorSpecies;
 
 import java.util.Arrays;
 
@@ -47,6 +49,14 @@ public class VariableWidthBlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
     static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new long[] {0});
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
+
+    // Short values are copied in chunks of this size, which is a vector register on every supported processor
+    private static final VectorSpecies<Byte> CHUNK = ByteVector.SPECIES_128;
+    private static final int CHUNK_SIZE = CHUNK.vectorByteSize();
+    // the most bytes that are copied in chunks for a value
+    private static final int MAX_COPIED_BYTES = 4 * CHUNK_SIZE;
+    // where the JVM would emulate 128-bit vectors, copying in chunks is slower than copying the bytes of the values
+    private static final boolean COPY_VALUES_IN_CHUNKS = ByteVector.SPECIES_PREFERRED.vectorBitSize() >= CHUNK.vectorBitSize();
 
     private final BlockBuilderStatus blockBuilderStatus;
 
@@ -301,9 +311,12 @@ public class VariableWidthBlockBuilder
         // update the offsets and compute the total size
         int initialOffset = offsets[positionCount];
         int totalSize = 0;
+        int maxLength = 0;
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            totalSize += rawOffsets[rawArrayBase + position + 1] - rawOffsets[rawArrayBase + position];
+            int valueLength = rawOffsets[rawArrayBase + position + 1] - rawOffsets[rawArrayBase + position];
+            totalSize += valueLength;
+            maxLength = max(maxLength, valueLength);
             offsets[positionCount + i + 1] = initialOffset + totalSize;
         }
         // grow the buffer for the new data
@@ -311,14 +324,7 @@ public class VariableWidthBlockBuilder
 
         // copy values to buffer
         Slice rawSlice = variableWidthBlock.getRawSlice();
-        byte[] sourceBytes = rawSlice.byteArray();
-        int sourceBytesOffset = rawSlice.byteArrayOffset();
-        for (int i = 0; i < length; i++) {
-            int position = positions[offset + i];
-            int sourceStart = rawOffsets[rawArrayBase + position];
-            int sourceLength = rawOffsets[rawArrayBase + position + 1] - sourceStart;
-            System.arraycopy(sourceBytes, sourceBytesOffset + sourceStart, bytes, offsets[positionCount + i], sourceLength);
-        }
+        copyValues(rawSlice.byteArray(), rawSlice.byteArrayOffset(), rawOffsets, rawArrayBase, positions, offset, length, bytes, offsets, positionCount, totalSize, maxLength, COPY_VALUES_IN_CHUNKS);
 
         // update nulls
         long[] rawValueIsValid = variableWidthBlock.getRawValueIsValid();
@@ -339,6 +345,153 @@ public class VariableWidthBlockBuilder
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION + totalSize);
         }
+    }
+
+    /// Copies the values at the given positions of a block to `target`. The copy of the value at
+    /// `positions[offset + i]` starts at `targetOffsets[targetOffsetsBase + i]`. `totalSize` is the size of the
+    /// copied values and `maxLength` the length of the longest one. With `copyInChunks`, short values are copied
+    /// as whole chunks, which is faster where the processor has 128-bit vectors.
+    static void copyValues(
+            byte[] source,
+            int sourceBase,
+            int[] sourceOffsets,
+            int sourceOffsetsBase,
+            int[] positions,
+            int offset,
+            int length,
+            byte[] target,
+            int[] targetOffsets,
+            int targetOffsetsBase,
+            long totalSize,
+            int maxLength,
+            boolean copyInChunks)
+    {
+        // Chunks that cover the longest value, or, when a few values are long, chunks that cover twice the average
+        // length, which is most values of a column
+        long coveredLength = maxLength;
+        if (maxLength > MAX_COPIED_BYTES) {
+            coveredLength = 2 * totalSize / length;
+        }
+        int copiedBytes = CHUNK_SIZE;
+        while (copiedBytes < coveredLength && copiedBytes <= MAX_COPIED_BYTES) {
+            copiedBytes *= 2;
+        }
+        if (!copyInChunks || copiedBytes > MAX_COPIED_BYTES) {
+            copyRanges(source, sourceBase, sourceOffsets, sourceOffsetsBase, positions, offset, length, target, targetOffsets[targetOffsetsBase]);
+            return;
+        }
+
+        // a chunk is read and written whole, so a value is copied in chunks only when they fit in both arrays from its start
+        int sourceLimit = source.length - copiedBytes - sourceBase;
+        int targetLimit = target.length - copiedBytes;
+        int firstNotCopied = copyChunks(source, sourceBase, sourceOffsets, sourceOffsetsBase, positions, offset, length, target, targetOffsets, targetOffsetsBase, copiedBytes, sourceLimit, targetLimit);
+
+        // The values at the end of an array, which are the last ones when the target has no room after the values,
+        // and the values that are longer than the bytes copied for them, which can be anywhere
+        int firstRemaining = firstNotCopied;
+        if (maxLength > copiedBytes) {
+            firstRemaining = 0;
+        }
+        for (int i = firstRemaining; i < length; i++) {
+            int position = positions[offset + i];
+            int sourceStart = sourceOffsets[sourceOffsetsBase + position];
+            int valueLength = sourceOffsets[sourceOffsetsBase + position + 1] - sourceStart;
+            int targetStart = targetOffsets[targetOffsetsBase + i];
+            if (valueLength > copiedBytes || sourceStart > sourceLimit || targetStart > targetLimit) {
+                System.arraycopy(source, sourceBase + sourceStart, target, targetStart, valueLength);
+            }
+        }
+    }
+
+    /// Copies `copiedBytes` bytes from the start of every value, whatever its length, so that the loop has neither
+    /// a branch on the length nor a call. A longer copy writes over the start of the next value, which the copy of
+    /// that value then replaces. Returns the index of the first value that was not copied, since its chunks do not
+    /// fit in one of the arrays from the start of the value, or `length` when all were copied.
+    ///
+    /// The method has one loop for every number of chunks: a loop over the chunks of a value inside the loop over
+    /// the values keeps the JIT compiler from treating the latter as an innermost loop, which makes it several
+    /// times slower.
+    private static int copyChunks(
+            byte[] source,
+            int sourceBase,
+            int[] sourceOffsets,
+            int sourceOffsetsBase,
+            int[] positions,
+            int offset,
+            int length,
+            byte[] target,
+            int[] targetOffsets,
+            int targetOffsetsBase,
+            int copiedBytes,
+            int sourceLimit,
+            int targetLimit)
+    {
+        int firstNotCopied = length;
+        if (copiedBytes == CHUNK_SIZE) {
+            for (int i = 0; i < length; i++) {
+                int sourceStart = sourceOffsets[sourceOffsetsBase + positions[offset + i]];
+                int targetStart = targetOffsets[targetOffsetsBase + i];
+                if (sourceStart <= sourceLimit && targetStart <= targetLimit) {
+                    copyChunk(source, sourceBase + sourceStart, target, targetStart);
+                }
+                else {
+                    firstNotCopied = min(firstNotCopied, i);
+                }
+            }
+        }
+        else if (copiedBytes == 2 * CHUNK_SIZE) {
+            for (int i = 0; i < length; i++) {
+                int sourceStart = sourceOffsets[sourceOffsetsBase + positions[offset + i]];
+                int targetStart = targetOffsets[targetOffsetsBase + i];
+                if (sourceStart <= sourceLimit && targetStart <= targetLimit) {
+                    copyChunk(source, sourceBase + sourceStart, target, targetStart);
+                    copyChunk(source, sourceBase + sourceStart + CHUNK_SIZE, target, targetStart + CHUNK_SIZE);
+                }
+                else {
+                    firstNotCopied = min(firstNotCopied, i);
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < length; i++) {
+                int sourceStart = sourceOffsets[sourceOffsetsBase + positions[offset + i]];
+                int targetStart = targetOffsets[targetOffsetsBase + i];
+                if (sourceStart <= sourceLimit && targetStart <= targetLimit) {
+                    copyChunk(source, sourceBase + sourceStart, target, targetStart);
+                    copyChunk(source, sourceBase + sourceStart + CHUNK_SIZE, target, targetStart + CHUNK_SIZE);
+                    copyChunk(source, sourceBase + sourceStart + 2 * CHUNK_SIZE, target, targetStart + 2 * CHUNK_SIZE);
+                    copyChunk(source, sourceBase + sourceStart + 3 * CHUNK_SIZE, target, targetStart + 3 * CHUNK_SIZE);
+                }
+                else {
+                    firstNotCopied = min(firstNotCopied, i);
+                }
+            }
+        }
+        return firstNotCopied;
+    }
+
+    private static void copyChunk(byte[] source, int sourceIndex, byte[] target, int targetIndex)
+    {
+        ByteVector.fromArray(CHUNK, source, sourceIndex).intoArray(target, targetIndex);
+    }
+
+    /// Copies the values one after the other from `targetStart`, with a single call for the values of adjacent positions.
+    private static void copyRanges(byte[] source, int sourceBase, int[] sourceOffsets, int sourceOffsetsBase, int[] positions, int offset, int length, byte[] target, int targetStart)
+    {
+        // the values that are not copied yet
+        int rangeStart = 0;
+        int rangeEnd = 0;
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            int sourceStart = sourceOffsets[sourceOffsetsBase + position];
+            if (sourceStart != rangeEnd) {
+                System.arraycopy(source, sourceBase + rangeStart, target, targetStart, rangeEnd - rangeStart);
+                targetStart += rangeEnd - rangeStart;
+                rangeStart = sourceStart;
+            }
+            rangeEnd = sourceOffsets[sourceOffsetsBase + position + 1];
+        }
+        System.arraycopy(source, sourceBase + rangeStart, target, targetStart, rangeEnd - rangeStart);
     }
 
     @Override
