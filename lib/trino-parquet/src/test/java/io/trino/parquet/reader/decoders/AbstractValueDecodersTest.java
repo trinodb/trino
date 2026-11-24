@@ -90,9 +90,9 @@ public abstract class AbstractValueDecodersTest
             cartesianProduct(SMALL_SIZE_RUNNERS, Stream.of(10).collect(toDataProvider())),
             cartesianProduct(LARGE_SIZE_RUNNERS, Stream.of(10_000).collect(toDataProvider())));
 
-    abstract Object[][] tests();
+    protected abstract Object[][] tests();
 
-    public Object[][] decoders()
+    protected Object[][] decoders()
     {
         return cartesianProduct(tests(), RUNNERS_AND_SIZES);
     }

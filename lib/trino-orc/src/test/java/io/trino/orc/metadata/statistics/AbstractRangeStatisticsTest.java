@@ -42,7 +42,7 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         }
     }
 
-    void assertRetainedSize(T min, T max, long expectedSizeInBytes)
+    protected void assertRetainedSize(T min, T max, long expectedSizeInBytes)
     {
         assertThat(getCreateStatistics(min, max).getRetainedSizeInBytes()).isEqualTo(expectedSizeInBytes);
     }

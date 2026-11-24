@@ -4013,7 +4013,7 @@ public abstract class BaseHiveConnectorTest
         testMaps(HiveTimestampPrecision.NANOSECONDS);
     }
 
-    public void testMaps(HiveTimestampPrecision timestampPrecision)
+    private void testMaps(HiveTimestampPrecision timestampPrecision)
     {
         Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_map1");

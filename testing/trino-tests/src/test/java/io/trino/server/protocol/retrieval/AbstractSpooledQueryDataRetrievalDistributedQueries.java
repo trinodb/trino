@@ -21,7 +21,7 @@ import java.util.Map;
 public abstract class AbstractSpooledQueryDataRetrievalDistributedQueries
         extends AbstractSpooledQueryDataDistributedQueries
 {
-    abstract SegmentRetrievalMode getSegmentRetrievalMode();
+    protected abstract SegmentRetrievalMode getSegmentRetrievalMode();
 
     @Override
     protected Map<String, String> spoolingConfig()

@@ -49,7 +49,7 @@ public class TestIcebergFlociParquetCachingConnectorSmokeTest
     }
 
     @Override
-    public Map<String, String> getAdditionalIcebergProperties()
+    protected Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")

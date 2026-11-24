@@ -568,7 +568,7 @@ public class TestIcebergMetastoreAccessOperations
         }
     }
 
-    public Object[][] metadataQueriesTestTableCountDataProvider()
+    private Object[][] metadataQueriesTestTableCountDataProvider()
     {
         return new Object[][] {
                 {3},

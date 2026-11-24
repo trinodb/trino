@@ -519,7 +519,7 @@ public class TestDeltaLakeConnectorTest
         testDropPartitionColumn(ColumnMappingMode.NAME);
     }
 
-    public void testDropPartitionColumn(ColumnMappingMode mode)
+    private void testDropPartitionColumn(ColumnMappingMode mode)
     {
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = '" + mode + "')");
@@ -1964,7 +1964,7 @@ public class TestDeltaLakeConnectorTest
         testCreateTableWithColumnMappingMode(ColumnMappingMode.NONE);
     }
 
-    public void testCreateTableWithColumnMappingMode(ColumnMappingMode mode)
+    private void testCreateTableWithColumnMappingMode(ColumnMappingMode mode)
     {
         testCreateTableColumnMappingMode(mode, tableName -> {
             assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='" + mode + "')");
@@ -2811,7 +2811,7 @@ public class TestDeltaLakeConnectorTest
         testTableOperationWithChangeInColumnMappingMode("name");
     }
 
-    public void testTableOperationWithChangeInColumnMappingMode(String columnMappingMode)
+    private void testTableOperationWithChangeInColumnMappingMode(String columnMappingMode)
     {
         try (TestTable table = newTrinoTable(
                 "create_or_replace_with_change_column_mapping_",
@@ -4035,7 +4035,7 @@ public class TestDeltaLakeConnectorTest
         testTableWithTrailingSlashLocation(false);
     }
 
-    public void testTableWithTrailingSlashLocation(boolean partitioned)
+    private void testTableWithTrailingSlashLocation(boolean partitioned)
     {
         String tableName = "test_table_with_trailing_slash_location_" + randomNameSuffix();
         String location = format("s3://%s/%s/", bucketName, tableName);

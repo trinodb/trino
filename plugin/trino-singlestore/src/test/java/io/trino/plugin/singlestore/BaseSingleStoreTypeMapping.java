@@ -756,7 +756,7 @@ public abstract class BaseSingleStoreTypeMapping
         testUnsupportedTimePrecision(9);
     }
 
-    public void testUnsupportedTimePrecision(int precision)
+    private void testUnsupportedTimePrecision(int precision)
     {
         // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIME(%s))", precision)))

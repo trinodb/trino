@@ -727,7 +727,7 @@ public class TestKafkaConnectorTest
                         ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'")));
     }
 
-    public void testRoundTripAllFormats(String tableName, List<String> fieldNames, List<List<Object>> rowValues)
+    private void testRoundTripAllFormats(String tableName, List<String> fieldNames, List<List<Object>> rowValues)
     {
         String rows = rowValues.stream()
                 .map(row -> row.stream()

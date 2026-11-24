@@ -338,7 +338,7 @@ public class TestWindowOperator
         testDistinctPartitionAndPeers(true, true, 0);
     }
 
-    public void testDistinctPartitionAndPeers(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    private void testDistinctPartitionAndPeers(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(DOUBLE, DOUBLE)
                 .row(1.0, 1.0)

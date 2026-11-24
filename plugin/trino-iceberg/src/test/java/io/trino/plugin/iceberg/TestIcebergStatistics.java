@@ -452,7 +452,7 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    public Object[][] testCollectStatisticsOnWriteDataProvider()
+    private Object[][] testCollectStatisticsOnWriteDataProvider()
     {
         return cartesianProduct(trueFalse(), trueFalse());
     }

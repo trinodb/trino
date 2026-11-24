@@ -150,7 +150,7 @@ final class TestIcebergS3RestCatalogStorageCredentialsRefresh
                 .buildOrThrow();
     }
 
-    public Credentials getSessionCredentials()
+    private Credentials getSessionCredentials()
     {
         try (StsClient stsClient = StsClient.builder().applyMutation(floci::updateClient).build()) {
             AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder()

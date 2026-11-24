@@ -66,7 +66,7 @@ public class TestSpatialPartitioningInternalAggregation
         test(100);
     }
 
-    public void test(int partitionCount)
+    private void test(int partitionCount)
     {
         QueryRunner runner = new StandaloneQueryRunner(testSessionBuilder().build());
         runner.installPlugin(new GeoPlugin());

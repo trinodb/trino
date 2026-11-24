@@ -114,12 +114,12 @@ public class TestTrinoUriBuilder
                 "EXECUTION_TIME:10d;CPU_TIME:10d;PEAK_MEMORY:10G");
     }
 
-    public <T, V> void assertRoundTrip(ConnectionProperty<V, T> property, T value, V expectedSerialized)
+    private <T, V> void assertRoundTrip(ConnectionProperty<V, T> property, T value, V expectedSerialized)
     {
         assertRoundTrip(property, value, expectedSerialized, "https://localhost:443");
     }
 
-    public <T, V> void assertRoundTrip(ConnectionProperty<V, T> property, T value, V expectedSerialized, String connectionUri)
+    private <T, V> void assertRoundTrip(ConnectionProperty<V, T> property, T value, V expectedSerialized, String connectionUri)
     {
         TrinoUri uri = TrinoUri.builder()
                 .setUri(URI.create(connectionUri))

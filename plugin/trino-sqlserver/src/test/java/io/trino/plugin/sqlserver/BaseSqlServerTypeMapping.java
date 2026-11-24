@@ -862,7 +862,7 @@ public abstract class BaseSqlServerTypeMapping
         testSqlServerDatetimeOffsetHistoricalDates(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
     }
 
-    public void testSqlServerDatetimeOffsetHistoricalDates(ZoneId sessionZone)
+    private void testSqlServerDatetimeOffsetHistoricalDates(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
