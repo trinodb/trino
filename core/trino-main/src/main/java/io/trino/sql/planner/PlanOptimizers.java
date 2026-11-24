@@ -228,6 +228,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
+import io.trino.sql.planner.iterative.rule.SimplifyCoalesceOverJoin;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
@@ -430,6 +431,7 @@ public class PlanOptimizers
                                 .addAll(simplifyOptimizerRules)
                                 .addAll(new UnwrapRowSubscript(plannerContext).rules())
                                 .addAll(new PushCastIntoRow(plannerContext).rules())
+                                .addAll(new SimplifyCoalesceOverJoin(plannerContext).rules())
                                 .add(new OptimizeRowPattern())
                                 .addAll(ImmutableSet.of(
                                         new ImplementTableFunctionSource(metadata),

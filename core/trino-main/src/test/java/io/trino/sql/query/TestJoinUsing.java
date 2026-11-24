@@ -169,6 +169,53 @@ public class TestJoinUsing
     }
 
     @Test
+    public void testEqualButDistinguishableKeys()
+    {
+        // This test documents current behavior. The expected results are not necessarily desired.
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES -0e0) AS t(k) JOIN " +
+                        "(VALUES 0e0) AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '-0E0'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES -0e0) AS t(k) LEFT JOIN " +
+                        "(VALUES 0e0) AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '-0E0'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES -0e0) AS t(k) RIGHT JOIN " +
+                        "(VALUES 0e0) AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '0E0'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES -0e0) AS t(k) FULL JOIN " +
+                        "(VALUES 0e0) AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '-0E0'");
+
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES TIMESTAMP '2020-01-01 00:00 UTC') AS t(k) JOIN " +
+                        "(VALUES TIMESTAMP '2020-01-01 01:00 +01:00') AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '2020-01-01 00:00:00 UTC'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES TIMESTAMP '2020-01-01 00:00 UTC') AS t(k) LEFT JOIN " +
+                        "(VALUES TIMESTAMP '2020-01-01 01:00 +01:00') AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '2020-01-01 00:00:00 UTC'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES TIMESTAMP '2020-01-01 00:00 UTC') AS t(k) RIGHT JOIN " +
+                        "(VALUES TIMESTAMP '2020-01-01 01:00 +01:00') AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '2020-01-01 01:00:00 +01:00'");
+        assertThat(assertions.query(
+                "SELECT CAST(k AS varchar) FROM " +
+                        "(VALUES TIMESTAMP '2020-01-01 00:00 UTC') AS t(k) FULL JOIN " +
+                        "(VALUES TIMESTAMP '2020-01-01 01:00 +01:00') AS u(k) USING (k)"))
+                .matches("VALUES VARCHAR '2020-01-01 00:00:00 UTC'");
+    }
+
+    @Test
     public void testDuplicateAliases()
     {
         assertThat(assertions.query(

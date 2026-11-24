@@ -2445,6 +2445,74 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testInnerJoinUsing()
+    {
+        assertPlan("SELECT * FROM (SELECT regionkey, name AS rname FROM region) INNER JOIN (SELECT regionkey, name AS nname FROM nation) USING (regionkey)",
+                output(
+                        ImmutableList.of("N_REGIONKEY", "R_NAME", "N_NAME"),
+                        join(INNER, builder -> builder
+                                .equiCriteria("N_REGIONKEY", "R_REGIONKEY")
+                                .left(anyTree(tableScan("nation", ImmutableMap.of("N_REGIONKEY", "regionkey", "N_NAME", "name"))))
+                                .right(anyTree(tableScan("region", ImmutableMap.of("R_REGIONKEY", "regionkey", "R_NAME", "name")))))));
+    }
+
+    @Test
+    public void testLeftJoinUsing()
+    {
+        assertPlan("SELECT * FROM (SELECT regionkey, name AS rname FROM region) LEFT JOIN (SELECT regionkey, name AS nname FROM nation) USING (regionkey)",
+                output(
+                        ImmutableList.of("R_REGIONKEY", "R_NAME", "N_NAME"),
+                        join(LEFT, builder -> builder
+                                .equiCriteria("R_REGIONKEY", "N_REGIONKEY")
+                                .left(tableScan("region", ImmutableMap.of("R_REGIONKEY", "regionkey", "R_NAME", "name")))
+                                .right(anyTree(tableScan("nation", ImmutableMap.of("N_REGIONKEY", "regionkey", "N_NAME", "name")))))));
+    }
+
+    @Test
+    public void testLeftJoinUsingPredicatePushdown()
+    {
+        assertPlan("SELECT * FROM (SELECT regionkey, name AS rname FROM region) LEFT JOIN (SELECT regionkey, name AS nname FROM nation) USING (regionkey) WHERE regionkey = 1",
+                output(
+                        ImmutableList.of("R_REGIONKEY", "R_NAME", "N_NAME"),
+                        join(LEFT, builder -> builder
+                                .equiCriteria("R_REGIONKEY", "N_REGIONKEY")
+                                .left(filter(
+                                        comparison(EQUAL, new Reference(BIGINT, "R_REGIONKEY"), new Constant(BIGINT, 1L)),
+                                        tableScan("region", ImmutableMap.of("R_REGIONKEY", "regionkey", "R_NAME", "name"))))
+                                .right(anyTree(filter(
+                                        comparison(EQUAL, new Reference(BIGINT, "N_REGIONKEY"), new Constant(BIGINT, 1L)),
+                                        tableScan("nation", ImmutableMap.of("N_REGIONKEY", "regionkey", "N_NAME", "name"))))))));
+    }
+
+    @Test
+    public void testRightJoinUsing()
+    {
+        assertPlan("SELECT * FROM (SELECT regionkey, name AS rname FROM region) RIGHT JOIN (SELECT regionkey, name AS nname FROM nation) USING (regionkey)",
+                output(
+                        ImmutableList.of("N_REGIONKEY", "R_NAME", "N_NAME"),
+                        join(LEFT, builder -> builder
+                                .equiCriteria("N_REGIONKEY", "R_REGIONKEY")
+                                .left(tableScan("nation", ImmutableMap.of("N_REGIONKEY", "regionkey", "N_NAME", "name")))
+                                .right(anyTree(tableScan("region", ImmutableMap.of("R_REGIONKEY", "regionkey", "R_NAME", "name")))))));
+    }
+
+    @Test
+    public void testRightJoinUsingPredicatePushdown()
+    {
+        assertPlan("SELECT * FROM (SELECT regionkey, name AS rname FROM region) RIGHT JOIN (SELECT regionkey, name AS nname FROM nation) USING (regionkey) WHERE regionkey = 1",
+                output(
+                        ImmutableList.of("N_REGIONKEY", "R_NAME", "N_NAME"),
+                        join(LEFT, builder -> builder
+                                .equiCriteria("N_REGIONKEY", "R_REGIONKEY")
+                                .left(filter(
+                                        comparison(EQUAL, new Reference(BIGINT, "N_REGIONKEY"), new Constant(BIGINT, 1L)),
+                                        tableScan("nation", ImmutableMap.of("N_REGIONKEY", "regionkey", "N_NAME", "name"))))
+                                .right(anyTree(filter(
+                                        comparison(EQUAL, new Reference(BIGINT, "R_REGIONKEY"), new Constant(BIGINT, 1L)),
+                                        tableScan("region", ImmutableMap.of("R_REGIONKEY", "regionkey", "R_NAME", "name"))))))));
+    }
+
+    @Test
     public void testRemoveRedundantInnerJoin()
     {
         assertPlan("SELECT regionkey FROM nation INNER JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
