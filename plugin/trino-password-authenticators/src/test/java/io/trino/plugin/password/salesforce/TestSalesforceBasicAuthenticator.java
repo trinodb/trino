@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.password.salesforce;
 
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -20,10 +21,15 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.Duration;
 import io.trino.spi.security.AccessDeniedException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.MediaType.ANY_TEXT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
@@ -97,6 +103,29 @@ public class TestSalesforceBasicAuthenticator
         assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal(username, password))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageMatching("Access Denied:.*");
+    }
+
+    @Test
+    public void testRejectsExternalFileEntity(@TempDir Path tempDir)
+            throws IOException
+    {
+        String secret = "super-secret-shared-value";
+        Path secretFile = tempDir.resolve("config.properties");
+        Files.writeString(secretFile, secret);
+
+        SalesforceConfig config = new SalesforceConfig()
+                .setAllowedOrganizations("my18CharOrgId");
+
+        String xmlResponse = withDoctype(
+                format(successResponse, "&xxe;", "user@salesforce.com"),
+                "<!DOCTYPE r [<!ENTITY xxe SYSTEM \"" + secretFile.toUri() + "\">]>");
+
+        HttpClient testHttpClient = new TestingHttpClient(_ -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse));
+        SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
+        assertThatThrownBy(() -> authenticator.createAuthenticatedPrincipal("user@salesforce.com", "passtoken"))
+                .isInstanceOf(UncheckedExecutionException.class)
+                .hasMessageContaining("DOCTYPE is disallowed")
+                .hasMessageNotContaining(secret);
     }
 
     @Test
@@ -266,5 +295,12 @@ public class TestSalesforceBasicAuthenticator
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessage("Test bad password for real, yo!");
         }
+    }
+
+    private static String withDoctype(String xml, String doctype)
+    {
+        String declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+        checkArgument(xml.startsWith(declaration));
+        return declaration + doctype + xml.substring(declaration.length());
     }
 }
