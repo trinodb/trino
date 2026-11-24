@@ -41,6 +41,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.TrinoException;
@@ -76,6 +77,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -547,6 +549,35 @@ public class TestDeltaLakeMetadata
             checksumFileDeltaLakeMetadata.cleanupQuery(loadMetadataFromChecksumFileEnabledSession);
             transactionLogDeltaLakeMetadata.cleanupQuery(loadMetadataFromChecksumFileDisabledSession);
         }
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testGetSnapshotAtReadVersionAfterNewCommit()
+            throws Exception
+    {
+        ConnectorSession session = loadMetadataFromChecksumFileSession(true);
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(session.getIdentity());
+        SchemaTableName tableName = registerFixtureTable("deltalake/checksum");
+
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+        assertThat(tableHandle.getReadVersion()).isEqualTo(1);
+
+        // Commit a new version after the table handle was created
+        Path transactionLogDirectory = Path.of(URI.create(tableHandle.getLocation())).resolve("_delta_log");
+        Files.writeString(
+                transactionLogDirectory.resolve("00000000000000000002.json"),
+                """
+                {"commitInfo":{"timestamp":1771884422000,"operation":"MANUAL UPDATE","operationParameters":{},"readVersion":1,"isolationLevel":"Serializable","isBlindAppend":false,"operationMetrics":{}}}
+                """);
+
+        // The snapshot stays at the read version of the table handle, not the newer latest version
+        TableSnapshot snapshot = deltaLakeMetadata.getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
+        assertThat(snapshot.getVersion()).isEqualTo(1);
+
+        deltaLakeMetadata.cleanupQuery(session);
     }
 
     /**
