@@ -202,7 +202,7 @@ public class VacuumProcedure
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
             }
 
-            TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle);
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
             Optional<DeltaLakeTableCredentials> tableCredentials = metadata.getTableCredentials(session, handle).map(DeltaLakeTableCredentials.class::cast);

@@ -160,7 +160,7 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         DeltaLakeMetadata deltaLakeMetadata = deltaLakeTransactionManager.get(transaction, session.getIdentity());
-        TableSnapshot tableSnapshot = deltaLakeMetadata.getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
+        TableSnapshot tableSnapshot = deltaLakeMetadata.getSnapshot(session, tableHandle);
         Optional<DeltaLakeTableCredentials> tableCredentials = deltaLakeMetadata.getTableCredentials(session, tableHandle).map(DeltaLakeTableCredentials.class::cast);
         Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, tableCredentials, tableSnapshot);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();

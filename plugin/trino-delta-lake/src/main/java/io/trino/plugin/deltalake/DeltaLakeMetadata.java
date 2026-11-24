@@ -559,11 +559,6 @@ public class DeltaLakeMetadata
         this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
-    private TableSnapshot getSnapshot(ConnectorSession session, DeltaLakeTableHandle table)
-    {
-        return getSnapshot(session, table, Optional.of(table.getReadVersion()));
-    }
-
     public TableSnapshot getSnapshot(ConnectorSession session, DeltaMetastoreTable metastoreTable, Optional<Long> atVersion)
     {
         SchemaTableName tableName = metastoreTable.schemaTableName();
@@ -579,22 +574,29 @@ public class DeltaLakeMetadata
                         resolveLastCheckpoint(tableName, fileSystemFactory.create(session, tableCredentials), metastoreTable.location())));
     }
 
-    public TableSnapshot getSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> atVersion)
+    public TableSnapshot getSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         SchemaTableName tableName = tableHandle.getSchemaTableName();
         Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(tableHandle.toCredentialsHandle());
+        long readVersion = tableHandle.getReadVersion();
         return getSnapshot(
                 tableName,
-                atVersion,
-                () -> transactionLogAccess.loadSnapshot(
-                        session,
-                        tableHandle,
-                        tableCredentials,
-                        atVersion,
-                        resolveLastCheckpoint(
-                                tableName,
-                                fileSystemFactory.create(session, tableCredentials),
-                                tableHandle.getLocation())));
+                Optional.of(readVersion),
+                () -> {
+                    Optional<LastCheckpoint> lastCheckpoint = resolveLastCheckpoint(
+                            tableName,
+                            fileSystemFactory.create(session, tableCredentials),
+                            tableHandle.getLocation());
+                    if (!tableHandle.isTimeTravel()) {
+                        // The read version is the latest version at analysis time, so the cached latest snapshot
+                        // can serve it, unless the table changed since then
+                        TableSnapshot latestSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, tableCredentials, Optional.empty(), lastCheckpoint);
+                        if (latestSnapshot.getVersion() == readVersion) {
+                            return latestSnapshot;
+                        }
+                    }
+                    return transactionLogAccess.loadSnapshot(session, tableHandle, tableCredentials, Optional.of(readVersion), lastCheckpoint);
+                });
     }
 
     private Optional<LastCheckpoint> resolveLastCheckpoint(SchemaTableName tableName, TrinoFileSystem fileSystem, String tableLocation)

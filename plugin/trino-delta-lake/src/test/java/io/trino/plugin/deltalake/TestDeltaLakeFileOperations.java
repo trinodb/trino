@@ -1371,22 +1371,15 @@ public class TestDeltaLakeFileOperations
         assertUpdate("CALL system.flush_metadata_cache()");
         assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1");
 
-        ImmutableMultiset.Builder<FileOperation> repeatedQueryAccesses = ImmutableMultiset.<FileOperation>builder()
-                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
-                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
-                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
-                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"));
-        if (loadMetadataFromChecksumFile) {
-            // The snapshot at the read version bypasses the table snapshot cache and reads the transaction log entries again
-            repeatedQueryAccesses
-                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
-                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"));
-        }
-        else {
-            // The first query cached the table snapshot, so a repeated query does not read the transaction log entries again
-            repeatedQueryAccesses.add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"));
-        }
-        assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName, repeatedQueryAccesses.build());
+        // The first query cached the table snapshot, so a repeated query does not read the transaction log entries again
+        assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .build());
 
         // Time travel reads the requested version, not the cached latest snapshot
         assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
@@ -1408,25 +1401,22 @@ public class TestDeltaLakeFileOperations
         }
         assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 1", timeTravelAccesses.build());
 
+        // A new commit with a checksum file updates the cached snapshot by reading only the new transaction log entry
         writeNoOpCommit(transactionLogDirectory, 3, 1771884423000L);
         ImmutableMultiset.Builder<FileOperation> newCommitAccesses = ImmutableMultiset.<FileOperation>builder()
                 .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                 .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
                 .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
                 .add(new FileOperation(DATA, "no partition", "InputFile.newInput"));
         if (loadMetadataFromChecksumFile) {
-            // A new commit with a checksum file rebuilds the snapshot from all transaction log entries after the checkpoint
             newCommitAccesses
-                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
-                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
                     .add(new FileOperation(CHECKSUM, "00000000000000000003.crc", "InputFile.newStream"))
                     .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
                     .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"));
         }
         else {
-            // A new commit updates the cached snapshot by reading only the new transaction log entry
             newCommitAccesses
-                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
                     .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"), 2)
                     .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"), 2);
         }
