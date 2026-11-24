@@ -20,7 +20,7 @@ public class TestTrinoHive4CatalogWithHiveMetastore
         extends TestTrinoHiveCatalogWithHiveMetastore
 {
     @Override
-    HiveFlociDataLake hiveFlociDataLake()
+    protected HiveFlociDataLake hiveFlociDataLake()
     {
         return new Hive4FlociDataLake(bucketName);
     }

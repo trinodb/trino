@@ -71,7 +71,7 @@ public abstract class BaseTestOpenLineageQueries
         }
     }
 
-    public abstract void assertCreateTableAsSelectFromTable(
+    protected abstract void assertCreateTableAsSelectFromTable(
             String queryId,
             String query,
             String fullTableName,
@@ -122,7 +122,7 @@ public abstract class BaseTestOpenLineageQueries
         }
     }
 
-    public abstract void assertCreateTableAsSelectFromView(
+    protected abstract void assertCreateTableAsSelectFromView(
             String createViewQueryId,
             String createViewQuery,
             String createTableQueryId,
@@ -163,7 +163,7 @@ public abstract class BaseTestOpenLineageQueries
         assertEventually(TIMEOUT, () -> assertCreateTableWithJoin(createTableQueryId, createTableWithJoinQuery, this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertCreateTableWithJoin(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected abstract void assertCreateTableWithJoin(String createTableQueryId, String createTableQuery, SessionRepresentation session)
             throws Exception;
 
     @Test
@@ -237,7 +237,7 @@ public abstract class BaseTestOpenLineageQueries
         assertEventually(TIMEOUT, () -> assertCreateTableWithCTE(createTableQueryId, createTableWithCTEQuery, this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertCreateTableWithCTE(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected abstract void assertCreateTableWithCTE(String createTableQueryId, String createTableQuery, SessionRepresentation session)
             throws Exception;
 
     @Test
@@ -280,7 +280,7 @@ public abstract class BaseTestOpenLineageQueries
         assertEventually(TIMEOUT, () -> assertCreateTableWithSubquery(createTableQueryId, createTableWithSubqueryQuery, this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertCreateTableWithSubquery(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected abstract void assertCreateTableWithSubquery(String createTableQueryId, String createTableQuery, SessionRepresentation session)
             throws Exception;
 
     @Test
@@ -327,7 +327,7 @@ public abstract class BaseTestOpenLineageQueries
         }
     }
 
-    abstract void assertCreateTableWithUnion(String createTableQueryId, String createTableQuery, String fullTableName, SessionRepresentation session)
+    protected abstract void assertCreateTableWithUnion(String createTableQueryId, String createTableQuery, String fullTableName, SessionRepresentation session)
             throws Exception;
 
     @Test
@@ -363,7 +363,7 @@ public abstract class BaseTestOpenLineageQueries
                 this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertInsertIntoTable(
+    protected abstract void assertInsertIntoTable(
             String createTableQueryId,
             String createTableQuery,
             String insertQueryId,
@@ -430,7 +430,7 @@ public abstract class BaseTestOpenLineageQueries
                 this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertDeleteFromTable(
+    protected abstract void assertDeleteFromTable(
             String createSchemaQueryId,
             String createSchemaQuery,
             String createTableQueryId,
@@ -504,7 +504,7 @@ public abstract class BaseTestOpenLineageQueries
                 this.getSession().toSessionRepresentation()));
     }
 
-    abstract void assertMergeIntoTable(
+    protected abstract void assertMergeIntoTable(
             String createSchemaQueryId,
             String createSchemaQuery,
             String createTableQueryId,

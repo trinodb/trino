@@ -228,7 +228,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertThat(columnStatistics.getBloomFilter()).isNull();
     }
 
-    void assertRangeStatistics(RangeStatistics<?> rangeStatistics, T expectedMin, T expectedMax)
+    protected void assertRangeStatistics(RangeStatistics<?> rangeStatistics, T expectedMin, T expectedMax)
     {
         assertThat(rangeStatistics).isNotNull();
         assertThat(rangeStatistics.getMin()).isEqualTo(expectedMin);

@@ -186,7 +186,7 @@ public class TestIcebergMaterializedView
         }
     }
 
-    public Object[][] testConcurrentIncrementalRefreshDataProvider()
+    private Object[][] testConcurrentIncrementalRefreshDataProvider()
     {
         return cartesianProduct(trueFalse(), trueFalse());
     }

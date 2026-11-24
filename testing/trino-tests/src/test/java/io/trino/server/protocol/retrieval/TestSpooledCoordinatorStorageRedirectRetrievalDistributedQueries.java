@@ -21,7 +21,7 @@ public class TestSpooledCoordinatorStorageRedirectRetrievalDistributedQueries
         extends AbstractSpooledQueryDataRetrievalDistributedQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    protected SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
         return COORDINATOR_STORAGE_REDIRECT;
     }

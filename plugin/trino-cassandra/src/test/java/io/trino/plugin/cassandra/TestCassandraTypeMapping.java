@@ -502,7 +502,7 @@ public class TestCassandraTypeMapping
         return tests;
     }
 
-    public List<ZoneId> timezones()
+    private List<ZoneId> timezones()
     {
         return ImmutableList.of(
                 UTC,

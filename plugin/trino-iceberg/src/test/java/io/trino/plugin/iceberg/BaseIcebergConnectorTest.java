@@ -4047,7 +4047,7 @@ public abstract class BaseIcebergConnectorTest
         testTruncateIntegerTransform("bigint");
     }
 
-    public void testTruncateIntegerTransform(String dataType)
+    private void testTruncateIntegerTransform(String dataType)
     {
         String table = format("test_truncate_%s_transform", dataType);
         assertUpdate(format("CREATE TABLE %s (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", table, dataType));

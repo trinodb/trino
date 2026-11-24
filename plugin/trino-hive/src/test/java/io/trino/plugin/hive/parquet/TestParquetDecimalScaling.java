@@ -327,7 +327,7 @@ public class TestParquetDecimalScaling
         }
     }
 
-    public void testReadingRescaledDecimals(
+    private void testReadingRescaledDecimals(
             int precision,
             int scale,
             boolean forceFixedLengthArray,
@@ -401,7 +401,7 @@ public class TestParquetDecimalScaling
         }
     }
 
-    public void testReadingRoundedDecimals(
+    private void testReadingRoundedDecimals(
             int precision,
             int scale,
             boolean forceFixedLengthArray,

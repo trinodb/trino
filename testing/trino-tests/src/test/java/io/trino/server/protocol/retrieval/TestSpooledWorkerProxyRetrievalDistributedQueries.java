@@ -19,7 +19,7 @@ public class TestSpooledWorkerProxyRetrievalDistributedQueries
         extends AbstractSpooledQueryDataRetrievalDistributedQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    protected SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
         return SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
     }

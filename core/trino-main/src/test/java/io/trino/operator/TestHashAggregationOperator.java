@@ -571,7 +571,7 @@ public class TestHashAggregationOperator
         testMemoryReservationYield(BIGINT);
     }
 
-    public void testMemoryReservationYield(Type type)
+    private void testMemoryReservationYield(Type type)
             throws Exception
     {
         List<Page> input = createPages(type, 6_000, 600);

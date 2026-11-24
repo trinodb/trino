@@ -195,7 +195,7 @@ public class TestAggregationStatsRule
         testAggregationStep(AggregationNode.Step.SINGLE);
     }
 
-    void testAggregationStep(AggregationNode.Step step)
+    private void testAggregationStep(AggregationNode.Step step)
     {
         tester().assertStatsFor(pb -> pb
                         .aggregation(ab -> ab

@@ -1098,7 +1098,7 @@ public abstract class BaseClickHouseTypeMapping
         testUnsupportedTimestamp("2106-02-07 06:28:16"); // MAX_SUPPORTED_DATETIME_VALUE + 1 second
     }
 
-    public void testUnsupportedTimestamp(String unsupportedTimestamp)
+    private void testUnsupportedTimestamp(String unsupportedTimestamp)
     {
         try (TestTable table = newTrinoTable("test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(

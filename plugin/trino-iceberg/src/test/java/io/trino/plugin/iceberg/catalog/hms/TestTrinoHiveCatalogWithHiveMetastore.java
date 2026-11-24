@@ -101,7 +101,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     private CachingHiveMetastore metastore;
     protected String bucketName;
 
-    HiveFlociDataLake hiveFlociDataLake()
+    protected HiveFlociDataLake hiveFlociDataLake()
     {
         return new Hive3FlociDataLake(bucketName, HIVE3_IMAGE);
     }

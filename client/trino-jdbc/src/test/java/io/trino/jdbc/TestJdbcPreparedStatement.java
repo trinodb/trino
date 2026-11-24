@@ -480,7 +480,7 @@ public class TestJdbcPreparedStatement
         testExecuteUpdate(false);
     }
 
-    public void testExecuteUpdate(boolean explicitPrepare)
+    private void testExecuteUpdate(boolean explicitPrepare)
             throws Exception
     {
         String tableName = "test_execute_update_" + randomNameSuffix();

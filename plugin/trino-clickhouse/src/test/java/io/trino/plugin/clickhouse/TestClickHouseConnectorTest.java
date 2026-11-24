@@ -139,7 +139,7 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
-    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    protected void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         // Override because default storage engine doesn't support renaming columns
         try (TestTable table = newTrinoTable("test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {

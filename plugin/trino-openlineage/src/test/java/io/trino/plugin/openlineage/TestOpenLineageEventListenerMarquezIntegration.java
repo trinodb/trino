@@ -48,7 +48,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableAsSelectFromTable(String queryId, String query, String fullTableName, LineageTestTableType tableType, SessionRepresentation session)
+    protected void assertCreateTableAsSelectFromTable(String queryId, String query, String fullTableName, LineageTestTableType tableType, SessionRepresentation session)
     {
         String expectedJobName = URLEncoder.encode(queryId, UTF_8);
 
@@ -56,7 +56,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableAsSelectFromView(
+    protected void assertCreateTableAsSelectFromView(
             String createViewQueryId,
             String createViewQuery,
             String createTableQueryId,
@@ -77,7 +77,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableWithJoin(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected void assertCreateTableWithJoin(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
         String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
@@ -85,7 +85,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableWithCTE(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected void assertCreateTableWithCTE(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
         String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
@@ -93,7 +93,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableWithSubquery(String createTableQueryId, String createTableQuery, SessionRepresentation session)
+    protected void assertCreateTableWithSubquery(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
         String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
@@ -101,7 +101,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertCreateTableWithUnion(String createTableQueryId, String createTableQuery, String fullTableName, SessionRepresentation session)
+    protected void assertCreateTableWithUnion(String createTableQueryId, String createTableQuery, String fullTableName, SessionRepresentation session)
     {
         String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
@@ -109,7 +109,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    public void assertInsertIntoTable(
+    protected void assertInsertIntoTable(
             String createTableQueryId,
             String createTableQuery,
             String insertQueryId,
@@ -128,7 +128,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    void assertDeleteFromTable(
+    protected void assertDeleteFromTable(
             String createSchemaQueryId,
             String createSchemaQuery,
             String createTableQueryId,
@@ -153,7 +153,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
     }
 
     @Override
-    void assertMergeIntoTable(
+    protected void assertMergeIntoTable(
             String createSchemaQueryId,
             String createSchemaQuery,
             String createTableQueryId,
