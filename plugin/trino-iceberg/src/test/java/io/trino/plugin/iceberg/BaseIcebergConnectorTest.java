@@ -9827,6 +9827,55 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSetPartitionedColumnTypeTimeTravelAfterWrite()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_type_time_travel_",
+                """
+                WITH (partitioning = ARRAY['part']) AS
+                SELECT part, v
+                FROM (VALUES (7, 1), (-42, 2), (2147483647, 3), (CAST(NULL AS INTEGER), 5)) AS data(part, v)
+                """)) {
+            long snapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (BIGINT '5000000000', 4)", 1);
+            assertThat(query("SELECT part, v FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId))
+                    .matches("VALUES (7, 1), (-42, 2), (2147483647, 3), (CAST(NULL AS INTEGER), 5)");
+            assertThat(query("SELECT part FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId + " WHERE part = -42"))
+                    .matches("VALUES -42");
+            assertThat(query("SELECT part, \"$partition\" FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId + " WHERE part = 7"))
+                    .matches("VALUES (7, CAST(ROW(7) AS ROW(part BIGINT)))");
+            assertThat(query("SELECT part FROM " + table.getName()))
+                    .matches("VALUES BIGINT '7', BIGINT '-42', BIGINT '2147483647', BIGINT '5000000000', CAST(NULL AS BIGINT)");
+        }
+    }
+
+    @Test
+    public void testSetRealPartitionedColumnTypeTimeTravelAfterWrite()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_real_partition_time_travel_",
+                """
+                WITH (partitioning = ARRAY['part']) AS
+                SELECT REAL '0.1' AS part, 1 AS v
+                """)) {
+            long snapshotId = getCurrentSnapshotId(table.getName());
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE double");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (DOUBLE '3.25', 2)", 1);
+
+            assertThat(query("SELECT part, v FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId))
+                    .matches("VALUES (REAL '0.1', 1)");
+            assertThat(query("SELECT part FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId + " WHERE part = REAL '0.1'"))
+                    .matches("VALUES REAL '0.1'");
+            assertThat(query("SELECT part, \"$partition\" FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId))
+                    .matches("VALUES (REAL '0.1', CAST(ROW(CAST(REAL '0.1' AS DOUBLE)) AS ROW(part DOUBLE)))");
+            assertThat(query("SELECT part FROM " + table.getName()))
+                    .matches("VALUES CAST(REAL '0.1' AS DOUBLE), DOUBLE '3.25'");
+        }
+    }
+
+    @Test
     public void testSetTransformPartitionedColumnType()
     {
         try (TestTable table = newTrinoTable("test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['bucket(part, 10)']) AS SELECT CAST(123 AS integer) AS part")) {

@@ -526,7 +526,7 @@ public class IcebergSplitSource
             return true;
         }
 
-        PartitionSpec partitionSpec = getFileScanPartitionSpec(fileScanTask, specsById);
+        PartitionSpec partitionSpec = fileScanTask.spec();
         if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(partitionSpec, fileScanTask.partition())) {
             return true;
         }
@@ -975,7 +975,15 @@ public class IcebergSplitSource
         ImmutableList.Builder<Block> partitionValues = ImmutableList.builder();
         for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
             Type icebergType = spec.partitionType().field(fields.get(fieldIndex).fieldId()).type();
-            Object partitionValue = convertIcebergValueToTrino(icebergType, partition.get(fieldIndex, Object.class));
+            Object value = partition.get(fieldIndex, Object.class);
+
+            if (icebergType.typeId() == Type.TypeID.LONG && value instanceof Integer integerValue) {
+                value = integerValue.longValue();
+            }
+            else if (icebergType.typeId() == Type.TypeID.DOUBLE && value instanceof Float floatValue) {
+                value = floatValue.doubleValue();
+            }
+            Object partitionValue = convertIcebergValueToTrino(icebergType, value);
             partitionValues.add(writeNativeValue(toTrinoType(icebergType, typeManager), partitionValue));
         }
         return partitionValues.build();
