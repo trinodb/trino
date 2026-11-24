@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -26,6 +27,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.avro.file.DataFileStream;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
@@ -42,7 +48,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -560,6 +570,39 @@ public abstract class BaseIcebergSystemTables
         try (TestTable table = newTrinoTable("test_all_manifests", "WITH (partitioning = ARRAY['dt']) AS SELECT 1 x, DATE '2021-01-01' dt")) {
             assertThat(query("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\""))
                     .matches("VALUES CAST(ARRAY[ROW(false, false, VARCHAR '2021-01-01', VARCHAR '2021-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"manifests", "all_manifests"})
+    void testManifestsWithNullPartitionSummaries(String metadataTable)
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_null_partition_summaries", "(x) WITH (format_version = 3) AS VALUES 1")) {
+            Table icebergTable = loadTable(table.getName());
+            String manifestList = icebergTable.currentSnapshot().manifestListLocation();
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            long manifestLength;
+            try (DataFileStream<GenericData.Record> reader = new DataFileStream<>(icebergTable.io().newInputFile(manifestList).newStream(), new GenericDatumReader<>());
+                    DataFileWriter<GenericData.Record> writer = new DataFileWriter<>(new GenericDatumWriter<>(reader.getSchema()))) {
+                for (String key : reader.getMetaKeys()) {
+                    if (!key.startsWith("avro.")) {
+                        writer.setMeta(key, reader.getMeta(key));
+                    }
+                }
+                writer.create(reader.getSchema(), output);
+                GenericData.Record manifest = reader.next();
+                assertThat(reader.hasNext()).isFalse();
+                manifestLength = (long) manifest.get("manifest_length");
+                // DuckDB writes null partition summaries for unpartitioned tables.
+                manifest.put("partitions", null);
+                writer.append(manifest);
+            }
+            fileSystemFactory.create(SESSION).newOutputFile(Location.of(manifestList)).createOrOverwrite(output.toByteArray());
+
+            String metadataTableName = "\"" + table.getName() + "$" + metadataTable + "\"";
+            assertQuery("SELECT sum(length) FROM " + metadataTableName, "VALUES " + manifestLength);
+            assertQuery("SELECT partition_summaries IS NULL FROM " + metadataTableName, "VALUES true");
         }
     }
 

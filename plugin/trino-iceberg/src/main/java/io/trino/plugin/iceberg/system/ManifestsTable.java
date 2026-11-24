@@ -140,6 +140,11 @@ public class ManifestsTable
 
     private static void writePartitionSummaries(BlockBuilder arrayBlockBuilder, List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
     {
+        if (summaries == null) {
+            arrayBlockBuilder.appendNull();
+            return;
+        }
+
         ((ArrayBlockBuilder) arrayBlockBuilder).buildEntry(elementBuilder -> {
             for (int i = 0; i < summaries.size(); i++) {
                 PartitionFieldSummary summary = summaries.get(i);
