@@ -21,29 +21,4 @@ interface Instruction
     }
 
     Type type();
-
-    static Jump jump(int target)
-    {
-        return new Jump(target);
-    }
-
-    static Save save()
-    {
-        return new Save();
-    }
-
-    static Split split(int first, int second)
-    {
-        return new Split(first, second);
-    }
-
-    static Done done()
-    {
-        return new Done();
-    }
-
-    static MatchLabel match(int label)
-    {
-        return new MatchLabel(label);
-    }
 }

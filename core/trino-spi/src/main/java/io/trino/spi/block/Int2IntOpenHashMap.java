@@ -53,10 +53,6 @@ class Int2IntOpenHashMap
      */
     protected transient int maxFill;
     /**
-     * We never resize below this threshold, which is the construction-time {#n}.
-     */
-    protected final transient int minN;
-    /**
      * Number of entries in the set (including the key zero, if present).
      */
     protected int size;
@@ -91,7 +87,6 @@ class Int2IntOpenHashMap
         }
         this.f = f;
         n = arraySize(expected, f);
-        minN = n;
         mask = n - 1;
         maxFill = maxFill(n, f);
         key = new int[n + 1];
@@ -106,34 +101,6 @@ class Int2IntOpenHashMap
         }
         insert(-pos - 1, k, v);
         return DEFAULT_RETURN_VALUE;
-    }
-
-    public int get(final int k)
-    {
-        if (k == 0) {
-            return containsNullKey ? value[n] : DEFAULT_RETURN_VALUE;
-        }
-        final int[] key = this.key;
-        // The starting point.
-        int pos = mix(k) & mask;
-        int curr = key[pos];
-        if (curr == 0) {
-            return DEFAULT_RETURN_VALUE;
-        }
-        if (k == curr) {
-            return value[pos];
-        }
-        // There's always an unused entry.
-        while (true) {
-            pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (curr == 0) {
-                return DEFAULT_RETURN_VALUE;
-            }
-            if (k == curr) {
-                return value[pos];
-            }
-        }
     }
 
     private void insert(final int pos, final int k, final int v)

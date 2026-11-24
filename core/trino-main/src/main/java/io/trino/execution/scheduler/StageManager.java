@@ -58,7 +58,6 @@ class StageManager
 {
     private final QueryStateMachine queryStateMachine;
     private final Map<StageId, SqlStage> stages;
-    private final List<SqlStage> stagesInTopologicalOrder;
     private final List<SqlStage> coordinatorStagesInTopologicalOrder;
     private final List<SqlStage> distributedStagesInTopologicalOrder;
     private final StageId rootStageId;
@@ -154,7 +153,7 @@ class StageManager
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.stages = ImmutableMap.copyOf(requireNonNull(stages, "stages is null"));
-        this.stagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(stagesInTopologicalOrder, "stagesInTopologicalOrder is null"));
+        requireNonNull(stagesInTopologicalOrder, "stagesInTopologicalOrder is null");
         this.coordinatorStagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(coordinatorStagesInTopologicalOrder, "coordinatorStagesInTopologicalOrder is null"));
         this.distributedStagesInTopologicalOrder = ImmutableList.copyOf(requireNonNull(distributedStagesInTopologicalOrder, "distributedStagesInTopologicalOrder is null"));
         this.rootStageId = requireNonNull(rootStageId, "rootStageId is null");
@@ -186,11 +185,6 @@ class StageManager
         sqlStage.failTaskRemotely(taskId, failureCause);
     }
 
-    public List<SqlStage> getStagesInTopologicalOrder()
-    {
-        return stagesInTopologicalOrder;
-    }
-
     public List<SqlStage> getCoordinatorStagesInTopologicalOrder()
     {
         return coordinatorStagesInTopologicalOrder;
@@ -216,21 +210,11 @@ class StageManager
         return requireNonNull(stages.get(stageId), () -> "stage not found: " + stageId);
     }
 
-    public Set<SqlStage> getChildren(PlanFragmentId fragmentId)
-    {
-        return getChildren(getStageId(queryStateMachine.getQueryId(), fragmentId));
-    }
-
     public Set<SqlStage> getChildren(StageId stageId)
     {
         return children.get(stageId).stream()
                 .map(this::get)
                 .collect(toImmutableSet());
-    }
-
-    public Optional<SqlStage> getParent(PlanFragmentId fragmentId)
-    {
-        return getParent(getStageId(queryStateMachine.getQueryId(), fragmentId));
     }
 
     public Optional<SqlStage> getParent(StageId stageId)

@@ -70,11 +70,6 @@ enum BuiltinColumns
         return name;
     }
 
-    public Type getType()
-    {
-        return type;
-    }
-
     public ColumnMetadata getMetadata()
     {
         return ColumnMetadata.builder()

@@ -144,11 +144,6 @@ public class ColumnarFilterCompiler
         return filterTemplates.getStats();
     }
 
-    Metadata getMetadata()
-    {
-        return metadata;
-    }
-
     PlannerContext getPlannerContext()
     {
         return plannerContext;

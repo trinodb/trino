@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
-import com.google.inject.ConfigurationException;
-import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
@@ -150,10 +147,5 @@ public class BigQueryProxyConfig
     public boolean isUserNotEmptyIfPasswordProvided()
     {
         return username.isPresent() || password.isEmpty();
-    }
-
-    private static ConfigurationException exception(String message)
-    {
-        return new ConfigurationException(ImmutableList.of(new Message(message)));
     }
 }

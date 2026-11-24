@@ -152,15 +152,6 @@ final class FlatSet
         addNonNull(block, position, valueHashCode(block, position));
     }
 
-    public void add(Block block, int position, long hash)
-    {
-        if (block.isNull(position)) {
-            hasNull = true;
-            return;
-        }
-        addNonNull(block, position, hash);
-    }
-
     private void addNonNull(Block block, int position, long hash)
     {
         int index = getIndex(block, position, hash);

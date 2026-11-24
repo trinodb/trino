@@ -212,12 +212,6 @@ public class JdkLdapClient
             this.searchResults = requireNonNull(searchResults, "searchResults is null");
         }
 
-        public NamingEnumeration<SearchResult> getSearchResult()
-                throws NamingException
-        {
-            return searchResults;
-        }
-
         @Override
         public void close()
                 throws NamingException

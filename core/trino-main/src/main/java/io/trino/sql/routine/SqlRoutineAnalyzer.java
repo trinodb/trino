@@ -393,11 +393,6 @@ public class SqlRoutineAnalyzer
 
     private class StatementVisitor
     {
-        public void process(Node node)
-        {
-            process(node, null);
-        }
-
         public void process(Node root, Context context)
         {
             switch (root) {
