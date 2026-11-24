@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
-/// Appends half of the positions of a [VariableWidthBlock] that holds values of the given lengths to a builder,
+/// Appends a share of the positions of a [VariableWidthBlock] that holds values of the given lengths to a builder,
 /// as the partitioned output does for every partition.
 @OutputTimeUnit(MICROSECONDS)
 @Fork(3)
@@ -45,13 +45,20 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 public class BenchmarkVariableWidthBlockBuilder
 {
     private static final int POSITIONS = 8192;
-    private static final int SELECTED_POSITIONS = POSITIONS / 2;
+    // The selections of positions that are appended in turn, a power of two. With the same positions in every
+    // call a processor learns the branches that depend on them, which no caller of a builder lets it do.
+    private static final int SELECTIONS = 64;
 
     @Benchmark
     public VariableWidthBlock appendPositions(BenchmarkData data)
     {
-        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, SELECTED_POSITIONS, data.totalBytes / 2);
-        builder.appendPositions(data.block, data.selectedPositions, 0, SELECTED_POSITIONS);
+        return appendPositions(data, data.nextSelection());
+    }
+
+    private static VariableWidthBlock appendPositions(BenchmarkData data, int[] selectedPositions)
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, selectedPositions.length, (int) ((long) data.totalBytes * data.selectedPercent / 100));
+        builder.appendPositions(data.block, selectedPositions, 0, selectedPositions.length);
         return builder.buildValueBlock();
     }
 
@@ -60,7 +67,8 @@ public class BenchmarkVariableWidthBlockBuilder
         SHORT_0_TO_12(0, 12),
         MEDIUM_13_TO_32(13, 32),
         MIXED_0_TO_64(0, 64),
-        LONG_100_TO_200(100, 200);
+        LONG_100_TO_200(100, 200),
+        WIDE_0_TO_400(0, 400);
 
         private final int minLength;
         private final int maxLength;
@@ -98,17 +106,23 @@ public class BenchmarkVariableWidthBlockBuilder
         @Param({"0", "10"})
         private int nullPercent;
 
+        // the share of the positions of the block that a call appends: 100 appends all of them, which are adjacent
+        @Param("50")
+        private int selectedPercent = 50;
+
         private Slice[] values;
         private int totalBytes;
         private VariableWidthBlock block;
-        private int[] selectedPositions;
+        private int[][] selections;
+        private int nextSelection;
 
         public BenchmarkData() {}
 
-        public BenchmarkData(ValueLengths valueLengths, int nullPercent)
+        public BenchmarkData(ValueLengths valueLengths, int nullPercent, int selectedPercent)
         {
             this.valueLengths = valueLengths;
             this.nullPercent = nullPercent;
+            this.selectedPercent = selectedPercent;
         }
 
         @Setup
@@ -134,15 +148,24 @@ public class BenchmarkVariableWidthBlockBuilder
             block = builder.buildValueBlock();
 
             // positions in increasing order, like the positions a filter or a partitioner selects
-            selectedPositions = new int[SELECTED_POSITIONS];
-            int selected = 0;
-            for (int position = 0; selected < SELECTED_POSITIONS; position++) {
-                int remainingPositions = POSITIONS - position;
-                if (random.nextInt(remainingPositions) < SELECTED_POSITIONS - selected) {
-                    selectedPositions[selected] = position;
-                    selected++;
+            int selectedPositions = POSITIONS * selectedPercent / 100;
+            selections = new int[SELECTIONS][selectedPositions];
+            for (int[] selection : selections) {
+                int selected = 0;
+                for (int position = 0; selected < selectedPositions; position++) {
+                    int remainingPositions = POSITIONS - position;
+                    if (random.nextInt(remainingPositions) < selectedPositions - selected) {
+                        selection[selected] = position;
+                        selected++;
+                    }
                 }
             }
+        }
+
+        int[] nextSelection()
+        {
+            nextSelection = (nextSelection + 1) & (SELECTIONS - 1);
+            return selections[nextSelection];
         }
     }
 
@@ -151,15 +174,19 @@ public class BenchmarkVariableWidthBlockBuilder
     {
         for (ValueLengths valueLengths : ValueLengths.values()) {
             for (int nullPercent : new int[] {0, 10}) {
-                BenchmarkData data = new BenchmarkData(valueLengths, nullPercent);
-                data.setup();
-                VariableWidthBlock appended = appendPositions(data);
-                assertThat(appended.getPositionCount()).isEqualTo(SELECTED_POSITIONS);
-                for (int i = 0; i < SELECTED_POSITIONS; i++) {
-                    Slice expected = data.values[data.selectedPositions[i]];
-                    assertThat(appended.isNull(i)).isEqualTo(expected == null);
-                    if (expected != null) {
-                        assertThat(appended.getSlice(i)).isEqualTo(expected);
+                for (int selectedPercent : new int[] {10, 50, 100}) {
+                    BenchmarkData data = new BenchmarkData(valueLengths, nullPercent, selectedPercent);
+                    data.setup();
+                    assertThat(appendPositions(data).getPositionCount()).isEqualTo(POSITIONS * selectedPercent / 100);
+                    int[] selectedPositions = data.selections[SELECTIONS - 1];
+                    VariableWidthBlock appended = appendPositions(data, selectedPositions);
+                    assertThat(appended.getPositionCount()).isEqualTo(selectedPositions.length);
+                    for (int i = 0; i < selectedPositions.length; i++) {
+                        Slice expected = data.values[selectedPositions[i]];
+                        assertThat(appended.isNull(i)).isEqualTo(expected == null);
+                        if (expected != null) {
+                            assertThat(appended.getSlice(i)).isEqualTo(expected);
+                        }
                     }
                 }
             }
