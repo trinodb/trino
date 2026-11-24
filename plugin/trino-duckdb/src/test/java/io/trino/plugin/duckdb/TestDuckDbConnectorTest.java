@@ -21,11 +21,15 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 
+import static io.trino.plugin.duckdb.DuckDbClientModule.SECURITY_CONNECTION_PROPERTIES;
 import static io.trino.plugin.duckdb.TestingDuckDb.TPCH_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -240,6 +244,45 @@ final class TestDuckDbConnectorTest
                     .failure().hasMessageContaining("Parser Error: syntax error at or near \"INTO\"");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
+    }
+
+    @Test
+    void testNativeQueryCannotAccessHost()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_text(''/etc/passwd'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_csv(''/etc/passwd'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_csv(''https://example.com/data.csv'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        for (Entry<String, String> setting : SECURITY_CONNECTION_PROPERTIES.entrySet()) {
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT current_setting(''%s'')'))".formatted(setting.getKey())))
+                    .matches("VALUES " + setting.getValue());
+        }
+    }
+
+    @Test
+    void testExecuteProcedureCannotAccessHost(@TempDir Path directory)
+    {
+        String tableName = "test_execute_read_file" + randomNameSuffix();
+        assertQueryFails("CALL system.execute('CREATE TABLE %s.%s AS SELECT * FROM read_text(''/etc/passwd'')')".formatted(TPCH_SCHEMA, tableName), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertQueryFails("CALL system.execute('CREATE TABLE %s.%s AS SELECT * FROM read_csv(''https://example.com/data.csv'')')".formatted(TPCH_SCHEMA, tableName), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+
+        Path exportFile = directory.resolve("export.csv");
+        assertQueryFails("CALL system.execute('COPY (SELECT 1) TO ''%s''')".formatted(exportFile), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(exportFile).doesNotExist();
+
+        Path attachFile = directory.resolve("attached.db");
+        assertQueryFails("CALL system.execute('ATTACH ''%s'' AS attached')".formatted(attachFile), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(attachFile).doesNotExist();
+
+        assertQueryFails("CALL system.execute('INSTALL httpfs')", "(?s).*disabled.*");
+        assertQueryFails("CALL system.execute('LOAD httpfs')", "(?s).*Loading external extensions is disabled through configuration.*");
+        assertQueryFails("CALL system.execute('SET enable_external_access = true')", "(?s).*the configuration has been locked.*");
+        assertQueryFails("CALL system.execute('RESET enable_external_access')", "(?s).*the configuration has been locked.*");
+        assertQueryFails("CALL system.execute('SET lock_configuration = false')", "(?s).*the configuration has been locked.*");
     }
 
     @Test

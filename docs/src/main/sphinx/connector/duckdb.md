@@ -51,6 +51,16 @@ https://duckdb.org/docs/operations_manual/securing_duckdb/overview). Note that
 Trino connects to the database using the JDBC driver and does not use the DuckDB
 CLI.
 
+The connector always opens the database with `enable_external_access=false`,
+`allow_community_extensions=false`, `allow_unsigned_extensions=false`,
+`autoload_known_extensions=false`, `autoinstall_known_extensions=false`, and
+`lock_configuration=true`. DuckDB SQL run by the connector therefore cannot
+read or write files on the Trino nodes, attach other databases from files,
+access the network, install or load extensions, or change any DuckDB setting,
+including `threads` and `memory_limit`. Setting any of these options, or
+`allowed_configs`, `allowed_directories`, `allowed_paths`, or
+`session_init_sql_file`, in `connection-url` is an error.
+
 ### Multiple DuckDB servers
 
 The DuckDB connector can only access a single database within

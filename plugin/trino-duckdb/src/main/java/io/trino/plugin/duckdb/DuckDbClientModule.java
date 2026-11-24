@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.duckdb;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -31,6 +32,7 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.duckdb.DuckDBDriver;
 
+import java.util.Map;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -40,10 +42,22 @@ import static org.duckdb.DuckDBDriver.DUCKDB_USER_AGENT_PROPERTY;
 public final class DuckDbClientModule
         extends AbstractConfigurationAwareModule
 {
+    // Keep the embedded engine from reaching the host file system, the network and extensions,
+    // and stop SQL from turning these settings back on
+    static final Map<String, String> SECURITY_CONNECTION_PROPERTIES = ImmutableMap.<String, String>builder()
+            .put("enable_external_access", "false")
+            .put("allow_community_extensions", "false")
+            .put("allow_unsigned_extensions", "false")
+            .put("autoload_known_extensions", "false")
+            .put("autoinstall_known_extensions", "false")
+            .put("lock_configuration", "true")
+            .buildOrThrow();
+
     @Override
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DuckDbClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DuckDbJdbcConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
@@ -59,6 +73,7 @@ public final class DuckDbClientModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(DUCKDB_USER_AGENT_PROPERTY, "trino/" + nodeVersion.toString());
+        connectionProperties.putAll(SECURITY_CONNECTION_PROPERTIES);
         return new DuplicatingConnectionFactory(credentialProvider, DriverConnectionFactory.builder(
                         new DuckDBDriver(),
                         config.getConnectionUrl(),
