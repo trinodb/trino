@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
+import io.trino.plugin.deltalake.metastore.lakehouse.DeltaLakeLakehouseMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
 import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
@@ -31,6 +32,7 @@ public class DeltaLakeMetastoreModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
+            case LAKEHOUSE -> new DeltaLakeLakehouseMetastoreModule();
         });
 
         install(new CachingHiveMetastoreModule());

@@ -18,7 +18,8 @@ To connect to Databricks Delta Lake, you need:
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
 - Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS,
-  or a Glue metastore.
+  a Glue metastore, or a
+  {ref}`Lakehouse Hive catalog <hive-lakehouse-metastore>`.
 - Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
 - Data files stored in the [Parquet file format](parquet-format-configuration)
@@ -48,6 +49,16 @@ must instead set `hive.metastore` to `glue`:
 ```properties
 connector.name=delta_lake
 hive.metastore=glue
+```
+
+If you are using a {ref}`Lakehouse Hive catalog <hive-lakehouse-metastore>` as your
+metastore, you must instead set `hive.metastore` to `lakehouse`:
+
+```properties
+connector.name=delta_lake
+hive.metastore=lakehouse
+hive.metastore.lakehouse.project-id=example-project-id
+hive.metastore.lakehouse.catalog-id=example-catalog
 ```
 
 Each metastore type has specific configuration properties along with

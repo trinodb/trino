@@ -38,6 +38,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
+import io.trino.plugin.deltalake.metastore.lakehouse.DeltaLakeLakehouseMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
@@ -132,6 +133,7 @@ public class LakehouseDeltaModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
+            case LAKEHOUSE -> new DeltaLakeLakehouseMetastoreModule();
         });
 
         binder.install(new DeltaLakeExecutorModule());
