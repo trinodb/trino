@@ -574,7 +574,7 @@ public class TestDeltaLakeMetadata
                 """);
 
         // The snapshot stays at the read version of the table handle, not the newer latest version
-        TableSnapshot snapshot = deltaLakeMetadata.getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
+        TableSnapshot snapshot = deltaLakeMetadata.getSnapshot(session, tableHandle);
         assertThat(snapshot.getVersion()).isEqualTo(1);
 
         deltaLakeMetadata.cleanupQuery(session);

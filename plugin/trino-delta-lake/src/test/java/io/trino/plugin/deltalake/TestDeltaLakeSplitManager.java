@@ -286,7 +286,7 @@ public class TestDeltaLakeSplitManager
         ConnectorSession session = testingConnectorSessionWithConfig(deltaLakeConfig);
         DeltaLakeTransactionManager deltaLakeTransactionManager = new DeltaLakeTransactionManager(metadataFactory);
         deltaLakeTransactionManager.begin(transactionHandle);
-        deltaLakeTransactionManager.get(transactionHandle, session.getIdentity()).getSnapshot(session, tableHandle, Optional.empty());
+        deltaLakeTransactionManager.get(transactionHandle, session.getIdentity()).getSnapshot(session, tableHandle);
         return new DeltaLakeSplitManager(
                 typeManager,
                 transactionLogAccess,
