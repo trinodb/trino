@@ -13,6 +13,8 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
+import io.trino.operator.scalar.preimage.TimestampWithTimeZoneDatePreimage;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -30,6 +32,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.floorDiv;
 
+@FunctionPreimage(TimestampWithTimeZoneDatePreimage.class)
 @ScalarOperator(CAST)
 @ScalarFunction("date")
 public final class TimestampWithTimeZoneToDateCast
@@ -54,6 +57,7 @@ public final class TimestampWithTimeZoneToDateCast
 
     private static long toDate(long epochMillis, TimeZoneKey zoneKey)
     {
+        // Note: update TimestampWithTimeZoneDatePreimage whenever CAST behavior changes.
         // round down the current timestamp to days
         ISOChronology chronology = getChronology(zoneKey);
         long date = chronology.dayOfYear().roundFloor(epochMillis);
