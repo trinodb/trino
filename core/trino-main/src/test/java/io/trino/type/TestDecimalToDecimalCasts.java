@@ -129,6 +129,21 @@ public class TestDecimalToDecimalCasts
                 .binding("a", "DECIMAL '-12345.6'").evaluate())
                 .hasMessage("Cannot cast DECIMAL(6, 1) '-12345.6' to DECIMAL(4, 2)")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(18, 17))")
+                .binding("a", "DECIMAL '175'").evaluate())
+                .hasMessage("Cannot cast DECIMAL(3, 0) '175' to DECIMAL(18, 17)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(18, 17))")
+                .binding("a", "DECIMAL '-175'").evaluate())
+                .hasMessage("Cannot cast DECIMAL(3, 0) '-175' to DECIMAL(18, 17)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(18, 2))")
+                .binding("a", "DECIMAL '184467440737095516'").evaluate())
+                .hasMessage("Cannot cast DECIMAL(18, 0) '184467440737095516' to DECIMAL(18, 2)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test

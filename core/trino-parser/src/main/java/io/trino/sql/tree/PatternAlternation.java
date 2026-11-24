@@ -22,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PatternAlternation
+public final class PatternAlternation
         extends RowPattern
 {
     private final List<RowPattern> patterns;
@@ -37,12 +37,6 @@ public class PatternAlternation
     public List<RowPattern> getPatterns()
     {
         return patterns;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPatternAlternation(this, context);
     }
 
     @Override

@@ -27,7 +27,7 @@ import static io.trino.sql.tree.SkipTo.Position.NEXT;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 
-public class SkipTo
+public final class SkipTo
         extends Node
 {
     private final Position position;
@@ -81,12 +81,6 @@ public class SkipTo
     public Optional<Identifier> getIdentifier()
     {
         return identifier;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSkipTo(this, context);
     }
 
     @Override

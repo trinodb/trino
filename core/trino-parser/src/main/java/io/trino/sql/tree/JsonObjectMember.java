@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class JsonObjectMember
+public final class JsonObjectMember
         extends Node
 {
     private final Expression key;
@@ -56,12 +56,6 @@ public class JsonObjectMember
     public Optional<JsonFormat> getFormat()
     {
         return format;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonObjectMember(this, context);
     }
 
     @Override

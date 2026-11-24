@@ -95,7 +95,9 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.DynamicFiltersTestUtil.closedRange;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
+import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedRangeDomainString;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -144,7 +146,7 @@ public class TestDynamicFilterService
                 ImmutableMap.of(filterId, singleValue(INTEGER, 3L)));
         Optional<Domain> summary = dynamicFilterService.getSummary(queryId, filterId);
         assertThat(summary).isPresent();
-        assertThat(summary.get()).isEqualTo(multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
+        assertThat(summary.get()).isEqualTo(closedRange(INTEGER, 1L, 3L));
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId);
         assertThat(stats.getDynamicFiltersCompleted()).isEqualTo(1);
@@ -152,7 +154,7 @@ public class TestDynamicFilterService
         assertThat(stats.getReplicatedDynamicFilters()).isEqualTo(0);
         assertThat(stats.getDynamicFilterDomainStats()).isEqualTo(ImmutableList.of(new DynamicFilterDomainStats(
                 filterId,
-                getSimplifiedDomainString(1L, 3L, 3, INTEGER))));
+                getSimplifiedRangeDomainString(1L, 3L, INTEGER))));
     }
 
     @Test
@@ -229,7 +231,7 @@ public class TestDynamicFilterService
 
         // dynamic filter (id1) has been collected as tuple domains from two tasks have been provided
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
-                new TestingColumnHandle("probeColumnA"), multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+                new TestingColumnHandle("probeColumnA"), closedRange(INTEGER, 1L, 2L))));
         assertThat(blockedFuture.isDone()).isTrue();
         assertThat(blockedFuture.isCompletedExceptionally()).isFalse();
 
@@ -248,7 +250,7 @@ public class TestDynamicFilterService
 
         // tuple domain from two tasks (stage 2) are needed for dynamic filter to be narrowed down
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
-                new TestingColumnHandle("probeColumnA"), multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+                new TestingColumnHandle("probeColumnA"), closedRange(INTEGER, 1L, 2L))));
         assertThat(dynamicFilter.isComplete()).isFalse();
         assertThat(dynamicFilter.isAwaitable()).isTrue();
         assertThat(blockedFuture.isDone()).isFalse();
@@ -322,8 +324,8 @@ public class TestDynamicFilterService
         assertThat(stats.getLazyDynamicFilters()).isEqualTo(3);
         assertThat(stats.getReplicatedDynamicFilters()).isEqualTo(0);
         assertThat(ImmutableSet.copyOf(stats.getDynamicFilterDomainStats())).isEqualTo(ImmutableSet.of(
-                new DynamicFilterDomainStats(filterId1, getSimplifiedDomainString(1L, 2L, 2, INTEGER)),
-                new DynamicFilterDomainStats(filterId2, getSimplifiedDomainString(2L, 3L, 2, INTEGER)),
+                new DynamicFilterDomainStats(filterId1, getSimplifiedRangeDomainString(1L, 2L, INTEGER)),
+                new DynamicFilterDomainStats(filterId2, getSimplifiedRangeDomainString(2L, 3L, INTEGER)),
                 new DynamicFilterDomainStats(filterId3, none(INTEGER).toString())));
 
         // all dynamic filters have been collected, no need for more requests
@@ -415,7 +417,7 @@ public class TestDynamicFilterService
                         ? multipleValues(DOUBLE, ImmutableList.of(Double.NaN, 2.0))
                         : multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L))));
         assertThat(dynamicFilter.isComplete()).isTrue();
-        Domain expected = multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L));
+        Domain expected = closedRange(INTEGER, 1L, 3L);
         if (floatingPoint) {
             expected = preimagesEnabled ? multipleValues(REAL, ImmutableList.of(toReal(Float.NaN), toReal(2))) : Domain.notNull(REAL);
         }
@@ -483,6 +485,46 @@ public class TestDynamicFilterService
                 new DynamicFilterDomainStats(
                         filterId1,
                         singleValue(INTEGER, 1L).toString())));
+    }
+
+    @Test
+    public void testReplicatedDynamicFilterConsecutiveValues()
+    {
+        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", INTEGER);
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                session,
+                ImmutableSet.of(filterId1, filterId2),
+                ImmutableSet.of(),
+                ImmutableSet.of(filterId1, filterId2));
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference()),
+                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference())),
+                ImmutableMap.of(
+                        symbol1, new TestingColumnHandle("probeColumnA"),
+                        symbol2, new TestingColumnHandle("probeColumnB")));
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId1, 0, 0),
+                ImmutableMap.of(
+                        filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)),
+                        filterId2, multipleValues(INTEGER, ImmutableList.of(1L, 3L))));
+
+        assertThat(dynamicFilter.isComplete()).isTrue();
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new TestingColumnHandle("probeColumnA"), closedRange(INTEGER, 1L, 3L),
+                new TestingColumnHandle("probeColumnB"), multipleValues(INTEGER, ImmutableList.of(1L, 3L)))));
     }
 
     @Test
@@ -572,7 +614,7 @@ public class TestDynamicFilterService
         assertThat(isBlocked.isDone()).isTrue();
         assertThat(dynamicFilter.isComplete()).isTrue();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(
-                ImmutableMap.of(column, multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+                ImmutableMap.of(column, closedRange(INTEGER, 1L, 2L))));
     }
 
     @Test
@@ -832,7 +874,7 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 2, 1),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 6L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEqualTo(Optional.of(multipleValues(INTEGER, ImmutableList.of(4L, 5L, 6L))));
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEqualTo(Optional.of(closedRange(INTEGER, 4L, 6L)));
 
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId);
         assertThat(stats.getDynamicFiltersCompleted()).isEqualTo(1);
@@ -840,7 +882,7 @@ public class TestDynamicFilterService
         assertThat(stats.getReplicatedDynamicFilters()).isEqualTo(0);
         assertThat(stats.getDynamicFilterDomainStats()).isEqualTo(ImmutableList.of(new DynamicFilterDomainStats(
                 filterId,
-                getSimplifiedDomainString(4L, 6L, 3, INTEGER))));
+                getSimplifiedRangeDomainString(4L, 6L, INTEGER))));
     }
 
     @Test
@@ -1075,7 +1117,6 @@ public class TestDynamicFilterService
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 }

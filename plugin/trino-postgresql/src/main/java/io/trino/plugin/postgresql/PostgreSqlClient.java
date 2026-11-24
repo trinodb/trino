@@ -357,7 +357,7 @@ public class PostgreSqlClient
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
                 .map("$modulo(left: integer_type, right: integer_type)").to("left % right")
                 .map("$negate(value: integer_type)").to("-value")
-                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern ESCAPE ''")
                 .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
@@ -1010,23 +1010,15 @@ public class PostgreSqlClient
     @Override
     public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
     {
-        Closer closer = Closer.create();
-        try (Connection connection = connectionFactory.openConnection(session)) {
+        try (Closer closer = Closer.create();
+                Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             RemoteTableName pageSinkIdsTable = constructPageSinkIdsTable(session, connection, handle.getOutputTableHandle(), pageSinkIds, closer);
 
             doFinishMerge(session, connection, handle, pageSinkIdsTable, closer);
         }
-        catch (SQLException e) {
+        catch (SQLException | IOException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, e);
-            }
         }
     }
 

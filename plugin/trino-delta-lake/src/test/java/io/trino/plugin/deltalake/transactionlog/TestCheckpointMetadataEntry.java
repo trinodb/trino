@@ -78,16 +78,6 @@ final class TestCheckpointMetadataEntry
                         "sidecarSizeInBytes", "20965",
                         "numOfAddFiles", "1",
                         "sidecarFileSchema", "")))))
-                .isEqualTo(
-                        """
-                        {
-                          "version" : 100,
-                          "tags" : {
-                            "sidecarNumActions" : "1",
-                            "sidecarSizeInBytes" : "20965",
-                            "numOfAddFiles" : "1",
-                            "sidecarFileSchema" : ""
-                          }
-                        }""");
+                .isEqualTo("{\"version\":100,\"tags\":{\"sidecarNumActions\":\"1\",\"sidecarSizeInBytes\":\"20965\",\"numOfAddFiles\":\"1\",\"sidecarFileSchema\":\"\"}}");
     }
 }

@@ -13,9 +13,6 @@
  */
 package io.trino.server.security.oauth2;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
@@ -55,6 +52,8 @@ import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -212,7 +211,7 @@ public class TestingHydraIdentityProvider
             requireNonNull(response.body());
             return mapper.readTree(response.body().byteStream())
                     .get("access_token")
-                    .textValue();
+                    .stringValue();
         }
     }
 
@@ -325,8 +324,8 @@ public class TestingHydraIdentityProvider
                                     .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
                                     .put(RequestBody.create(
                                             mapper.writeValueAsString(mapper.createObjectNode()
-                                                    .<ObjectNode>set("grant_scope", consentRequest.get("requested_scope"))
-                                                    .<ObjectNode>set("grant_access_token_audience", grantedAudience(consentRequest))),
+                                                    .set("grant_scope", consentRequest.get("requested_scope"))
+                                                    .set("grant_access_token_audience", grantedAudience(consentRequest))),
                                             MediaType.get(APPLICATION_JSON)))
                                     .build())
                     .execute();
@@ -351,7 +350,7 @@ public class TestingHydraIdentityProvider
             response.sendRedirect(
                     toHostUrl(mapper.readTree(redirectResponse.body().byteStream())
                             .get("redirect_to")
-                            .textValue()));
+                            .stringValue()));
         }
 
         private String toHostUrl(String url)

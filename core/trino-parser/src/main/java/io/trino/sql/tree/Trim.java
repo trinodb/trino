@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class Trim
+public final class Trim
         extends Expression
 {
     private final Specification specification;
@@ -49,12 +49,6 @@ public class Trim
     public Optional<Expression> getTrimCharacter()
     {
         return trimCharacter;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTrim(this, context);
     }
 
     @Override

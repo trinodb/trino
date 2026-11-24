@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Table
+public final class Table
         extends QueryBody
 {
     private final QualifiedName name;
@@ -62,12 +62,6 @@ public class Table
     public QualifiedName getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTable(this, context);
     }
 
     @Override

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class UniquePredicate
+public final class UniquePredicate
         extends Expression
 {
     private final Expression subquery;
@@ -34,12 +34,6 @@ public class UniquePredicate
     public Expression getSubquery()
     {
         return subquery;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUniquePredicate(this, context);
     }
 
     @Override

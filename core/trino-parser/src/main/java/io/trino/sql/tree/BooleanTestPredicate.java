@@ -63,12 +63,6 @@ public final class BooleanTestPredicate
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitBooleanTestPredicate(this, context);
-    }
-
-    @Override
     public boolean shallowEquals(Node other)
     {
         if (!sameClass(this, other)) {

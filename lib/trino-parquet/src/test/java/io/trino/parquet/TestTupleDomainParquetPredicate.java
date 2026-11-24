@@ -15,6 +15,7 @@ package io.trino.parquet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
@@ -48,6 +49,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
@@ -57,6 +59,7 @@ import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -67,7 +70,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.log.Level.ERROR;
@@ -93,7 +96,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -101,6 +106,9 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.NaN;
@@ -134,9 +142,34 @@ public class TestTupleDomainParquetPredicate
     private static final ParquetDataSourceId ID = new ParquetDataSourceId("testFile");
 
     @Test
+    public void testBinaryBloomFilterMembership()
+    {
+        Random random = new Random(0);
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(16 * 1024);
+        for (int length = 0; length <= 1024; length++) {
+            byte[] bytes = new byte[length + 11];
+            random.nextBytes(bytes);
+            Slice value = Slices.wrappedBuffer(bytes, 7, length);
+            long hash = bloomFilter.hash(Binary.fromConstantByteArray(value.getBytes()));
+            for (Type type : List.of(VARCHAR, VARBINARY)) {
+                assertThat(checkInBloomFilter(bloomFilter, value, type)).isEqualTo(bloomFilter.findHash(hash));
+            }
+            if (length == 16) {
+                assertThat(checkInBloomFilter(bloomFilter, value, UUID)).isEqualTo(bloomFilter.findHash(hash));
+            }
+            bloomFilter.insertHash(hash);
+            assertThat(checkInBloomFilter(bloomFilter, value, VARCHAR)).isTrue();
+            assertThat(checkInBloomFilter(bloomFilter, value, VARBINARY)).isTrue();
+            if (length == 16) {
+                assertThat(checkInBloomFilter(bloomFilter, value, UUID)).isTrue();
+            }
+        }
+    }
+
+    @Test
     public void testNaNBloomFilterMembership()
     {
-        BlockSplitBloomFilter bloom = new BlockSplitBloomFilter(1024);
+        BloomFilter bloom = new BlockSplitBloomFilter(1024);
         // Empty bits cannot prove NaN absence: producers may hash a different payload.
         assertThat(checkInBloomFilter(bloom, Double.NaN, DOUBLE)).isTrue();
         assertThat(checkInBloomFilter(bloom, Double.longBitsToDouble(0x7FF0000000000001L), DOUBLE)).isTrue();
@@ -159,19 +192,7 @@ public class TestTupleDomainParquetPredicate
             ColumnDescriptor nanColumn = new ColumnDescriptor(new String[] {"nan"}, Types.required(type.equals(DOUBLE) ? PrimitiveTypeName.DOUBLE : FLOAT).named("nan"), 0, 0);
             ColumnDescriptor otherColumn = new ColumnDescriptor(new String[] {"other"}, Types.required(INT64).named("other"), 0, 0);
             List<ColumnPath> requested = new ArrayList<>();
-            BloomFilterStore store = new BloomFilterStore(
-                    new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
-                    new BlockMetadata(0, 10, List.of()),
-                    Set.of(),
-                    Optional.empty())
-            {
-                @Override
-                public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
-                {
-                    requested.add(columnPath);
-                    return Optional.of(new BlockSplitBloomFilter(1024));
-                }
-            };
+            BloomFilterStore store = recordingBloomFilterStore(requested, new BlockSplitBloomFilter(1024));
             TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
                     withColumnDomains(ImmutableMap.of(nanColumn, domain)), List.of(nanColumn), UTC);
             assertThat(predicate.matches(store, 256)).isTrue();
@@ -183,6 +204,62 @@ public class TestTupleDomainParquetPredicate
             assertThat(predicate.matches(store, 256)).isFalse();
             assertThat(requested).containsExactly(ColumnPath.get(otherColumn.getPath()));
         }
+    }
+
+    @Test
+    public void testBloomFilterForExpandedDateRange()
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"date"}, Types.required(INT32).named("date"), 0, 0);
+        TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
+                withColumnDomains(ImmutableMap.of(column, create(ValueSet.ofRanges(range(DATE, 10L, true, 12L, true)), false))), ImmutableList.of(column), UTC);
+        List<ColumnPath> requested = new ArrayList<>();
+        assertThat(predicate.matches(recordingBloomFilterStore(requested, intBloomFilter(11)), 256)).isTrue();
+        assertThat(predicate.matches(recordingBloomFilterStore(requested, intBloomFilter(20)), 256)).isFalse();
+        assertThat(requested).hasSize(2);
+    }
+
+    @Test
+    public void testSkipBloomFilterForUnsupportedType()
+            throws Exception
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"column"}, Types.required(INT64).named("column"), 0, 0);
+        for (Domain domain : ImmutableList.of(
+                singleValue(TIMESTAMP_MICROS, 42L),
+                singleValue(TIME_MICROS, 42_000_000L),
+                singleValue(createDecimalType(10, 2), 42L),
+                singleValue(BOOLEAN, true))) {
+            List<ColumnPath> requested = new ArrayList<>();
+            TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
+                    withColumnDomains(ImmutableMap.of(column, domain)), ImmutableList.of(column), UTC);
+            assertThat(predicate.matches(recordingBloomFilterStore(requested, new BlockSplitBloomFilter(1024)), 256)).isTrue();
+            assertThat(requested).isEmpty();
+        }
+    }
+
+    private static BloomFilterStore recordingBloomFilterStore(List<ColumnPath> requested, BloomFilter bloomFilter)
+            throws IOException
+    {
+        return new BloomFilterStore(
+                new TestingParquetDataSource(EMPTY_SLICE, ParquetReaderOptions.defaultOptions()),
+                new BlockMetadata(0, 10, ImmutableList.of()),
+                ImmutableSet.of(),
+                Optional.empty())
+        {
+            @Override
+            public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
+            {
+                requested.add(columnPath);
+                return Optional.of(bloomFilter);
+            }
+        };
+    }
+
+    private static BloomFilter intBloomFilter(int value)
+    {
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(1024);
+        bloomFilter.insertHash(bloomFilter.hash(value));
+        return bloomFilter;
     }
 
     @Test
@@ -927,6 +1004,22 @@ public class TestTupleDomainParquetPredicate
                                 range(BIGINT, 4L, true, 15L, true),
                                 range(BIGINT, 9L, true, 10L, true)),
                         true));
+    }
+
+    @Test
+    public void testColumnIndexWithOnlyNullPagesAndNoNullsCount()
+            throws Exception
+    {
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT64).named("test_int64"),
+                BoundaryOrder.UNORDERED,
+                asList(true, true, true),
+                null,
+                toByteBufferList(null, null, null),
+                toByteBufferList(null, null, null));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
+        assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
+                .isEqualTo(Domain.onlyNull(BIGINT));
     }
 
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName, String columnName)

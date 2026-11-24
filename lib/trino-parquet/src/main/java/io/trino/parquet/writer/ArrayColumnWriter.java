@@ -18,6 +18,7 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 
 import java.io.IOException;
@@ -46,17 +47,18 @@ public class ArrayColumnWriter
     public void writeBlock(ColumnChunk columnChunk)
             throws IOException
     {
-        ColumnarArray columnarArray = ColumnarArray.toColumnarArray(columnChunk.getBlock());
+        Block block = columnChunk.getBlock();
+        ColumnarArray columnarArray = ColumnarArray.toColumnarArray(block);
         elementWriter.writeBlock(
                 new ColumnChunk(
                         columnarArray.getElementsBlock(),
                         ImmutableList.<DefLevelWriterProvider>builder()
                                 .addAll(columnChunk.getDefLevelWriterProviders())
-                                .add(DefLevelWriterProviders.of(columnarArray, maxDefinitionLevel))
+                                .add(DefLevelWriterProviders.of(columnarArray, block, maxDefinitionLevel))
                                 .build(),
                         ImmutableList.<RepLevelWriterProvider>builder()
                                 .addAll(columnChunk.getRepLevelWriterProviders())
-                                .add(RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel))
+                                .add(RepLevelWriterProviders.of(columnarArray, block, maxRepetitionLevel))
                                 .build()));
     }
 

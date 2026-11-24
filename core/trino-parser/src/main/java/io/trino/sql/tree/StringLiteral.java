@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class StringLiteral
+public final class StringLiteral
         extends Literal
 {
     private final String value;
@@ -51,12 +51,6 @@ public class StringLiteral
     public int length()
     {
         return length;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStringLiteral(this, context);
     }
 
     @Override

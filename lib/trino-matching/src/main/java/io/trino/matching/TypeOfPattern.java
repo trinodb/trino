@@ -14,7 +14,6 @@
 package io.trino.matching;
 
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,14 +36,5 @@ public final class TypeOfPattern<T>
     public Class<T> expectedClass()
     {
         return expectedClass;
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        if (expectedClass.isInstance(object)) {
-            return Stream.of(Match.of(captures));
-        }
-        return Stream.of();
     }
 }

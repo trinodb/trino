@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ExplainFormat
+public final class ExplainFormat
         extends ExplainOption
 {
     public enum Type

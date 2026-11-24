@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class InListExpression
+public final class InListExpression
         extends Expression
 {
     private final List<Expression> values;
@@ -35,12 +35,6 @@ public class InListExpression
     public List<Expression> getValues()
     {
         return values;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitInListExpression(this, context);
     }
 
     @Override

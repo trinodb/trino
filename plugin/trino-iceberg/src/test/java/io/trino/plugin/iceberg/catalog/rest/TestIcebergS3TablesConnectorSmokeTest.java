@@ -293,6 +293,10 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testUnregisterTableAccessControl() {}
 
     @Test
+    @Override // S3 Tables does not retain statistics across snapshot expiration
+    public void testShowStatsAfterUpdateAndExpireSnapshots() {}
+
+    @Test
     @Override
     @Disabled // TODO https://github.com/trinodb/trino/issues/25129 Fix flaky test
     public void testSelectInformationSchemaTables() {}

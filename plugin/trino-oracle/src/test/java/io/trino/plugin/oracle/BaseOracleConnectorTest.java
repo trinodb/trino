@@ -400,6 +400,32 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Test
+    public void testPredicatePushdownWithEmptyString()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_empty_string_pushdown",
+                "(id varchar(1), a_varchar varchar(1), a_char char(1))",
+                List.of(
+                        "'1', 'a', 'a'",
+                        "'2', 'b', 'b'",
+                        "'3', NULL, NULL"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar <> ''"))
+                    .matches("VALUES '1', '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar > ''"))
+                    .matches("VALUES '1', '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar NOT IN ('a', '')"))
+                    .matches("VALUES '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_char NOT IN (CHAR 'a', CHAR '')"))
+                    .matches("VALUES '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE a_varchar <> ''", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
     public void testTooLargeDomainCompactionThreshold()
     {
         assertQueryFails(

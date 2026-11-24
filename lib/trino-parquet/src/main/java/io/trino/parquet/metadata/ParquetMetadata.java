@@ -191,6 +191,9 @@ public class ParquetMetadata
                     column.setColumnIndexReference(toColumnIndexReference(columnChunk));
                     column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
                     column.setBloomFilterOffset(metaData.bloom_filter_offset);
+                    if (metaData.isSetBloom_filter_length()) {
+                        column.setBloomFilterLength(metaData.bloom_filter_length);
+                    }
                     if (rowGroup.isSetOrdinal()) {
                         column.setRowGroupOrdinal(rowGroup.getOrdinal());
                     }

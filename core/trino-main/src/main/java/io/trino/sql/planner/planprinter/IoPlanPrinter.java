@@ -42,6 +42,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
+import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
@@ -717,8 +718,15 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof CreateReference || writerTarget instanceof InsertReference) {
-                throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
+            // EXPLAIN plans writes without beginning them
+            else if (writerTarget instanceof CreateReference target) {
+                context.setOutputTable(new CatalogSchemaTableName(target.getCatalog(), target.getTableMetadata().getTable()));
+            }
+            else if (writerTarget instanceof InsertReference target) {
+                context.setOutputTable(plannerContext.getMetadata().getTableName(session, target.getHandle()));
+            }
+            else if (writerTarget instanceof RefreshMaterializedViewReference target) {
+                context.setOutputTable(plannerContext.getMetadata().getTableName(session, target.getStorageTableHandle()));
             }
             else {
                 throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));

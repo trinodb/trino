@@ -22,6 +22,7 @@ import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.MethodFilter;
 import org.junit.platform.launcher.TagFilter;
 import org.junit.platform.launcher.core.LauncherConfig;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -164,7 +166,8 @@ public final class SuiteRunner
             Class<? extends ProductTestEnvironment> environmentClass,
             String runName,
             List<String> includeTags,
-            List<String> excludeTags)
+            List<String> excludeTags,
+            List<MethodSource> excludedTests)
             throws Exception
     {
         checkState(initializedSuite != null, "SuiteRunner.initialize must be called first");
@@ -196,6 +199,7 @@ public final class SuiteRunner
         System.out.println("Starting test run: " + runName);
         System.out.println("Expected environment: " + environmentClass.getSimpleName());
         System.out.println("Tag filter: " + tagExpression);
+        excludedTests.forEach(test -> System.out.println("Excluded test: " + test.getClassName() + "." + test.getMethodName()));
         System.out.println("========================================\n");
 
         EnvironmentManager manager = EnvironmentManager.shared();
@@ -206,6 +210,11 @@ public final class SuiteRunner
             LauncherDiscoveryRequestBuilder requestBuilder = LauncherDiscoveryRequestBuilder.request()
                     .selectors(DiscoverySelectors.selectPackage(TEST_PACKAGE));
             requestBuilder.filters(TagFilter.includeTags(tagExpression));
+            if (!excludedTests.isEmpty()) {
+                requestBuilder.filters(MethodFilter.excludeMethodNamePatterns(excludedTests.stream()
+                        .map(test -> Pattern.quote(test.getClassName() + "#" + test.getMethodName()))
+                        .toList()));
+            }
             LauncherDiscoveryRequest request = requestBuilder.build();
 
             LauncherConfig config = LauncherConfig.builder()
@@ -361,6 +370,7 @@ public final class SuiteRunner
         private final Class<? extends ProductTestEnvironment> environmentClass;
         private final List<Class<? extends Annotation>> includeTags = new ArrayList<>();
         private final List<Class<? extends Annotation>> excludeTags = new ArrayList<>();
+        private final List<MethodSource> excludedTests = new ArrayList<>();
 
         private TestRun(Class<? extends ProductTestEnvironment> environmentClass)
         {
@@ -376,6 +386,17 @@ public final class SuiteRunner
         public TestRun excludeTag(Class<? extends Annotation> tag)
         {
             excludeTags.add(requireNonNull(tag, "tag is null"));
+            return this;
+        }
+
+        /**
+         * Excludes one test method of a class given by binary name, as test classes are usually package-private.
+         */
+        public TestRun excludeTest(String className, String methodName)
+        {
+            requireNonNull(className, "className is null");
+            requireNonNull(methodName, "methodName is null");
+            excludedTests.add(MethodSource.from(className, methodName));
             return this;
         }
 
@@ -397,7 +418,7 @@ public final class SuiteRunner
                     ? "all"
                     : tagOf(includeTags.getFirst());
 
-            return SuiteRunner.run(environmentClass, runName, includeTagNames, excludeTagNames);
+            return SuiteRunner.run(environmentClass, runName, includeTagNames, excludeTagNames, excludedTests);
         }
     }
 

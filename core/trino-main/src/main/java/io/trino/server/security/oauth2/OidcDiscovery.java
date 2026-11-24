@@ -13,9 +13,6 @@
  */
 package io.trino.server.security.oauth2;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
@@ -28,6 +25,9 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.time.Duration;
@@ -128,14 +128,14 @@ public class OidcDiscovery
                     // AD FS server can include "access_token_issuer" field in OpenID Provider Metadata.
                     // It's not a part of the OIDC standard thus have to be handled separately.
                     // see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-oidce/f629647a-4825-465b-80bb-32c7e9cec2c8
-                    getOptionalField("access_token_issuer", Optional.ofNullable(metadataJson.get("access_token_issuer")).map(JsonNode::textValue), ACCESS_TOKEN_ISSUER, accessTokenIssuer),
+                    getOptionalField("access_token_issuer", Optional.ofNullable(metadataJson.get("access_token_issuer")).map(node -> node.stringValue(null)), ACCESS_TOKEN_ISSUER, accessTokenIssuer),
                     getRequiredField("authorization_endpoint", metadata.getAuthorizationEndpointURI(), AUTH_URL, authUrl),
                     getRequiredField("token_endpoint", metadata.getTokenEndpointURI(), TOKEN_URL, tokenUrl),
                     getRequiredField("jwks_uri", metadata.getJWKSetURI(), JWKS_URL, jwksUrl),
                     userinfoEndpoint.map(URI::create),
                     endSessionEndpoint);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new ParseException("Invalid JSON value", e);
         }
     }

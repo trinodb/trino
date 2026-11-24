@@ -38,6 +38,8 @@ class LakehouseModule
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
+        // TODO this originally came from https://github.com/trinodb/trino/pull/14428/changes/22b0e5b5e5a7f8f8df2f33696e7010ad3e4c0a0d. Is this really needed?
+        configBinder(binder).bindConfigDefaults(ParquetReaderConfig.class, config -> config.setUseBloomFilter(false));
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         configBinder(binder).bindConfig(SortingFileWriterConfig.class, "lakehouse");
 

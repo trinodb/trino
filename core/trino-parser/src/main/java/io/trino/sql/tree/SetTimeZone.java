@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SetTimeZone
+public final class SetTimeZone
         extends Statement
 {
     private final Optional<Expression> timeZone;
@@ -37,12 +37,6 @@ public class SetTimeZone
     public Optional<Expression> getTimeZone()
     {
         return timeZone;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetTimeZone(this, context);
     }
 
     @Override

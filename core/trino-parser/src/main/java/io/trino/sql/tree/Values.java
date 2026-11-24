@@ -50,12 +50,6 @@ public final class Values
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitValues(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return rows;

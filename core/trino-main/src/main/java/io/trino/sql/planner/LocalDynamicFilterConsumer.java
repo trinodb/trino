@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -39,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.transformValues;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -58,7 +60,6 @@ public class LocalDynamicFilterConsumer
     private Integer expectedPartitionCount;
     @GuardedBy("this")
     private int collectedPartitionCount;
-    @GuardedBy("this")
     private volatile boolean collected;
 
     private final Queue<TupleDomain<DynamicFilterId>> summaryDomains = new ConcurrentLinkedQueue<>();
@@ -210,7 +211,7 @@ public class LocalDynamicFilterConsumer
     }
 
     @Override
-    public synchronized boolean isDomainCollectionComplete()
+    public boolean isDomainCollectionComplete()
     {
         return collected;
     }
@@ -238,7 +239,7 @@ public class LocalDynamicFilterConsumer
                     .collect(toImmutableMap(identity(), filterId -> Domain.none(filterBuildTypes.get(filterId))));
         }
 
-        Map<DynamicFilterId, Domain> domains = new HashMap<>(result.getDomains().get());
+        Map<DynamicFilterId, Domain> domains = new HashMap<>(transformValues(result.getDomains().get(), DynamicFilters::collapseConsecutiveValues));
         // Add `all` domain explicitly for dynamic filters to notify dynamic filter listeners
         buildChannels.keySet().forEach(filterId -> domains.putIfAbsent(filterId, Domain.all(filterBuildTypes.get(filterId))));
         return ImmutableMap.copyOf(domains);

@@ -2613,7 +2613,7 @@ class TestIcebergSparkCompatibility
     }
 
     @Test
-    void testTrinoIgnoresUnsupportedSparkSortOrder(SparkIcebergEnvironment env)
+    void testTrinoRespectsSparkSortOrderWithTransform(SparkIcebergEnvironment env)
     {
         String sourceTableNameBase = "test_insert_into_sorted_table_" + randomNameSuffix();
         String trinoTableName = trinoTableName(sourceTableNameBase);
@@ -2623,14 +2623,14 @@ class TestIcebergSparkCompatibility
         env.executeSparkUpdate("ALTER TABLE " + sparkTableName + " WRITE ORDERED BY truncate(b, 3), a NULLS LAST");
 
         assertThat((String) env.executeTrino("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
-                .doesNotContain("sorted_by");
+                .contains("sorted_by = ARRAY['truncate(b, 3) ASC NULLS FIRST','a ASC NULLS LAST']");
 
         env.executeTrinoUpdate("INSERT INTO " + trinoTableName + " VALUES (3, 2333, 1), (NULL, NULL, NULL), (1, 2222, 3)");
         assertThat(env.executeSpark("SELECT _pos, a, b, c FROM " + sparkTableName))
                 .contains(
-                        row(0, 1, 2222, 3),
-                        row(1, 3, 2333, 1),
-                        row(2, null, null, null));
+                        row(0, null, null, null),
+                        row(1, 1, 2222, 3),
+                        row(2, 3, 2333, 1));
 
         env.executeSparkUpdate("DROP TABLE " + sparkTableName);
     }

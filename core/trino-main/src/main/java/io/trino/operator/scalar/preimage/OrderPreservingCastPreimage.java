@@ -40,13 +40,7 @@ public final class OrderPreservingCastPreimage
         if (!CastPreimages.eligible(context, source, target)) {
             return Optional.empty();
         }
-        return project(context, resultDomain, source.getRange());
-    }
-
-    static Optional<PreimageResult> project(Context context, Domain resultDomain, Optional<Type.Range> sourceRange)
-    {
-        Type source = context.signature().getArgumentTypes().getFirst();
-        Type target = resultDomain.getType();
+        Optional<Type.Range> sourceRange = source.getRange();
         Optional<Function<Object, Object>> forward = context.functions().coercion(source, target);
         Optional<Function<Object, Object>> reverse = context.functions().coercion(target, source);
         if (forward.isEmpty() || reverse.isEmpty()) {

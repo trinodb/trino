@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class NestedColumns
+public final class NestedColumns
         extends JsonTableColumnDefinition
 {
     private final StringLiteral jsonPath;
@@ -52,12 +52,6 @@ public class NestedColumns
     public List<JsonTableColumnDefinition> getColumns()
     {
         return columns;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNestedColumns(this, context);
     }
 
     @Override

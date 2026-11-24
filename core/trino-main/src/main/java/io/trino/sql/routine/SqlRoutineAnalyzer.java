@@ -33,7 +33,6 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.AssignmentStatement;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.CommentCharacteristic;
@@ -393,8 +392,31 @@ public class SqlRoutineAnalyzer
     }
 
     private class StatementVisitor
-            extends AstVisitor<Void, Context>
     {
+        public void process(Node node)
+        {
+            process(node, null);
+        }
+
+        public void process(Node root, Context context)
+        {
+            switch (root) {
+                case AssignmentStatement node -> visitAssignmentStatement(node, context);
+                case CaseStatement node -> visitCaseStatement(node, context);
+                case CompoundStatement node -> visitCompoundStatement(node, context);
+                case ElseClause node -> analyzeNodes(context, node.getStatements());
+                case ElseIfClause node -> visitElseIfClause(node, context);
+                case IfStatement node -> visitIfStatement(node, context);
+                case IterateStatement node -> verifyLabelExists(context, node.getLabel());
+                case LeaveStatement node -> verifyLabelExists(context, node.getLabel());
+                case LoopStatement node -> visitLoopStatement(node, context);
+                case RepeatStatement node -> visitRepeatStatement(node, context);
+                case ReturnStatement node -> analyzeExpression(context, node.getValue(), returnType, "Value of RETURN");
+                case WhileStatement node -> visitWhileStatement(node, context);
+                default -> throw new UnsupportedOperationException("Analysis not yet implemented: " + root);
+            }
+        }
+
         private final Session session;
         private final AccessControl accessControl;
         private final Type returnType;
@@ -415,14 +437,7 @@ public class SqlRoutineAnalyzer
             return analysis;
         }
 
-        @Override
-        protected Void visitNode(Node node, Context context)
-        {
-            throw new UnsupportedOperationException("Analysis not yet implemented: " + node);
-        }
-
-        @Override
-        protected Void visitCompoundStatement(CompoundStatement node, Context context)
+        private void visitCompoundStatement(CompoundStatement node, Context context)
         {
             Context newContext = context.newScope();
 
@@ -440,37 +455,23 @@ public class SqlRoutineAnalyzer
             }
 
             analyzeNodes(newContext, node.getStatements());
-
-            return null;
         }
 
-        @Override
-        protected Void visitIfStatement(IfStatement node, Context context)
+        private void visitIfStatement(IfStatement node, Context context)
         {
             analyzeExpression(context, node.getExpression(), BOOLEAN, "Condition of IF statement");
             analyzeNodes(context, node.getStatements());
             analyzeNodes(context, node.getElseIfClauses());
             node.getElseClause().ifPresent(statement -> process(statement, context));
-            return null;
         }
 
-        @Override
-        protected Void visitElseIfClause(ElseIfClause node, Context context)
+        private void visitElseIfClause(ElseIfClause node, Context context)
         {
             analyzeExpression(context, node.getExpression(), BOOLEAN, "Condition of ELSEIF clause");
             analyzeNodes(context, node.getStatements());
-            return null;
         }
 
-        @Override
-        protected Void visitElseClause(ElseClause node, Context context)
-        {
-            analyzeNodes(context, node.getStatements());
-            return null;
-        }
-
-        @Override
-        protected Void visitCaseStatement(CaseStatement node, Context context)
+        private void visitCaseStatement(CaseStatement node, Context context)
         {
             // when clause condition
             if (node.getExpression().isPresent()) {
@@ -501,47 +502,32 @@ public class SqlRoutineAnalyzer
             if (node.getElseClause().isPresent()) {
                 process(node.getElseClause().get(), context);
             }
-            return null;
         }
 
-        @Override
-        protected Void visitWhileStatement(WhileStatement node, Context context)
+        private void visitWhileStatement(WhileStatement node, Context context)
         {
             Context newContext = context.newScope();
             node.getLabel().ifPresent(name -> defineLabel(newContext, name));
             analyzeExpression(newContext, node.getExpression(), BOOLEAN, "Condition of WHILE statement");
             analyzeNodes(newContext, node.getStatements());
-            return null;
         }
 
-        @Override
-        protected Void visitRepeatStatement(RepeatStatement node, Context context)
+        private void visitRepeatStatement(RepeatStatement node, Context context)
         {
             Context newContext = context.newScope();
             node.getLabel().ifPresent(name -> defineLabel(newContext, name));
             analyzeExpression(newContext, node.getCondition(), BOOLEAN, "Condition of REPEAT statement");
             analyzeNodes(newContext, node.getStatements());
-            return null;
         }
 
-        @Override
-        protected Void visitLoopStatement(LoopStatement node, Context context)
+        private void visitLoopStatement(LoopStatement node, Context context)
         {
             Context newContext = context.newScope();
             node.getLabel().ifPresent(name -> defineLabel(newContext, name));
             analyzeNodes(newContext, node.getStatements());
-            return null;
         }
 
-        @Override
-        protected Void visitReturnStatement(ReturnStatement node, Context context)
-        {
-            analyzeExpression(context, node.getValue(), returnType, "Value of RETURN");
-            return null;
-        }
-
-        @Override
-        protected Void visitAssignmentStatement(AssignmentStatement node, Context context)
+        private void visitAssignmentStatement(AssignmentStatement node, Context context)
         {
             Identifier name = node.getTarget();
             Type targetType = context.variables().get(identifierValue(name));
@@ -549,21 +535,6 @@ public class SqlRoutineAnalyzer
                 throw semanticException(NOT_FOUND, name, "Variable cannot be resolved: %s", name);
             }
             analyzeExpression(context, node.getValue(), targetType, format("Value of SET '%s'", name));
-            return null;
-        }
-
-        @Override
-        protected Void visitIterateStatement(IterateStatement node, Context context)
-        {
-            verifyLabelExists(context, node.getLabel());
-            return null;
-        }
-
-        @Override
-        protected Void visitLeaveStatement(LeaveStatement node, Context context)
-        {
-            verifyLabelExists(context, node.getLabel());
-            return null;
         }
 
         private void analyzeExpression(Context context, Expression expression, Type expectedType, String message)

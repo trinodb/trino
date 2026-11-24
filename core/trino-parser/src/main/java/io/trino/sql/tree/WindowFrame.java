@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WindowFrame
+public final class WindowFrame
         extends Node
 {
     public enum Type
@@ -151,12 +151,6 @@ public class WindowFrame
     public List<VariableDefinition> getVariableDefinitions()
     {
         return variableDefinitions;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWindowFrame(this, context);
     }
 
     @Override

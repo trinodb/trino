@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DescribeOutput
+public final class DescribeOutput
         extends Statement
 {
     private final Target target;
@@ -50,12 +50,6 @@ public class DescribeOutput
 
         record InlineQuery(Query query)
                 implements Target {}
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDescribeOutput(this, context);
     }
 
     @Override

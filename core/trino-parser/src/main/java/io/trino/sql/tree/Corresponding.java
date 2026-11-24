@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class Corresponding
+public final class Corresponding
         extends Node
 {
     private final List<Identifier> columns;
@@ -34,12 +34,6 @@ public class Corresponding
     public List<Identifier> getColumns()
     {
         return columns;
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return super.accept(visitor, context);
     }
 
     @Override

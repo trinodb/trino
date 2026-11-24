@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class DereferenceExpression
+public final class DereferenceExpression
         extends Expression
 {
     private final Expression base;
@@ -55,12 +55,6 @@ public class DereferenceExpression
         requireNonNull(field, "field is null");
         this.base = base;
         this.field = field;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDereferenceExpression(this, context);
     }
 
     @Override

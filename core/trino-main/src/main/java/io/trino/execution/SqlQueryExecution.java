@@ -78,7 +78,6 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
-import io.trino.sql.tree.Statement;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -138,7 +137,8 @@ public class SqlQueryExecution
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final Analysis analysis;
+    private final AtomicReference<Analysis> analysis = new AtomicReference<>();
+    private final boolean waitForMinWorkers;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
@@ -219,7 +219,9 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
+            Analysis analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
+            this.analysis.set(analysis);
+            this.waitForMinWorkers = shouldWaitForMinWorkers(analysis);
 
             // for adaptive planner
             this.adaptivePlanOptimizers = ImmutableList.copyOf(requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null"));
@@ -500,6 +502,9 @@ public class SqlQueryExecution
                 stateMachine.getWarningCollector(),
                 planOptimizersStatsCollector,
                 tableStatsProvider);
+        // planning is the last reader of the analysis
+        Analysis analysis = this.analysis.getAndSet(null);
+        checkState(analysis != null, "Query is already planned or pruned");
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -677,6 +682,12 @@ public class SqlQueryExecution
     public void pruneInfo()
     {
         stateMachine.pruneQueryInfo();
+        if (stateMachine.getFinalQueryInfo().isPresent()) {
+            // planning releases the analysis, so it remains only for queries that fail before planning
+            analysis.set(null);
+            queryPlan.set(null);
+            planOptimizersStatsCollector.close();
+        }
     }
 
     @Override
@@ -746,12 +757,12 @@ public class SqlQueryExecution
     @Override
     public boolean shouldWaitForMinWorkers()
     {
-        return shouldWaitForMinWorkers(analysis.getStatement());
+        return waitForMinWorkers;
     }
 
-    private boolean shouldWaitForMinWorkers(Statement statement)
+    private static boolean shouldWaitForMinWorkers(Analysis analysis)
     {
-        if (statement instanceof Query) {
+        if (analysis.getStatement() instanceof Query) {
             // Allow set session statements and queries on internal system connectors to run without waiting
             Collection<TableHandle> tables = analysis.getTables();
             return !tables.stream()

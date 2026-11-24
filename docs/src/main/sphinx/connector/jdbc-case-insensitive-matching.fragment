@@ -1,5 +1,10 @@
 ### Case insensitive matching
 
+Queries against a table with column names that differ only in case fail with an
+`AMBIGUOUS_COLUMN_NAME` error identifying the table and conflicting columns.
+Rename or drop a conflicting column in the remote database, or create a view
+with distinct column names, to query the data from Trino.
+
 When `case-insensitive-name-matching` is set to `true`, Trino
 is able to query non-lowercase schemas and tables by maintaining a mapping of
 the lowercase name to the actual name in the remote system. However, if two

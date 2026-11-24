@@ -25,9 +25,11 @@ import io.trino.parquet.cache.MemoryParquetFooterCache;
 import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.DefaultIcebergFileNameProvider;
 import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergExecutorModule;
+import io.trino.plugin.iceberg.IcebergFileNameProvider;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.IcebergMaterializedViewProperties;
@@ -91,6 +93,7 @@ public class LakehouseIcebergModule
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileSystemFactory.class).to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergFileNameProvider.class).to(DefaultIcebergFileNameProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class));
 

@@ -30,7 +30,7 @@ public class SalesforceConfig
     private Duration cacheExpireDuration = Duration.succinctDuration(2, TimeUnit.MINUTES);
     private String allowedOrganizations;
 
-    @NotNull(message = "Must set salesforce.allowed-organization with one or more Salesforce 18 char Organization Ids, or \"all\"")
+    @NotNull(message = "Must set salesforce.allowed-organizations with one or more Salesforce 18 char Organization Ids, or \"all\"")
     public String getAllowedOrganizations()
     {
         return allowedOrganizations;

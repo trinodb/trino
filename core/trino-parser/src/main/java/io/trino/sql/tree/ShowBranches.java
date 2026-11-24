@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowBranches
+public final class ShowBranches
         extends Statement
 {
     private final QualifiedName tableName;
@@ -35,12 +35,6 @@ public class ShowBranches
     public QualifiedName getTableName()
     {
         return tableName;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowBranches(this, context);
     }
 
     @Override

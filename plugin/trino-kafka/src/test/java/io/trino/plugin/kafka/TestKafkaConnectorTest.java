@@ -483,7 +483,7 @@ public class TestKafkaConnectorTest
 
         // Query the two messages without header and compare with empty object as JSON
         assertQuery(
-                "SELECT _message" +
+                "SELECT from_utf8(_message)" +
                         " FROM default." + headersTopic +
                         " WHERE cardinality(_headers) = 0",
                 "VALUES ('1'),('2')");
@@ -491,7 +491,7 @@ public class TestKafkaConnectorTest
         assertQuery(
                 "SELECT from_utf8(value) FROM default." + headersTopic +
                         " CROSS JOIN UNNEST(_headers['foo']) AS arr (value)" +
-                        " WHERE _message = '4'",
+                        " WHERE from_utf8(_message) = '4'",
                 "VALUES ('bar'), (null), ('baz')");
     }
 

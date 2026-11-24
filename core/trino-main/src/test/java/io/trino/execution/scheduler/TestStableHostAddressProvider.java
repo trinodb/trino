@@ -270,7 +270,7 @@ public class TestStableHostAddressProvider
 
     private static InternalNode node(int index)
     {
-        return new InternalNode("node" + index, URI.create("http://node" + index + ":8080"), UNKNOWN, false);
+        return new InternalNode("node" + index, "node" + index + "-instance", URI.create("http://node" + index + ":8080"), UNKNOWN, false);
     }
 
     private static List<String> keys()

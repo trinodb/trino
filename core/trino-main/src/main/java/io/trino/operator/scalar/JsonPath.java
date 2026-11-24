@@ -91,6 +91,25 @@ public class JsonPath
     }
 
     @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        JsonPath other = (JsonPath) obj;
+        return pattern.equals(other.pattern);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return pattern.hashCode();
+    }
+
+    @Override
     public String toString()
     {
         return pattern;

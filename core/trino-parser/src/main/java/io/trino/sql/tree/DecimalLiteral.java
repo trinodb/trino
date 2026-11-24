@@ -18,7 +18,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DecimalLiteral
+public final class DecimalLiteral
         extends Literal
 {
     private final String value;
@@ -45,12 +45,6 @@ public class DecimalLiteral
     public String getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDecimalLiteral(this, context);
     }
 
     @Override

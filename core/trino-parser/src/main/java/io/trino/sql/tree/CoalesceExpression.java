@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class CoalesceExpression
+public final class CoalesceExpression
         extends Expression
 {
     private final List<Expression> operands;
@@ -53,12 +53,6 @@ public class CoalesceExpression
     public List<Expression> getOperands()
     {
         return operands;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCoalesceExpression(this, context);
     }
 
     @Override

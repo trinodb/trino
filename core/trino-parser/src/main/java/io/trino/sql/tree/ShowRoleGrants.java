@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowRoleGrants
+public final class ShowRoleGrants
         extends Statement
 {
     private final Optional<Identifier> catalog;
@@ -36,12 +36,6 @@ public class ShowRoleGrants
     public Optional<Identifier> getCatalog()
     {
         return catalog;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowRoleGrants(this, context);
     }
 
     @Override

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Format
+public final class Format
         extends Expression
 {
     private final List<Expression> arguments;
@@ -37,12 +37,6 @@ public class Format
     public List<Expression> getArguments()
     {
         return arguments;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFormat(this, context);
     }
 
     @Override

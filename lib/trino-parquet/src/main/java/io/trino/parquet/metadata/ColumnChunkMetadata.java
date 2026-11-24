@@ -120,6 +120,7 @@ public abstract class ColumnChunkMetadata
     private IndexReference offsetIndexReference;
 
     private long bloomFilterOffset = -1;
+    private int bloomFilterLength = -1;
 
     protected ColumnChunkMetadata(EncodingStats encodingStats, ColumnChunkProperties columnChunkProperties)
     {
@@ -195,6 +196,20 @@ public abstract class ColumnChunkMetadata
     {
         decryptIfNeeded();
         return bloomFilterOffset;
+    }
+
+    public void setBloomFilterLength(int bloomFilterLength)
+    {
+        this.bloomFilterLength = bloomFilterLength;
+    }
+
+    /**
+     * Size of the Bloom filter header and bitset in bytes, or a non-positive value when the writer did not record it
+     */
+    public int getBloomFilterLength()
+    {
+        decryptIfNeeded();
+        return bloomFilterLength;
     }
 
     public Set<Encoding> getEncodings()

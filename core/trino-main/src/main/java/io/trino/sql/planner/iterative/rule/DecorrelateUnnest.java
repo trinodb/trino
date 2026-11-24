@@ -297,7 +297,7 @@ public class DecorrelateUnnest
                 .collect(toImmutableList());
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         boolean basedOnCorrelation = ImmutableSet.copyOf(correlation).containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode projectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().expressions()));
+                (unnestSource instanceof ProjectNode projectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().expressions())));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&

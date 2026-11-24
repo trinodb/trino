@@ -76,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           inputs: .github
           # Version of the zizmor tool to install and run
@@ -125,9 +125,9 @@ jobs:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
         include:
-          - { java-version: 25.0.5, cache: 'true', cleanup-node: true }
-          - { java-version: 27, cache: 'restore', cleanup-node: true }
-          - { java-version: 28-ea, cache: 'restore', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 25.0.5.1.2, cache: 'true', cleanup-node: true }
+          - { java-distribution: corretto, java-version: 27, cache: 'restore', cleanup-node: true }
+          - { java-distribution: temurin, java-version: 28-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
@@ -152,13 +152,9 @@ jobs:
         timeout-minutes: 15
         with:
           cache: ${{ matrix.cache }}
+          java-distribution: ${{ matrix.java-distribution }}
           java-version: ${{ matrix.java-version }}
           cleanup-node: true
-      - name: Check SPI backward compatibility
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl :trino-spi -am
-          $MAVEN clean verify -B --strict-checksums -DskipTests -pl :trino-spi
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -349,7 +345,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
-          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-core'
       - name: Cancel merge queue workflow
         if: ${{ failure() && github.event_name == 'merge_group' }}
@@ -951,9 +947,8 @@ jobs:
       - name: Product tests artifact
         uses: actions/upload-artifact@v7
         with:
-          name: product tests and server tarball
+          name: product tests image and CLI
           path: |
-            core/trino-server/target/*.tar.gz
             client/trino-cli/target/*-executable.jar
             product-tests-trino-image.tar.gz
           retention-days: 1
@@ -972,6 +967,11 @@ jobs:
           (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        env:
+          # Whether the secrets of the secret-suites in product-test-suites.yaml are available, not their values
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' && 'present' || '' }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN != '' && 'present' || '' }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD != '' && 'present' || '' }}
         run: |
           .github/bin/build-pt-matrix.py -v --changed gib-changed.log \
             --server core/trino-server/target/trino-server-*.tar.gz \
@@ -982,6 +982,11 @@ jobs:
           (github.event_name != 'pull_request' && github.event_name != 'merge_group') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        env:
+          # Whether the secrets of the secret-suites in product-test-suites.yaml are available, not their values
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' && 'present' || '' }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN != '' && 'present' || '' }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD != '' && 'present' || '' }}
         run: .github/bin/build-pt-matrix.py -v --server core/trino-server/target/trino-server-*.tar.gz > matrix.json
       - id: set-matrix
         run: |
@@ -1013,7 +1018,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           persist-credentials: false
           ref: |
             ${{ github.event_name == 'repository_dispatch' &&
@@ -1023,10 +1027,22 @@ jobs:
         timeout-minutes: 15
         with:
           cache: 'false'
+          maven: 'false'
       - name: Product tests artifact
+        id: product-tests-artifact
         uses: actions/download-artifact@v8
+        # The download occasionally slows to a trickle, so give up early and retry once
+        # TODO: remove the timeout and the retry when https://github.com/actions/toolkit/pull/2584 is fixed
+        timeout-minutes: 5
+        continue-on-error: true
         with:
-          name: product tests and server tarball
+          name: product tests image and CLI
+      - name: Product tests artifact (retry)
+        if: steps.product-tests-artifact.outcome != 'success'
+        uses: actions/download-artifact@v8
+        timeout-minutes: 10
+        with:
+          name: product tests image and CLI
       - name: Product test distribution
         uses: actions/download-artifact@v8
         with:
@@ -1034,12 +1050,10 @@ jobs:
           path: testing/trino-product-tests/target
       - name: Load Trino Docker image for product tests
         run: |
-          gzip -dc product-tests-trino-image.tar.gz | docker load
-          version=$($MAVEN -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout --raw-streams)
-          docker tag "product-tests-trino:${version}-amd64" trino:for-product-tests
+          image=$(gzip -dc product-tests-trino-image.tar.gz | docker load | sed -n 's/^Loaded image: //p')
+          docker tag "${image}" trino:for-product-tests
       - name: Product Tests (JUnit suites)
         id: tests
-        shell: bash
         env:
           TRINO_PRODUCT_TESTS_IMAGE: "trino:for-product-tests"
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
@@ -1059,160 +1073,7 @@ jobs:
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
-        run: |
-          mkdir -p logs
-
-          # Suites load checked-in configuration from paths relative to the repository root.
-          product_test_distribution=testing/trino-product-tests/target/product-test-distribution
-          test_jar=("${product_test_distribution}"/lib/trino-product-tests-*-tests.jar)
-          product_test_classpath=$(< "${product_test_distribution}/classpath.txt")
-          product_test_classpath="${product_test_distribution}/${product_test_classpath//:/:${product_test_distribution}/}"
-
-          declare -a suite_results=()
-          declare -a suite_totals=()
-          declare -a skipped_suites=()
-          echo "## pt ${MATRIX_SUITE}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          failed=0
-          failed_suites=()
-
-          for suite in ${MATRIX_SUITE}; do
-            log_file="logs/${suite}.log"
-            echo "### ${suite}" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-
-            availability_env=""
-            required_env=()
-            case "${suite}" in
-              SuiteAzure)
-                availability_env=ABFS_ACCESS_KEY
-                required_env+=(ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY)
-                ;;
-              SuiteSnowflake)
-                availability_env=SNOWFLAKE_PASSWORD
-                required_env+=(SNOWFLAKE_URL SNOWFLAKE_USER SNOWFLAKE_PASSWORD SNOWFLAKE_DATABASE SNOWFLAKE_ROLE SNOWFLAKE_WAREHOUSE)
-                ;;
-              SuiteDeltaLakeDatabricks154)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_154_JDBC_URL)
-                ;;
-              SuiteDeltaLakeDatabricks18)
-                availability_env=DATABRICKS_TOKEN
-                required_env+=(S3_BUCKET AWS_REGION TRINO_AWS_ACCESS_KEY_ID TRINO_AWS_SECRET_ACCESS_KEY DATABRICKS_TOKEN DATABRICKS_18_JDBC_URL)
-                ;;
-            esac
-
-            if [ -n "${availability_env}" ] && [ -z "${!availability_env:-}" ] && [ -z "${CI_SKIP_SECRETS_PRESENCE_CHECKS:-}" ]; then
-              suite_results+=("${suite}:SKIPPED")
-              suite_totals+=("${suite}:missing availability credential: ${availability_env}")
-              skipped_suites+=("${suite}")
-              echo "- Result: SKIPPED (missing availability credential: ${availability_env})" >> "$GITHUB_STEP_SUMMARY"
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            if [ "${#required_env[@]}" -gt 0 ]; then
-              missing_env=()
-              for env_name in "${required_env[@]}"; do
-                if [ -z "${!env_name:-}" ]; then
-                  missing_env+=("${env_name}")
-                fi
-              done
-              if [ "${#missing_env[@]}" -gt 0 ]; then
-                failed=1
-                failed_suites+=("${suite}")
-                suite_results+=("${suite}:FAILED")
-                suite_totals+=("${suite}:missing required env: ${missing_env[*]}")
-                echo "Missing required env: ${missing_env[*]}" > "${log_file}"
-                echo "- Result: FAILED (missing required env: ${missing_env[*]})" >> "$GITHUB_STEP_SUMMARY"
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                continue
-              fi
-            fi
-            set +e
-            java \
-              -Xmx512M \
-              -XX:+ExitOnOutOfMemoryError \
-              -Dtrino.product-tests.image="${TRINO_PRODUCT_TESTS_IMAGE}" \
-              -cp "${test_jar[0]}:${product_test_classpath}" \
-              io.trino.tests.product.suite.${suite} \
-              | tee "${log_file}"
-            rc=${PIPESTATUS[0]}
-            set -e
-
-            total_line=$(grep '^TOTAL' "${log_file}" | tail -1 || true)
-            if [ -n "${total_line}" ]; then
-              suite_totals+=("${suite}:${total_line}")
-            else
-              suite_totals+=("${suite}:TOTAL summary not found")
-            fi
-
-            if [ "${rc}" -ne 0 ]; then
-              failed=1
-              failed_suites+=("${suite}")
-              suite_results+=("${suite}:FAILED")
-              echo "- Result: FAILED" >> "$GITHUB_STEP_SUMMARY"
-            else
-              suite_results+=("${suite}:PASSED")
-              echo "- Result: PASSED" >> "$GITHUB_STEP_SUMMARY"
-            fi
-
-            if grep -Eq '^\[FAILURE\]|^\[ERROR\]|^    at io\.trino\.tests\.product\.' "${log_file}"; then
-              echo "- Failure details:" >> "$GITHUB_STEP_SUMMARY"
-              grep -E '^\[FAILURE\]|^\[ERROR\]|^    at io\.trino\.tests\.product\.' "${log_file}" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          done
-
-          echo ""
-          echo "========================================"
-          echo "         PT-JUNIT SUITE SUMMARY         "
-          echo "========================================"
-          echo "Suite: ${MATRIX_SUITE}"
-          echo ""
-          for entry in "${suite_results[@]}"; do
-            suite_name=${entry%%:*}
-            suite_result=${entry#*:}
-            suite_total=""
-            for total_entry in "${suite_totals[@]}"; do
-              if [[ "${total_entry}" == "${suite_name}:"* ]]; then
-                suite_total=${total_entry#*:}
-                break
-              fi
-            done
-            printf '%-32s | %-7s | %s\n' "${suite_name}" "${suite_result}" "${suite_total}"
-          done
-          echo "========================================"
-          echo ""
-
-          if [ "${failed}" -ne 0 ]; then
-            echo "FAILED SUITES:"
-            for suite in "${failed_suites[@]}"; do
-              echo "- ${suite}"
-            done
-            echo ""
-            echo "FAILURE DETAILS:"
-            echo "----------------"
-            for suite in "${failed_suites[@]}"; do
-              log_file="logs/${suite}.log"
-              echo ""
-              echo "${suite}:"
-              if grep -q '^FAILURE DETAILS:' "${log_file}"; then
-                sed -n '/^FAILURE DETAILS:/,$p' "${log_file}"
-              elif grep -Eq '^\[FAILURE\]|^\[ERROR\]|^    at io\.trino\.tests\.product\.' "${log_file}"; then
-                grep -E '^\[FAILURE\]|^\[ERROR\]|^    at io\.trino\.tests\.product\.' "${log_file}"
-              else
-                echo "No structured failure details found in ${log_file}"
-              fi
-            done
-            echo ""
-            echo "## Failed suites" >> "$GITHUB_STEP_SUMMARY"
-            for suite in "${failed_suites[@]}"; do
-              echo "- ${suite}" >> "$GITHUB_STEP_SUMMARY"
-            done
-            exit 1
-          fi
+        run: .github/bin/run-product-test-suites.sh
       - name: Upload JUnit suite logs
         if: always()
         uses: actions/upload-artifact@v7

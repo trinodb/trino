@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class WhenClause
+public final class WhenClause
         extends Expression
 {
     /// What this WHEN clause matches on. [Operand] carries a value expression — a boolean for
@@ -107,12 +107,6 @@ public class WhenClause
     public Expression getResult()
     {
         return result;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWhenClause(this, context);
     }
 
     @Override

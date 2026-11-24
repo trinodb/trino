@@ -13,14 +13,14 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,6 +52,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TestJsonItems
 {
     private static final JsonMapper MAPPER = new JsonMapper();
+
+    @Test
+    void testMalformedJsonReportsLocation()
+    {
+        String input = "{\"a\":1,\n \"b\": tru}";
+        assertThatThrownBy(() -> JsonItems.fromText(utf8Slice(input)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("line: 2, column: 7");
+        assertThatThrownBy(() -> JsonItems.parseToTree(utf8Slice(input)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("line: 2, column: 7");
+    }
 
     @Test
     void testCharacterInputDoesNotDetectEncoding()

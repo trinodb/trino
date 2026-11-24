@@ -15,13 +15,13 @@ package io.trino.testing.containers;
 
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.nio.file.Path;
-import java.time.Duration;
+
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 
 /**
  * A reusable Spark container for Iceberg product tests.
@@ -106,13 +106,10 @@ public class SparkIcebergContainer
                 "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
                 "--name",
                 "Thrift JDBC/ODBC Server",
-                "--packages",
-                "org.apache.spark:spark-avro_2.12:3.2.1",
                 "--conf",
                 "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                 "spark-internal");
-        waitingFor(Wait.forListeningPort()
-                .withStartupTimeout(Duration.ofMinutes(3)));
+        waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
     }
 
     public SparkIcebergContainer withAwsKmsEncryption(String kmsEndpoint)
@@ -142,7 +139,6 @@ public class SparkIcebergContainer
                         "--master 'local[*]' " +
                         "--class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 " +
                         "--name 'Thrift JDBC/ODBC Server' " +
-                        "--packages org.apache.spark:spark-avro_2.13:4.0.0 " +
                         "--conf spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT + " " +
                         "spark-internal");
         return this;

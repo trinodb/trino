@@ -276,7 +276,7 @@ public final class FlatHash
     private int getIndex(Block[] blocks, int position, long hash)
     {
         checkState(!isReleasingOutput(), "already releasing output");
-        byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+        byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
         int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
@@ -327,7 +327,7 @@ public final class FlatHash
 
     private int addNewGroup(int index, Block[] blocks, int position, long hash)
     {
-        setControl(index, (byte) (hash & 0x7F | 0x80));
+        setControl(index, (byte) ((hash & 0x7F) | 0x80));
         int groupId = nextGroupId++;
         groupIdsByHash[index] = groupId;
         int recordGroupIndex = recordGroupIndexForGroupId(groupId);
@@ -414,7 +414,7 @@ public final class FlatHash
         for (int groupId = 0; groupId < nextGroupId; groupId++) {
             long hash = hashPosition(groupId);
 
-            byte hashPrefix = (byte) (hash & 0x7F | 0x80);
+            byte hashPrefix = (byte) ((hash & 0x7F) | 0x80);
             int bucket = bucket((int) (hash >> 7));
 
             // getIndex is not used here because values in a rehash are always distinct

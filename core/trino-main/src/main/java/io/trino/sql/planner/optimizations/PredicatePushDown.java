@@ -86,8 +86,7 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -103,6 +102,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.DomainTranslator.isStructural;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -141,6 +141,23 @@ public class PredicatePushDown
         this.dynamicFiltering = dynamicFiltering;
     }
 
+    public static boolean isInliningCandidate(Expression expression, ProjectNode node)
+    {
+        // candidate symbols for inlining are
+        //   1. references to simple constants or symbol references
+        //   2. references to complex expressions that appear only once
+        // which come from the node, as opposed to an enclosing scope.
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
+        Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
+                .filter(childOutputSet::contains)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        return dependencies.entrySet().stream()
+                .allMatch(entry -> entry.getValue() == 1
+                        || node.getAssignments().get(entry.getKey()) instanceof Constant
+                        || node.getAssignments().get(entry.getKey()) instanceof Reference);
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
@@ -164,7 +181,7 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final Session session;
         private final boolean dynamicFiltering;
-        private final EffectivePredicateExtractor effectivePredicateExtractor;
+        private final Function<PlanNode, Expression> effectivePredicate;
         private final boolean allowUnsafePushdown;
 
         private Rewriter(
@@ -186,9 +203,10 @@ public class PredicatePushDown
             this.session = requireNonNull(session, "session is null");
             this.dynamicFiltering = dynamicFiltering;
 
-            this.effectivePredicateExtractor = new EffectivePredicateExtractor(
+            this.effectivePredicate = new EffectivePredicateExtractor(
                     plannerContext,
-                    useTableProperties && isPredicatePushdownUseTableProperties(session));
+                    useTableProperties && isPredicatePushdownUseTableProperties(session))
+                    .memoizing(session, symbolAllocator);
             optimizer = plannerContext.getExpressionOptimizer();
             this.allowUnsafePushdown = SystemSessionProperties.isUnsafePushdownAllowed(session);
         }
@@ -329,23 +347,6 @@ public class PredicatePushDown
             return rewrittenNode;
         }
 
-        private boolean isInliningCandidate(Expression expression, ProjectNode node)
-        {
-            // candidate symbols for inlining are
-            //   1. references to simple constants or symbol references
-            //   2. references to complex expressions that appear only once
-            // which come from the node, as opposed to an enclosing scope.
-            Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
-            Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
-                    .filter(childOutputSet::contains)
-                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-
-            return dependencies.entrySet().stream()
-                    .allMatch(entry -> entry.getValue() == 1
-                            || node.getAssignments().get(entry.getKey()) instanceof Constant
-                            || node.getAssignments().get(entry.getKey()) instanceof Reference);
-        }
-
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
         {
@@ -436,8 +437,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicate.apply(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicate.apply(node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -705,8 +706,8 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, symbolAllocator, node.getRight());
+            Expression leftEffectivePredicate = effectivePredicate.apply(node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicate.apply(node.getRight());
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -1117,8 +1118,8 @@ public class PredicatePushDown
                         node.getReorderJoinStatsAndCost());
             }
 
-            if (node.getType() == JoinType.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
-                    node.getType() == JoinType.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
+            if ((node.getType() == JoinType.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate)) ||
+                    (node.getType() == JoinType.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate))) {
                 return node;
             }
             return new JoinNode(
@@ -1212,7 +1213,9 @@ public class PredicatePushDown
             }
 
             if (operator == IDENTICAL) {
-                if ((left.type().equals(REAL) || right.type().equals(REAL) || left.type().equals(DOUBLE) || right.type().equals(DOUBLE))) {
+                // Dynamic filters follow = semantics: NaN is not collected, and structural values containing nulls or NaN
+                // do not match themselves, while IS NOT DISTINCT FROM matches them
+                if (mayBeUnequalToItself(left.type()) || mayBeUnequalToItself(right.type())) {
                     return false;
                 }
             }
@@ -1223,6 +1226,11 @@ public class PredicatePushDown
             // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
             return (right instanceof Reference && rightSymbols.contains(Symbol.from(right)))
                     || (left instanceof Reference && rightSymbols.contains(Symbol.from(left)));
+        }
+
+        private static boolean mayBeUnequalToItself(Type type)
+        {
+            return typeHasNaN(type) || isStructural(type);
         }
 
         @Override
@@ -1289,8 +1297,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, symbolAllocator, node.getFilteringSource()));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicate.apply(node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicate.apply(node.getFilteringSource()));
             Expression joinExpression = comparison(
                     metadata,
                     getCharVarcharCoercion(session),

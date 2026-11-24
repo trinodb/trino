@@ -15,8 +15,88 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class Statement
+public abstract sealed class Statement
         extends Node
+        permits AddColumn,
+                Analyze,
+                Call,
+                Comment,
+                Commit,
+                CreateBranch,
+                CreateCatalog,
+                CreateFunction,
+                CreateMaterializedView,
+                CreateRole,
+                CreateSchema,
+                CreateTable,
+                CreateTableAsSelect,
+                CreateView,
+                Deallocate,
+                Delete,
+                Deny,
+                DescribeInput,
+                DescribeOutput,
+                DropBranch,
+                DropCatalog,
+                DropColumn,
+                DropDefaultValue,
+                DropFunction,
+                DropMaterializedView,
+                DropNotNullConstraint,
+                DropRole,
+                DropSchema,
+                DropTable,
+                DropView,
+                Execute,
+                ExecuteImmediate,
+                Explain,
+                ExplainAnalyze,
+                FastForwardBranch,
+                Grant,
+                GrantRoles,
+                Insert,
+                MaterializedViewExecute,
+                Merge,
+                Prepare,
+                Query,
+                RefreshMaterializedView,
+                RefreshView,
+                RenameColumn,
+                RenameMaterializedView,
+                RenameSchema,
+                RenameTable,
+                RenameView,
+                ResetSession,
+                ResetSessionAuthorization,
+                Revoke,
+                RevokeRoles,
+                Rollback,
+                SetAuthorizationStatement,
+                SetColumnType,
+                SetDefaultValue,
+                SetPath,
+                SetProperties,
+                SetRole,
+                SetSession,
+                SetSessionAuthorization,
+                SetTimeZone,
+                ShowBranches,
+                ShowCatalogs,
+                ShowColumns,
+                ShowCreate,
+                ShowFunctions,
+                ShowGrants,
+                ShowRoleGrants,
+                ShowRoles,
+                ShowSchemas,
+                ShowSession,
+                ShowStats,
+                ShowTables,
+                StartTransaction,
+                TableExecute,
+                TruncateTable,
+                Update,
+                Use
 {
     @Deprecated
     protected Statement(Optional<NodeLocation> location)
@@ -27,11 +107,5 @@ public abstract class Statement
     protected Statement(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStatement(this, context);
     }
 }

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 import { type Edge, type Node } from '@xyflow/react'
-import { QueryStageStats, QueryStatusInfo } from '../../api/webapp/api'
+import { QueryPlanNode, QueryStageStats, QueryStatusInfo } from '../../api/webapp/api'
 
 export type LayoutDirectionType = 'BT' | 'RL'
 
@@ -26,20 +26,11 @@ export interface IFlowElements {
     edges: Edge[]
 }
 
-export interface IPlanNodeProps {
-    id: string
-    name: string
-    descriptor: Record<string, string>
-    details: string[]
-    sources: string[]
-    children: IPlanNodeProps[]
-}
-
 export interface IPlanFragmentNodeInfo {
     stageId: string
     id: string
     root: string
     stageStats: QueryStageStats
     state: string
-    nodes: Map<string, IPlanNodeProps>
+    nodes: Map<string, QueryPlanNode>
 }

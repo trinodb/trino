@@ -25,8 +25,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.any;
 import static io.trino.matching.Pattern.typeOf;
@@ -140,12 +138,12 @@ public class TestMatcher
 
         ProjectNode tree = new ProjectNode(new FilterNode(new ScanNode("orders"), null));
 
-        Match match = assertMatch(pattern, tree);
+        Captures match = assertMatch(pattern, tree);
         // notice the concrete type despite no casts:
-        FilterNode capturedFilter = match.capture(filter);
+        FilterNode capturedFilter = match.get(filter);
         assertThat(tree.getSource()).isEqualTo(capturedFilter);
-        assertThat(((FilterNode) tree.getSource()).getSource()).isEqualTo(match.capture(scan));
-        assertThat("orders").isEqualTo(match.capture(name));
+        assertThat(((FilterNode) tree.getSource()).getSource()).isEqualTo(match.get(scan));
+        assertThat("orders").isEqualTo(match.get(name));
     }
 
     @Test
@@ -154,10 +152,7 @@ public class TestMatcher
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
 
-        Optional<Match> match = pattern.match(42)
-                .collect(toOptional());
-
-        assertThat(match).isEmpty();
+        assertNoMatch(pattern, 42);
     }
 
     @Test
@@ -166,10 +161,9 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match match = pattern.match(42)
-                .collect(onlyElement());
+        Captures match = assertMatch(pattern, 42);
 
-        assertThatThrownBy(() -> match.capture(unknownCapture))
+        assertThatThrownBy(() -> match.get(unknownCapture))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("unknown Capture");
     }
@@ -193,8 +187,7 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertThat(pattern.match("object", wasContextUsed)
-                .collect(onlyElement())).isNotNull();
+        assertThat(pattern.matches("object", wasContextUsed)).isTrue();
         assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
@@ -208,21 +201,21 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertThat(pattern.match("object", wasContextUsed)
-                .collect(onlyElement())).isNotNull();
+        assertThat(pattern.matches("object", wasContextUsed)).isTrue();
         assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
-    private <T> Match assertMatch(Pattern<T> pattern, T object)
+    private <T> Captures assertMatch(Pattern<T> pattern, Object object)
     {
-        return pattern.match(object)
-                .collect(onlyElement());
+        MatchCursor cursor = pattern.matchCursor(object);
+        assertThat(cursor.matches()).isTrue();
+        Captures captures = cursor.current();
+        assertThat(cursor.matches()).isFalse();
+        return captures;
     }
 
-    private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
+    private <T> void assertNoMatch(Pattern<T> pattern, Object object)
     {
-        Optional<Match> match = pattern.match(expectedNoMatch)
-                .collect(toOptional());
-        assertThat(match).isEmpty();
+        assertThat(pattern.matches(object, null)).isFalse();
     }
 }

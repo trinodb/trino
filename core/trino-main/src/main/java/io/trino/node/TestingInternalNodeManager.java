@@ -40,7 +40,7 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 public class TestingInternalNodeManager
         implements InternalNodeManager
 {
-    public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
+    public static final InternalNode CURRENT_NODE = new InternalNode("local", "local-instance", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
 
     private final InternalNode currentNode;
     private final ExecutorService nodeStateEventExecutor;

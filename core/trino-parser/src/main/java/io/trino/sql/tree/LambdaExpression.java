@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class LambdaExpression
+public final class LambdaExpression
         extends Expression
 {
     private final List<LambdaArgumentDeclaration> arguments;
@@ -41,12 +41,6 @@ public class LambdaExpression
     public Expression getBody()
     {
         return body;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLambdaExpression(this, context);
     }
 
     @Override

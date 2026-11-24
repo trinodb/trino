@@ -133,8 +133,7 @@ public class MockRemoteTaskFactory
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
@@ -262,6 +261,12 @@ public class MockRemoteTaskFactory
         public String getNodeId()
         {
             return nodeId;
+        }
+
+        @Override
+        public String getNodeInstanceId()
+        {
+            return nodeId + "-instance";
         }
 
         @Override

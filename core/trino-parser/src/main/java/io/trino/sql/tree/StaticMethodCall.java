@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class StaticMethodCall
+public final class StaticMethodCall
         extends Expression
 {
     private final QualifiedName type;
@@ -53,12 +53,6 @@ public class StaticMethodCall
     public boolean hasNamedArguments()
     {
         return arguments.stream().anyMatch(argument -> argument.getName().isPresent());
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitStaticMethodCall(this, context);
     }
 
     @Override

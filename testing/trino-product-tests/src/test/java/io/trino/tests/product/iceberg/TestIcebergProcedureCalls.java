@@ -29,7 +29,6 @@ import java.util.stream.Stream;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -377,32 +376,5 @@ class TestIcebergProcedureCalls
                 .hasMessageContaining("Not an Iceberg table");
 
         env.executeTrinoUpdate("DROP TABLE " + hiveTableName);
-    }
-
-    @Test
-    void testRollbackToSnapshot(SparkIcebergEnvironment env)
-            throws InterruptedException
-    {
-        String tableName = "test_rollback_to_snapshot_" + randomNameSuffix();
-        String icebergTableName = "iceberg.default." + tableName;
-
-        env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", icebergTableName));
-        env.executeTrinoUpdate(format("CREATE TABLE %s (a INTEGER)", icebergTableName));
-        Thread.sleep(1);
-        env.executeTrinoUpdate(format("INSERT INTO %s VALUES 1", icebergTableName));
-        Thread.sleep(1);
-        env.executeTrinoUpdate(format("INSERT INTO %s VALUES 2", icebergTableName));
-        long snapshotId = getSecondOldestTableSnapshot(env, tableName);
-        env.executeTrinoUpdate(format("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)", icebergTableName, snapshotId));
-        assertThat(env.executeTrino(format("SELECT * FROM %s", icebergTableName)))
-                .containsOnly(row(1));
-        env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", icebergTableName));
-    }
-
-    private long getSecondOldestTableSnapshot(SparkIcebergEnvironment env, String tableName)
-    {
-        return (Long) env.executeTrino(
-                        format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
-                .getOnlyValue();
     }
 }

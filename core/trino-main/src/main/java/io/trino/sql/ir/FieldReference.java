@@ -13,10 +13,10 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 
@@ -39,12 +39,6 @@ public record FieldReference(Expression base, int field)
     public Type type()
     {
         return ((RowType) base.type()).getFields().get(field).getType();
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFieldReference(this, context);
     }
 
     @Override

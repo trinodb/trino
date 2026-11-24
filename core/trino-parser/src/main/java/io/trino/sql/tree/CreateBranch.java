@@ -67,12 +67,6 @@ public final class CreateBranch
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateBranch(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.<Node>builder()

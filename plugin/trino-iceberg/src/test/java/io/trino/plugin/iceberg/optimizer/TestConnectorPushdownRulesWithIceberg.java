@@ -46,7 +46,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.PushPredicateIntoTableScanWithoutProject;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -165,6 +165,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 OptionalInt.empty(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -240,7 +241,7 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
         long snapshotId = ((IcebergTableHandle) tester().getPlanTester().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).connectorHandle()).getSnapshotId().orElseThrow();
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
+        PushPredicateIntoTableScanWithoutProject pushPredicateIntoTableScan = new PushPredicateIntoTableScanWithoutProject(tester().getPlannerContext(), false);
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
                 SCHEMA_NAME,
@@ -250,6 +251,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 OptionalInt.empty(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -302,6 +304,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 OptionalInt.empty(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -364,6 +367,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 OptionalInt.empty(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),

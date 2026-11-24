@@ -32,6 +32,7 @@ import static org.apache.iceberg.rest.RESTCatalogProperties.TABLE_CACHE_MAX_ENTR
 public class IcebergRestCatalogPropertiesProvider
 {
     private final Map<String, String> catalogProperties;
+    private final Map<String, String> proxyProperties;
 
     @Inject
     public IcebergRestCatalogPropertiesProvider(
@@ -57,6 +58,16 @@ public class IcebergRestCatalogPropertiesProvider
         restConfig.getSocketTimeout().ifPresent(timeout -> properties.put("rest.client.socket-timeout-ms", String.valueOf(timeout.toMillis())));
         // Hardcoded literal because org.apache.iceberg.rest.HTTPClient.REST_MAX_RETRIES is private.
         properties.put("rest.client.max-retries", String.valueOf(restConfig.getMaxRetries()));
+        // Hardcoded literals because org.apache.iceberg.rest.HTTPClient proxy constants are private.
+        ImmutableMap.Builder<String, String> proxy = ImmutableMap.builder();
+        restConfig.getHttpProxy().ifPresent(httpProxy -> {
+            proxy.put("rest.client.proxy.hostname", httpProxy.getHost());
+            proxy.put("rest.client.proxy.port", String.valueOf(httpProxy.getPort()));
+        });
+        restConfig.getProxyUsername().ifPresent(username -> proxy.put("rest.client.proxy.username", username));
+        restConfig.getProxyPassword().ifPresent(password -> proxy.put("rest.client.proxy.password", password));
+        proxyProperties = proxy.buildOrThrow();
+        properties.putAll(proxyProperties);
         properties.putAll(securityProperties.get());
         if (restConfig.isVendedCredentialsEnabled()) {
             properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
@@ -73,6 +84,12 @@ public class IcebergRestCatalogPropertiesProvider
         properties.put(TABLE_CACHE_MAX_ENTRIES, "0");
 
         catalogProperties = properties.buildOrThrow();
+    }
+
+    // Must be merged last by HTTP clients, so server-provided config cannot redirect proxy credentials
+    public Map<String, String> proxyProperties()
+    {
+        return proxyProperties;
     }
 
     public Map<String, String> catalogProperties()

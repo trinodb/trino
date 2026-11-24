@@ -28,5 +28,7 @@ public abstract non-sealed class CustomPattern<T>
         super(previous);
     }
 
+    public abstract <C> MatchCursor accept(Object object, Captures captures, C context);
+
     public abstract String print();
 }

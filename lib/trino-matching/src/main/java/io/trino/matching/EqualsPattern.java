@@ -14,7 +14,6 @@
 package io.trino.matching;
 
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,12 +31,5 @@ public final class EqualsPattern<T>
     public T expectedValue()
     {
         return expectedValue;
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        return Stream.of(Match.of(captures))
-                .filter(_ -> expectedValue.equals(object));
     }
 }

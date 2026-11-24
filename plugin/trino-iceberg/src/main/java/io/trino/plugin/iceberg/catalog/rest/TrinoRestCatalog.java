@@ -68,6 +68,7 @@ import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.ForbiddenException;
+import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
@@ -113,6 +114,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -211,6 +213,9 @@ public class TrinoRestCatalog
             Namespace remoteNamespace = toRemoteNamespace(session, toNamespace(namespace));
             return apiCallStats.measure("namespaceExists", () -> restSessionCatalog.namespaceExists(sessionContext, remoteNamespace));
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to check namespace '%s'".formatted(namespace), e);
         }
@@ -269,6 +274,12 @@ public class TrinoRestCatalog
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
+        catch (NamespaceNotEmptyException e) {
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace, e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop namespace '%s'".formatted(namespace), e);
         }
@@ -298,6 +309,9 @@ public class TrinoRestCatalog
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load metadata for namespace '%s'".formatted(namespace), e);
         }
@@ -324,6 +338,9 @@ public class TrinoRestCatalog
                         }
                         throw new TrinoException(NOT_SUPPORTED, "Non-string properties are not support for Iceberg REST catalog");
                     })));
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create namespace '%s'".formatted(namespace), e);
@@ -487,6 +504,9 @@ public class TrinoRestCatalog
             }
             return apiCallStats.measure("createTable", () -> tableBuilder.withLocation(location.get()).createTransaction());
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create transaction", e);
         }
@@ -510,6 +530,9 @@ public class TrinoRestCatalog
                     .withProperties(properties);
             return apiCallStats.measure("createOrReplaceTable", tableBuilder::createOrReplaceTransaction);
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create transaction", e);
         }
@@ -522,6 +545,9 @@ public class TrinoRestCatalog
         TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName());
         try {
             apiCallStats.measure("registerTable", () -> restSessionCatalog.registerTable(sessionContext, tableIdentifier, tableMetadata.metadataFileLocation()));
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to register table '%s'".formatted(tableName.getTableName()), e);
@@ -540,6 +566,9 @@ public class TrinoRestCatalog
             if (!apiCallStats.measure("dropTable", () -> restSessionCatalog.dropTable(sessionContext, remoteTable))) {
                 throw new TableNotFoundException(tableName);
             }
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to unregister table '%s'".formatted(tableName.getTableName()), e);
@@ -607,6 +636,9 @@ public class TrinoRestCatalog
                 throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName));
             }
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName.getTableName()), e);
         }
@@ -628,6 +660,9 @@ public class TrinoRestCatalog
             TableIdentifier remoteFrom = toRemoteTable(session, from, true);
             TableIdentifier remoteTo = toRemoteTable(session, to, true);
             apiCallStats.measure("renameTable", () -> restSessionCatalog.renameTable(sessionContext, remoteFrom, remoteTo));
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
@@ -706,6 +741,9 @@ public class TrinoRestCatalog
                 icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
             }
         }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
         finally {
             invalidateTableCache(schemaTableName);
         }
@@ -783,6 +821,9 @@ public class TrinoRestCatalog
                 apiCallStats.measure("createView", viewBuilder::create);
             }
         }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg REST catalog server does not support creating or replacing views: " + e.getMessage(), e);
+        }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create view '%s'".formatted(schemaViewName.getTableName()), e);
         }
@@ -796,6 +837,9 @@ public class TrinoRestCatalog
             TableIdentifier remoteSource = toRemoteView(session, source, true);
             TableIdentifier remoteTarget = toRemoteView(session, target, true);
             apiCallStats.measure("renameView", () -> restSessionCatalog.renameView(sessionContext, remoteSource, remoteTarget));
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to rename view '%s' to '%s'".formatted(source, target), e);
@@ -820,6 +864,9 @@ public class TrinoRestCatalog
             SessionContext sessionContext = convert(session);
             TableIdentifier remoteView = toRemoteView(session, schemaViewName, true);
             apiCallStats.measure("dropView", () -> restSessionCatalog.dropView(sessionContext, remoteView));
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop view '%s'".formatted(schemaViewName.getTableName()), e);
@@ -975,9 +1022,14 @@ public class TrinoRestCatalog
     @Override
     public void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment)
     {
-        loadTable(session, schemaTableName).updateSchema()
-                .updateColumnDoc(columnIdentity.getName(), comment.orElse(null))
-                .commit();
+        try {
+            loadTable(session, schemaTableName).updateSchema()
+                    .updateColumnDoc(columnIdentity.getName(), comment.orElse(null))
+                    .commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
     }
 
     @Override
@@ -994,7 +1046,12 @@ public class TrinoRestCatalog
         comment.ifPresentOrElse(
                 value -> updateViewProperties.set(COMMENT, value),
                 () -> updateViewProperties.remove(COMMENT));
-        updateViewProperties.commit();
+        try {
+            updateViewProperties.commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
     }
 
     @Override
@@ -1015,7 +1072,17 @@ public class TrinoRestCatalog
             }
         }
 
-        replaceViewVersion.commit();
+        try {
+            replaceViewVersion.commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw unsupportedOperation(e);
+        }
+    }
+
+    private static TrinoException unsupportedOperation(UnsupportedOperationException cause)
+    {
+        return new TrinoException(NOT_SUPPORTED, "Iceberg REST catalog server does not support this operation: " + cause.getMessage(), cause);
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)

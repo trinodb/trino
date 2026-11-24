@@ -181,7 +181,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    (_, _) -> (_, _, _, _, _, _, _) -> new FixedPageSource(inputPages),
+                    (_, _) -> (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(inputPages, memoryContext),
                     _ -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     Optional.empty(),

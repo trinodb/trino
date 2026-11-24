@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -70,7 +71,7 @@ public final class AutoCloseableCloser
         List<AutoCloseable> closeables;
         synchronized (this) {
             closed = true;
-            closeables = List.copyOf(this.closeables.reversed());
+            closeables = ImmutableList.copyOf(this.closeables.reversed());
             this.closeables.clear();
             this.closeables.trimToSize();
         }

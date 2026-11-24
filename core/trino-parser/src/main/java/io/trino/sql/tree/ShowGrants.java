@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class ShowGrants
+public final class ShowGrants
         extends Statement
 {
     private final Optional<GrantObject> grantObject;
@@ -40,12 +40,6 @@ public class ShowGrants
     public Optional<GrantObject> getGrantObject()
     {
         return grantObject;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowGrants(this, context);
     }
 
     @Override

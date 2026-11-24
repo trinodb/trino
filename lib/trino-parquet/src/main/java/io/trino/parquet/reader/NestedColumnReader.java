@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -22,6 +23,7 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
 import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
@@ -39,6 +41,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static io.trino.spi.block.Bitmap.allocateWords;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
@@ -108,6 +111,8 @@ public class NestedColumnReader<BufferType>
 
     private int remainingPageValueCount;
     private int pageValueCount;
+    // True if every definition level of the current page is the max definition level
+    private boolean pageAllValuesDefined;
 
     public NestedColumnReader(
             PrimitiveField field,
@@ -185,10 +190,7 @@ public class NestedColumnReader<BufferType>
                     int pageIndex = readUnfinishedRow();
                     if (pageLastRowSkipped) {
                         remainingPageValueCount -= pageIndex;
-                        int[] definitionLevels = new int[pageIndex];
-                        definitionLevelDecoder.read(definitionLevels, 0, definitionLevels.length);
-                        int existingValueCount = countExistingValues(field.getDefinitionLevel(), definitionLevels);
-                        valueDecoder.skip(existingValueCount);
+                        skipValues(pageIndex);
                     }
                     else {
                         if (pageIndex > 0) {
@@ -205,7 +207,7 @@ public class NestedColumnReader<BufferType>
                 }
             }
 
-            if (skip(field.getDefinitionLevel())) {
+            if (skip()) {
                 continue;
             }
             ValueCount valueCount = getNextPositions(Math.min(rowRanges.getRowsLeftInCurrentRange(), remainingInBatch));
@@ -219,7 +221,9 @@ public class NestedColumnReader<BufferType>
             remainingInBatch -= valueCount.rows;
         }
 
-        return data.createNullableBlock(valueIsValid, outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
+        int[] definitionLevels = outputDefinitionLevels.getMergedBuffer();
+        int[] repetitionLevels = hasRepetitionLevels() ? outputRepetitionLevels.getMergedBuffer() : new int[definitionLevels.length];
+        return data.createNullableBlock(valueIsValid, definitionLevels, repetitionLevels);
     }
 
     private ColumnChunk readNonNull()
@@ -242,10 +246,7 @@ public class NestedColumnReader<BufferType>
                     int pageIndex = readUnfinishedRow();
                     if (pageLastRowSkipped) {
                         remainingPageValueCount -= pageIndex;
-                        int[] definitionLevels = new int[pageIndex];
-                        definitionLevelDecoder.read(definitionLevels, 0, definitionLevels.length);
-                        int existingValueCount = countExistingValues(field.getDefinitionLevel(), definitionLevels);
-                        valueDecoder.skip(existingValueCount);
+                        skipValues(pageIndex);
                         if (pageIndex == pageValueCount) { // Current row spans more than two Parquet pages
                             continue;
                         }
@@ -262,7 +263,7 @@ public class NestedColumnReader<BufferType>
                 }
             }
 
-            if (skip(field.getDefinitionLevel())) {
+            if (skip()) {
                 continue;
             }
             ValueCount valueCount = getNextPositions(Math.min(rowRanges.getRowsLeftInCurrentRange(), remainingInBatch));
@@ -273,7 +274,9 @@ public class NestedColumnReader<BufferType>
             remainingInBatch -= valueCount.rows;
         }
 
-        return data.createNonNullBlock(outputDefinitionLevels.getMergedBuffer(), outputRepetitionLevels.getMergedBuffer());
+        int[] definitionLevels = outputDefinitionLevels.getMergedBuffer();
+        int[] repetitionLevels = hasRepetitionLevels() ? outputRepetitionLevels.getMergedBuffer() : new int[definitionLevels.length];
+        return data.createNonNullBlock(definitionLevels, repetitionLevels);
     }
 
     private void seek()
@@ -327,9 +330,17 @@ public class NestedColumnReader<BufferType>
             int[] definitionLevels,
             int existingValueCount)
     {
-        long[] valueIsValidChunk = new long[wordsForBits(existingValueCount)];
+        long[] valueIsValidChunk;
+        int nonNullCount;
+        if (pageAllValuesDefined) {
+            valueIsValidChunk = allocateWords(existingValueCount, true);
+            nonNullCount = existingValueCount;
+        }
+        else {
+            valueIsValidChunk = new long[wordsForBits(existingValueCount)];
+            nonNullCount = getValidities(definitionLevels, field.getDefinitionLevel(), valueIsValidChunk);
+        }
         valueIsValid.add(valueIsValidChunk, existingValueCount);
-        int nonNullCount = getValidities(definitionLevels, field.getDefinitionLevel(), valueIsValidChunk);
         checkState(
                 nonNullCount <= existingValueCount,
                 "nonNullCount %s cannot be greater than existingValueCount %s, field %s",
@@ -337,7 +348,7 @@ public class NestedColumnReader<BufferType>
                 existingValueCount,
                 field);
 
-        outputRepetitionLevels.add(getRepetitionLevels(pageValuesIndex, valueCount));
+        addRepetitionLevels(outputRepetitionLevels, pageValuesIndex, valueCount);
 
         data.readNullableValues(valueDecoder, valueIsValidChunk, nonNullCount, existingValueCount);
         remainingPageValueCount -= valueCount;
@@ -349,7 +360,7 @@ public class NestedColumnReader<BufferType>
         definitionLevelDecoder.read(definitionLevels, 0, definitionLevels.length);
         int existingValueCount = countExistingValues(field.getDefinitionLevel(), definitionLevels);
 
-        outputRepetitionLevels.add(getRepetitionLevels(pageValuesIndex, valueCount));
+        addRepetitionLevels(outputRepetitionLevels, pageValuesIndex, valueCount);
         outputDefinitionLevels.add(definitionLevels);
 
         if (existingValueCount > 0) {
@@ -358,15 +369,20 @@ public class NestedColumnReader<BufferType>
         remainingPageValueCount -= valueCount;
     }
 
-    private int[] getRepetitionLevels(int pageValuesIndex, int valueCount)
+    private void addRepetitionLevels(IntegersBuffer output, int pageValuesIndex, int valueCount)
     {
         if (!hasRepetitionLevels()) {
-            return new int[valueCount];
+            return;
         }
-        return Arrays.copyOfRange(repetitionBuffer, pageValuesIndex, pageValuesIndex + valueCount);
+        // Safe to share without copying: readNextPage allocates a new repetition buffer for every page
+        if (valueCount == repetitionBuffer.length) {
+            output.add(repetitionBuffer);
+            return;
+        }
+        output.add(Arrays.copyOfRange(repetitionBuffer, pageValuesIndex, pageValuesIndex + valueCount));
     }
 
-    private boolean skip(int minDefinitionLevel)
+    private boolean skip()
     {
         long skipCount = rowRanges.skipToRangeStart();
         if (skipCount > 0) {
@@ -385,10 +401,7 @@ public class NestedColumnReader<BufferType>
                 pageLastRowSkipped = true;
                 return true;
             }
-            int[] definitionLevels = new int[toSkip.values];
-            definitionLevelDecoder.read(definitionLevels, 0, toSkip.values);
-            int valuesToSkip = countExistingValues(minDefinitionLevel, definitionLevels);
-            valueDecoder.skip(valuesToSkip);
+            skipValues(toSkip.values);
             remainingPageValueCount -= toSkip.values;
         }
         return false;
@@ -413,6 +426,9 @@ public class NestedColumnReader<BufferType>
 
     private int countExistingValues(int minDefinitionLevel, int[] definitionLevels)
     {
+        if (pageAllValuesDefined) {
+            return definitionLevels.length;
+        }
         int valueCount = 0;
         for (int definitionLevel : definitionLevels) {
             valueCount += castToByte(definitionLevel >= minDefinitionLevel);
@@ -474,20 +490,24 @@ public class NestedColumnReader<BufferType>
      */
     private void seek(int valueCount)
     {
-        int[] definitionLevels = new int[valueCount];
-        definitionLevelDecoder.read(definitionLevels, 0, definitionLevels.length);
-        int maxDefinitionLevel = field.getDefinitionLevel();
-        int valuesToSkip = 0;
-        for (int definitionLevel : definitionLevels) {
-            valuesToSkip += castToByte(definitionLevel == maxDefinitionLevel);
-        }
-
-        valueDecoder.skip(valuesToSkip);
+        skipValues(valueCount);
         remainingPageValueCount -= valueCount;
         if (remainingPageValueCount == 0) {
             pageLastRowUnfinished = true;
             pageLastRowSkipped = true;
         }
+    }
+
+    private void skipValues(int valueCount)
+    {
+        if (pageAllValuesDefined) {
+            definitionLevelDecoder.skip(valueCount);
+            valueDecoder.skip(valueCount);
+            return;
+        }
+        int[] definitionLevels = new int[valueCount];
+        definitionLevelDecoder.read(definitionLevels, 0, valueCount);
+        valueDecoder.skip(countExistingValues(field.getDefinitionLevel(), definitionLevels));
     }
 
     private boolean readNextPage()
@@ -508,7 +528,9 @@ public class NestedColumnReader<BufferType>
         pageValueCount = page.getValueCount();
         if (hasRepetitionLevels()) {
             // We don't know how much values we will get in one batch so we read the whole page.
-            // This makes decoding faster unless major parts of the page are skipped
+            // This makes decoding faster unless major parts of the page are skipped.
+            // The buffer is allocated for every page: addRepetitionLevels hands it to the batch output without copying,
+            // and the output keeps it while later pages are read, so it must not be reused across pages.
             repetitionBuffer = new int[pageValueCount];
             repetitionLevelDecoder.read(repetitionBuffer, 0, pageValueCount);
         }
@@ -521,6 +543,12 @@ public class NestedColumnReader<BufferType>
         return true;
     }
 
+    @VisibleForTesting
+    static boolean isSingleRleRun(Slice levels, int level, int valueCount)
+    {
+        return RleBitPackingHybridDecoder.isSingleRleRun(levels, level, valueCount);
+    }
+
     private void readFlatPageV1(DataPageV1 page)
     {
         Slice buffer = page.getSlice();
@@ -528,6 +556,7 @@ public class NestedColumnReader<BufferType>
         ParquetEncoding repetitionEncoding = page.getRepetitionLevelEncoding();
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxRepetitionLevel = field.getRepetitionLevel();
+        pageAllValuesDefined = false;
 
         checkArgument(maxDefinitionLevel == 0 || definitionEncoding == RLE, "Invalid definition level encoding: %s", definitionEncoding);
         checkArgument(maxRepetitionLevel == 0 || repetitionEncoding == RLE, "Invalid repetition level encoding: %s", repetitionEncoding);
@@ -542,7 +571,9 @@ public class NestedColumnReader<BufferType>
         definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
         if (maxDefinitionLevel > 0) {
             int bufferSize = buffer.getInt(0); // We need to read the size even if there is no definition
-            definitionLevelDecoder.init(new SimpleSliceInputStream(buffer.slice(Integer.BYTES, bufferSize)));
+            Slice definitionLevels = buffer.slice(Integer.BYTES, bufferSize);
+            definitionLevelDecoder.init(new SimpleSliceInputStream(definitionLevels));
+            pageAllValuesDefined = isSingleRleRun(definitionLevels, maxDefinitionLevel, page.getValueCount());
             buffer = buffer.slice(bufferSize + Integer.BYTES, buffer.length() - bufferSize - Integer.BYTES);
         }
 
@@ -556,6 +587,7 @@ public class NestedColumnReader<BufferType>
 
         definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
         definitionLevelDecoder.init(new SimpleSliceInputStream(page.getDefinitionLevels()));
+        pageAllValuesDefined = maxDefinitionLevel > 0 && isSingleRleRun(page.getDefinitionLevels(), maxDefinitionLevel, page.getValueCount());
 
         repetitionLevelDecoder = levelsDecoderProvider.create(maxRepetitionLevel);
         repetitionLevelDecoder.init(new SimpleSliceInputStream(page.getRepetitionLevels()));

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WindowReference
+public final class WindowReference
         extends Node
         implements Window
 {
@@ -47,12 +47,6 @@ public class WindowReference
     public Identifier getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWindowReference(this, context);
     }
 
     @Override

@@ -48,12 +48,6 @@ public final class Predicated
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPredicated(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return List.of(value, predicate);

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-public class Parameter
+public final class Parameter
         extends Expression
 {
     private final int id;
@@ -39,12 +39,6 @@ public class Parameter
     public int getId()
     {
         return id;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitParameter(this, context);
     }
 
     @Override

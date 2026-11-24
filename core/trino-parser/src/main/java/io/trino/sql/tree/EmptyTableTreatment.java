@@ -38,12 +38,6 @@ public final class EmptyTableTreatment
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitEmptyTableTreatment(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of();

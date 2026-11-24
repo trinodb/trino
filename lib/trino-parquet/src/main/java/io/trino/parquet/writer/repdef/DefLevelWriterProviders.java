@@ -21,6 +21,7 @@ import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariantBlock;
 
@@ -48,25 +49,38 @@ public final class DefLevelWriterProviders
         return new PrimitiveDefLevelWriterProvider(block, maxDefinitionLevel);
     }
 
-    public static DefLevelWriterProvider of(ColumnarArray columnarArray, int maxDefinitionLevel)
+    /**
+     * @param arrayBlock the block {@code columnarArray} was created from, which {@link ColumnarArray} does not expose
+     */
+    public static DefLevelWriterProvider of(ColumnarArray columnarArray, Block arrayBlock, int maxDefinitionLevel)
     {
-        return new ColumnArrayDefLevelWriterProvider(columnarArray, maxDefinitionLevel);
+        return new ColumnArrayDefLevelWriterProvider(columnarArray, isNullRun(arrayBlock), maxDefinitionLevel);
     }
 
-    public static DefLevelWriterProvider of(ColumnarMap columnarMap, int maxDefinitionLevel)
+    /**
+     * @param mapBlock the block {@code columnarMap} was created from, which {@link ColumnarMap} does not expose
+     */
+    public static DefLevelWriterProvider of(ColumnarMap columnarMap, Block mapBlock, int maxDefinitionLevel)
     {
-        return new ColumnMapDefLevelWriterProvider(columnarMap, maxDefinitionLevel);
+        return new ColumnMapDefLevelWriterProvider(columnarMap, isNullRun(mapBlock), maxDefinitionLevel);
+    }
+
+    private static boolean isNullRun(Block block)
+    {
+        return block instanceof RunLengthEncodedBlock runLengthEncodedBlock && runLengthEncodedBlock.getValue().isNull(0);
     }
 
     static class PrimitiveDefLevelWriterProvider
             implements DefLevelWriterProvider
     {
         private final Block block;
+        private final boolean nullRun;
         private final int maxDefinitionLevel;
 
         PrimitiveDefLevelWriterProvider(Block block, int maxDefinitionLevel)
         {
             this.block = requireNonNull(block, "block is null");
+            this.nullRun = isNullRun(block);
             this.maxDefinitionLevel = maxDefinitionLevel;
             checkArgument(!(block.getUnderlyingValueBlock() instanceof RowBlock), "block is a row block");
             checkArgument(!(block.getUnderlyingValueBlock() instanceof ArrayBlock), "block is an array block");
@@ -106,6 +120,9 @@ public final class DefLevelWriterProviders
                             nonNullsCount = positionsCount;
                         }
                     }
+                    else if (nullRun) {
+                        encoder.writeRepeatInteger(maxDefinitionLevel - 1, positionsCount);
+                    }
                     else {
                         for (int position = offset; position < offset + positionsCount; position++) {
                             int isNull = block.isNull(position) ? 1 : 0;
@@ -124,11 +141,13 @@ public final class DefLevelWriterProviders
             implements DefLevelWriterProvider
     {
         private final Block block;
+        private final boolean nullRun;
         private final int maxDefinitionLevel;
 
         RowDefLevelWriterProvider(Block block, int maxDefinitionLevel)
         {
             this.block = requireNonNull(block, "block is null");
+            this.nullRun = isNullRun(block);
             this.maxDefinitionLevel = maxDefinitionLevel;
             checkArgument(block.getUnderlyingValueBlock() instanceof RowBlock, "block is not a row block");
         }
@@ -153,6 +172,9 @@ public final class DefLevelWriterProviders
                 public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (nullRun) {
+                        return writeNullRun(positionsCount);
+                    }
                     if (!block.mayHaveNull()) {
                         offset += positionsCount;
                         return nestedWriter.writeDefinitionLevels(positionsCount);
@@ -180,6 +202,14 @@ public final class DefLevelWriterProviders
                     offset += positionsCount;
                     return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
+
+                private ValuesCount writeNullRun(int positionsCount)
+                {
+                    // Every row is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(maxDefinitionLevel - 1, positionsCount);
+                    offset += positionsCount;
+                    return new ValuesCount(positionsCount, 0);
+                }
             };
         }
     }
@@ -188,11 +218,13 @@ public final class DefLevelWriterProviders
             implements DefLevelWriterProvider
     {
         private final ColumnarMap columnarMap;
+        private final boolean nullRun;
         private final int maxDefinitionLevel;
 
-        ColumnMapDefLevelWriterProvider(ColumnarMap columnarMap, int maxDefinitionLevel)
+        ColumnMapDefLevelWriterProvider(ColumnarMap columnarMap, boolean nullRun, int maxDefinitionLevel)
         {
             this.columnarMap = requireNonNull(columnarMap, "columnarMap is null");
+            this.nullRun = nullRun;
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
@@ -216,6 +248,9 @@ public final class DefLevelWriterProviders
                 public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, columnarMap.getPositionCount());
+                    if (nullRun) {
+                        return writeNullRun(positionsCount);
+                    }
                     int maxDefinitionValuesCount = 0;
                     int totalValuesCount = 0;
                     if (!columnarMap.mayHaveNull()) {
@@ -265,6 +300,14 @@ public final class DefLevelWriterProviders
                     offset += positionsCount;
                     return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
+
+                private ValuesCount writeNullRun(int positionsCount)
+                {
+                    // Every map is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(maxDefinitionLevel - 2, positionsCount);
+                    offset += positionsCount;
+                    return new ValuesCount(positionsCount, 0);
+                }
             };
         }
     }
@@ -273,11 +316,13 @@ public final class DefLevelWriterProviders
             implements DefLevelWriterProvider
     {
         private final ColumnarArray columnarArray;
+        private final boolean nullRun;
         private final int maxDefinitionLevel;
 
-        ColumnArrayDefLevelWriterProvider(ColumnarArray columnarArray, int maxDefinitionLevel)
+        ColumnArrayDefLevelWriterProvider(ColumnarArray columnarArray, boolean nullRun, int maxDefinitionLevel)
         {
             this.columnarArray = requireNonNull(columnarArray, "columnarArray is null");
+            this.nullRun = nullRun;
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
@@ -301,6 +346,9 @@ public final class DefLevelWriterProviders
                 public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, columnarArray.getPositionCount());
+                    if (nullRun) {
+                        return writeNullRun(positionsCount);
+                    }
                     int maxDefinitionValuesCount = 0;
                     int totalValuesCount = 0;
                     if (!columnarArray.mayHaveNull()) {
@@ -350,6 +398,14 @@ public final class DefLevelWriterProviders
                     offset += positionsCount;
                     return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
                 }
+
+                private ValuesCount writeNullRun(int positionsCount)
+                {
+                    // Every array is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(maxDefinitionLevel - 2, positionsCount);
+                    offset += positionsCount;
+                    return new ValuesCount(positionsCount, 0);
+                }
             };
         }
     }
@@ -358,11 +414,13 @@ public final class DefLevelWriterProviders
             implements DefLevelWriterProvider
     {
         private final Block block;
+        private final boolean nullRun;
         private final int maxDefinitionLevel;
 
         VariantDefLevelWriterProvider(Block block, int maxDefinitionLevel)
         {
             this.block = requireNonNull(block, "block is null");
+            this.nullRun = isNullRun(block);
             this.maxDefinitionLevel = maxDefinitionLevel;
         }
 
@@ -386,6 +444,9 @@ public final class DefLevelWriterProviders
                 public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (nullRun) {
+                        return writeNullRun(positionsCount);
+                    }
                     if (!block.mayHaveNull()) {
                         // No null variants: just pass through to nested writer
                         offset += positionsCount;
@@ -416,6 +477,14 @@ public final class DefLevelWriterProviders
                     }
                     offset += positionsCount;
                     return new ValuesCount(totalValuesCount, maxDefinitionValuesCount);
+                }
+
+                private ValuesCount writeNullRun(int positionsCount)
+                {
+                    // Every variant is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(maxDefinitionLevel - 1, positionsCount);
+                    offset += positionsCount;
+                    return new ValuesCount(positionsCount, 0);
                 }
             };
         }

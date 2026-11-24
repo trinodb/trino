@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class ShowStats
+public final class ShowStats
         extends Statement
 {
     private final Relation relation;
@@ -29,12 +29,6 @@ public class ShowStats
     {
         super(location);
         this.relation = relation;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowStats(this, context);
     }
 
     @Override

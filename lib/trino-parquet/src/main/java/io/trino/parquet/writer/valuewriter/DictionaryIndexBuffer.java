@@ -42,6 +42,7 @@ final class DictionaryIndexBuffer
     private int[] currentSlab;
     private int currentSlabOffset;
     private int currentSlabSize = INITIAL_SLAB_SIZE;
+    private long slabsRetainedSize;
     private int size;
 
     private int previousValue;
@@ -58,11 +59,13 @@ final class DictionaryIndexBuffer
     {
         if (currentSlab == null) {
             currentSlab = new int[currentSlabSize];
+            slabsRetainedSize += sizeOfIntArray(currentSlabSize);
         }
         else if (currentSlabOffset == currentSlab.length) {
             slabs.add(currentSlab);
             currentSlabSize = min(currentSlabSize * 2, MAX_SLAB_SIZE);
             currentSlab = new int[currentSlabSize];
+            slabsRetainedSize += sizeOfIntArray(currentSlabSize);
             currentSlabOffset = 0;
         }
         currentSlab[currentSlabOffset] = value;
@@ -117,14 +120,7 @@ final class DictionaryIndexBuffer
 
     public long sizeOf()
     {
-        long slabsSize = 0;
-        for (int[] slab : slabs) {
-            slabsSize += sizeOfIntArray(slab.length);
-        }
-        if (currentSlab != null) {
-            slabsSize += sizeOfIntArray(currentSlab.length);
-        }
-        return INSTANCE_SIZE + sizeOfObjectArray(slabs.size()) + slabsSize;
+        return INSTANCE_SIZE + sizeOfObjectArray(slabs.size()) + slabsRetainedSize;
     }
 
     private void updateEstimatedSize(int value)

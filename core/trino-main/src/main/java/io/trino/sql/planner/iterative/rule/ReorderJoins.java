@@ -867,8 +867,8 @@ public class ReorderJoins
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && planNode.isEmpty()
-                            || (!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent(),
+            checkArgument(((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && planNode.isEmpty())
+                            || ((!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent()),
                     "planNode should be present if and only if cost is known");
         }
 

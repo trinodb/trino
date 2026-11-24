@@ -72,9 +72,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestScaledWriterScheduler
 {
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("plan_id");
-    private static final InternalNode NODE_1 = new InternalNode("node-1", URI.create("http://127.0.0.1:11"), new NodeVersion("version-1"), false);
-    private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("http://127.0.0.1:12"), new NodeVersion("version-1"), false);
-    private static final InternalNode NODE_3 = new InternalNode("node-3", URI.create("http://127.0.0.1:13"), new NodeVersion("version-1"), false);
+    private static final InternalNode NODE_1 = new InternalNode("node-1", "node-1-instance", URI.create("http://127.0.0.1:11"), new NodeVersion("version-1"), false);
+    private static final InternalNode NODE_2 = new InternalNode("node-2", "node-2-instance", URI.create("http://127.0.0.1:12"), new NodeVersion("version-1"), false);
+    private static final InternalNode NODE_3 = new InternalNode("node-3", "node-3-instance", URI.create("http://127.0.0.1:13"), new NodeVersion("version-1"), false);
 
     @Test
     public void testGetNewTaskCountWithUnderutilizedTasksWithoutSkewness()
@@ -423,7 +423,6 @@ public class TestScaledWriterScheduler
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 }

@@ -52,12 +52,6 @@ public final class RenameTable
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRenameTable(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of();

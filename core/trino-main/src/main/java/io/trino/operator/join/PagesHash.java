@@ -26,8 +26,6 @@ public interface PagesHash
 
     int getAddressIndex(int rightPosition, Page hashChannelsPage, long rawHash);
 
-    int[] getAddressIndex(int[] positions, Page hashChannelsPage);
-
     int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes);
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);

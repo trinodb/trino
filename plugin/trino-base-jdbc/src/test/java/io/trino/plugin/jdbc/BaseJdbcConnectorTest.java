@@ -1068,6 +1068,19 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testProjectionPushdownWithLocalBinding()
+    {
+        // NULLIF with a non-trivial first operand binds the operand to a local variable
+        assertQuery(
+                "SELECT NULLIF(CASE WHEN regionkey = 0 THEN nationkey ELSE regionkey END, 1) FROM nation",
+                "SELECT NULLIF(CASE WHEN regionkey = 0 THEN nationkey ELSE regionkey END, 1) FROM nation");
+        // BETWEEN SYMMETRIC binds a non-trivial value to a local variable
+        assertQuery(
+                "SELECT nationkey + 1 BETWEEN SYMMETRIC regionkey AND 10 FROM nation",
+                "SELECT (nationkey + 1 BETWEEN regionkey AND 10) OR (nationkey + 1 BETWEEN 10 AND regionkey) FROM nation");
+    }
+
+    @Test
     public void testCaseSensitiveTopNPushdown()
     {
         if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {

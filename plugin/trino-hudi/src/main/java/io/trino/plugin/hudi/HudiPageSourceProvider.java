@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -70,7 +71,7 @@ import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -146,7 +147,6 @@ public class HudiPageSourceProvider
     }
 
     @Override
-    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
@@ -154,7 +154,8 @@ public class HudiPageSourceProvider
             ConnectorTableHandle connectorTable,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         HudiSplit split = (HudiSplit) connectorSplit;
         String path = split.location();
@@ -184,7 +185,8 @@ public class HudiPageSourceProvider
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
                         .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                         .build(),
-                timeZone);
+                timeZone,
+                memoryContext);
 
         Map<String, Block> partitionBlocks = convertPartitionValues(hiveColumns, split.partitionKeys());
 
@@ -223,7 +225,8 @@ public class HudiPageSourceProvider
             TrinoInputFile inputFile,
             FileFormatDataSourceStats dataSourceStats,
             ParquetReaderOptions options,
-            DateTimeZone timeZone)
+            DateTimeZone timeZone,
+            MemoryContext memoryContext)
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);
@@ -231,8 +234,8 @@ public class HudiPageSourceProvider
         long start = hudiSplit.start();
         long length = hudiSplit.length();
         try {
-            AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-            dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.fileSize()), options, memoryContext, dataSourceStats);
+            AggregatedMemoryContext aggregatedMemoryContext = newAggregatedMemoryContext(memoryContext);
+            dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.fileSize()), options, aggregatedMemoryContext, dataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -270,7 +273,7 @@ public class HudiPageSourceProvider
                     rowGroups,
                     finalDataSource,
                     timeZone,
-                    memoryContext,
+                    aggregatedMemoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),

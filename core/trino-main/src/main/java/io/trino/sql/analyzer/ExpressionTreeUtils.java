@@ -18,13 +18,13 @@ import io.trino.Session;
 import io.trino.metadata.FunctionResolver;
 import io.trino.security.AccessControl;
 import io.trino.spi.Location;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.WindowOperation;
 
 import java.util.List;
@@ -34,6 +34,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionTreeUtils
@@ -122,17 +123,19 @@ public final class ExpressionTreeUtils
     private static List<Node> linearizeNodes(Node node)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultExpressionTraversalVisitor<Void>()
-        {
-            @Override
-            public Void process(Node node, Void context)
-            {
-                super.process(node, context);
-                nodes.add(node);
-                return null;
-            }
-        }.process(node, null);
+        linearizeNodes(node, nodes);
         return nodes.build();
+    }
+
+    private static void linearizeNodes(Node node, ImmutableList.Builder<Node> nodes)
+    {
+        switch (node) {
+            case SubqueryExpression _ -> {
+                // Don't traverse into subqueries within an expression
+            }
+            default -> forEachChild(node, child -> linearizeNodes(child, nodes));
+        }
+        nodes.add(node);
     }
 
     public static Optional<Location> extractLocation(Node node)

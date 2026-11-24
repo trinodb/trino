@@ -16,12 +16,16 @@ package io.trino.server.remotetask;
 import com.google.common.util.concurrent.FutureCallback;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 
 import java.net.URI;
 
+import static io.airlift.http.client.HttpStatus.PRECONDITION_FAILED;
 import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +55,10 @@ public class SimpleHttpResponseHandler<T>
             }
             else if (response.getStatusCode() == SERVICE_UNAVAILABLE.code()) {
                 callback.failed(new RetryableResponseException(SERVICE_UNAVAILABLE, uri));
+            }
+            else if (response.getStatusCode() == PRECONDITION_FAILED.code()) {
+                // The request was addressed to a server instance which is no longer there, so the task is gone. Retrying is pointless.
+                callback.fatal(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(uri))));
             }
             else {
                 // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)

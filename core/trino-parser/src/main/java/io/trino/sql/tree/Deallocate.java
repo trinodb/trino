@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Deallocate
+public final class Deallocate
         extends Statement
 {
     private final Identifier name;
@@ -35,12 +35,6 @@ public class Deallocate
     public Identifier getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDeallocate(this, context);
     }
 
     @Override

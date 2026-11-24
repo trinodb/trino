@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DropBranch
+public final class DropBranch
         extends Statement
 {
     private final QualifiedName tableName;
@@ -49,12 +49,6 @@ public class DropBranch
     public Identifier getBranchName()
     {
         return branchName;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropBranch(this, context);
     }
 
     @Override

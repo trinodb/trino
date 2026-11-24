@@ -21,8 +21,8 @@ import java.util.OptionalInt;
 import java.util.regex.Matcher;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.iceberg.PartitionFields.ICEBERG_BUCKET_PATTERN;
-import static io.trino.plugin.iceberg.PartitionFields.ICEBERG_TRUNCATE_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_BUCKET_PATTERN;
+import static io.trino.plugin.iceberg.TransformUtils.ICEBERG_TRUNCATE_PATTERN;
 import static java.util.Objects.requireNonNull;
 
 // NOTE: the partitioning function must contain the data path for nested fields because the partitioning columns

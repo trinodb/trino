@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimeZoneNotSupportedException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
@@ -24,12 +25,12 @@ import java.util.TreeSet;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Fail.fail;
 
 public class TestTimeZoneUtils
@@ -39,14 +40,26 @@ public class TestTimeZoneUtils
     {
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
         for (String zoneId : jdkZones) {
-            if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
+            if (zoneId.startsWith("SystemV/")) {
+                // SystemV zones are not supported by TimeZoneKey
+                assertThat(catchThrowable(() -> TimeZoneKey.getTimeZoneKey(zoneId)))
+                        .as("getTimeZoneKey('%s') error", zoneId)
+                        .isInstanceOf(TimeZoneNotSupportedException.class);
                 continue;
             }
 
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
-            DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
+            if (equivalent(dateTimeZone, DateTimeZone.UTC)) {
+                assertThat(TimeZoneKey.getTimeZoneKey(zoneId))
+                        .as("TimeZoneKey should recognize zone '%s' as UTC-equivalent", zoneId)
+                        .isSameAs(TimeZoneKey.UTC_KEY);
+                continue;
+            }
 
-            assertDateTimeZoneEquals(zoneId, indexedZone);
+            DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
+            assertThat(equivalent(indexedZone, dateTimeZone))
+                    .as("getDateTimeZone('%s') returned '%s', expected '%s'", zoneId, indexedZone, dateTimeZone)
+                    .isTrue();
             assertTimeZone(zoneId, dateTimeZone);
         }
     }
@@ -62,7 +75,7 @@ public class TestTimeZoneUtils
         }
     }
 
-    public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
+    private static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
         long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
@@ -79,19 +92,14 @@ public class TestTimeZoneUtils
                     unpackZoneKey(packWithZoneId)));
         }
         DateTimeZone unpackedZone = unpackDateTimeZone(packWithDateTime);
-        assertDateTimeZoneEquals(zoneId, unpackedZone);
+        assertThat(equivalent(unpackedZone, dateTimeZone))
+                .as("unpackDateTimeZone(packDateTimeWithZone('%s')) returned '%s', expected '%s'", zoneId, unpackedZone, dateTimeZone)
+                .isTrue();
     }
 
-    public static void assertDateTimeZoneEquals(String zoneId, DateTimeZone actualTimeZone)
+    private static boolean equivalent(DateTimeZone actual, DateTimeZone expected)
     {
-        DateTimeZone expectedDateTimeZone;
-        if (isUtcZoneId(zoneId)) {
-            expectedDateTimeZone = DateTimeZone.UTC;
-        }
-        else {
-            expectedDateTimeZone = DateTimeZone.forID(zoneId);
-        }
-
-        assertThat(actualTimeZone).isEqualTo(expectedDateTimeZone);
+        return actual.equals(expected)
+                || (actual.isFixed() && expected.isFixed() && actual.getOffset(0) == expected.getOffset(0));
     }
 }

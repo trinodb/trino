@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
@@ -48,6 +49,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.ServiceUnavailableException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
@@ -77,6 +79,7 @@ import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
@@ -99,6 +102,7 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
+    private final String nodeInstanceId;
     private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -111,6 +115,7 @@ public class TaskResource
 
     @Inject
     public TaskResource(
+            NodeInfo nodeInfo,
             StartupStatus startupStatus,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
@@ -119,6 +124,7 @@ public class TaskResource
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
     {
+        this.nodeInstanceId = nodeInfo.getInstanceId();
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -146,10 +152,12 @@ public class TaskResource
     public void createOrUpdateTask(
             @PathParam("taskId") TaskId taskId,
             TaskUpdateRequest taskUpdateRequest,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         if (failRequestIfInvalid(asyncResponse)) {
             return;
         }
@@ -185,10 +193,12 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         if (failRequestIfInvalid(asyncResponse)) {
             return;
         }
@@ -233,9 +243,11 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         if (failRequestIfInvalid(asyncResponse)) {
             return;
         }
@@ -276,10 +288,12 @@ public class TaskResource
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         if (failRequestIfInvalid(asyncResponse)) {
             return;
         }
@@ -297,9 +311,11 @@ public class TaskResource
     public TaskInfo deleteTask(
             @PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         TaskInfo taskInfo;
 
         if (abort) {
@@ -321,10 +337,12 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public TaskInfo failTask(
             @PathParam("taskId") TaskId taskId,
-            FailTaskRequest failTaskRequest)
+            FailTaskRequest failTaskRequest,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(failTaskRequest, "failTaskRequest is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
@@ -336,10 +354,12 @@ public class TaskResource
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_RESULTS, asyncResponse)) {
             return;
@@ -375,10 +395,12 @@ public class TaskResource
     public Response acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
-            @PathParam("token") long token)
+            @PathParam("token") long token,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
         return Response.ok().build();
@@ -389,10 +411,12 @@ public class TaskResource
     public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
+            @HeaderParam(TRINO_NODE_INSTANCE_ID) String expectedNodeInstanceId,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+        failRequestIfNodeInstanceMismatch(expectedNodeInstanceId);
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
             return;
@@ -408,6 +432,19 @@ public class TaskResource
     public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
     {
         taskManager.pruneCatalogs(catalogHandles);
+    }
+
+    private void failRequestIfNodeInstanceMismatch(String expectedNodeInstanceId)
+    {
+        // Task requests are addressed to a particular instance of the server. When the server is restarted, the tasks it was running
+        // are gone. Reject the request, so that such a task is not silently re-created on demand and the caller learns about
+        // the restart no matter how much it knew about the task before.
+        if (expectedNodeInstanceId != null && !expectedNodeInstanceId.equals(nodeInstanceId)) {
+            throw new WebApplicationException(status(Status.PRECONDITION_FAILED)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity("Request is addressed to node instance %s, but this is node instance %s".formatted(expectedNodeInstanceId, nodeInstanceId))
+                    .build());
+        }
     }
 
     private boolean failRequestIfInvalid(AsyncResponse asyncResponse)

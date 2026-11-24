@@ -29,6 +29,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
+// Identity equality is deliberate: RE2 keeps mutable matching state (NFA fallback, DFA state cache), so an
+// instance must not be reused across queries by a cache keyed on expression equality
 public final class Re2JRegexp
 {
     private static final Logger log = Logger.get(Re2JRegexp.class);

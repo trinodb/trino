@@ -1,0 +1,248 @@
+<?xml version="1.0"?>
+<modernizer>
+    <violation>
+        <name>java/util/List.of:()Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.of:([Ljava/lang/Object;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/List.copyOf:(Ljava/util/Collection;)Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList instead of java.util.List.copyOf to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:()Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.of:([Ljava/lang/Object;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Set.copyOf:(Ljava/util/Collection;)Ljava/util/Set;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet instead of java.util.Set.copyOf to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:()Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.of to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.ofEntries:([Ljava/util/Map$Entry;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.ofEntries to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/Map.copyOf:(Ljava/util/Map;)Ljava/util/Map;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap instead of java.util.Map.copyOf to avoid copies between JDK and Guava collections</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Stream.toList:()Ljava/util/List;</name>
+        <version>1.8</version>
+        <comment>Prefer collect(ImmutableList.toImmutableList()) instead of Stream.toList</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toList:()Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList.toImmutableList instead of Collectors.toList</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toSet:()Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet.toImmutableSet instead of Collectors.toSet</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toMap:(Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap.toImmutableMap instead of Collectors.toMap</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toMap:(Ljava/util/function/Function;Ljava/util/function/Function;Ljava/util/function/BinaryOperator;)Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap.toImmutableMap instead of Collectors.toMap</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toMap:(Ljava/util/function/Function;Ljava/util/function/Function;Ljava/util/function/BinaryOperator;Ljava/util/function/Supplier;)Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap.toImmutableMap instead of Collectors.toMap</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toUnmodifiableList:()Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableList.toImmutableList instead of Collectors.toUnmodifiableList</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toUnmodifiableSet:()Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableSet.toImmutableSet instead of Collectors.toUnmodifiableSet</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toUnmodifiableMap:(Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap.toImmutableMap instead of Collectors.toUnmodifiableMap</comment>
+    </violation>
+    <violation>
+        <name>java/util/stream/Collectors.toUnmodifiableMap:(Ljava/util/function/Function;Ljava/util/function/Function;Ljava/util/function/BinaryOperator;)Ljava/util/stream/Collector;</name>
+        <version>1.8</version>
+        <comment>Prefer ImmutableMap.toImmutableMap instead of Collectors.toUnmodifiableMap</comment>
+    </violation>
+</modernizer>

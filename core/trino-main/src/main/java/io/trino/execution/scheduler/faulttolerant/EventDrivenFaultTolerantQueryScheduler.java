@@ -303,7 +303,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
 
-        stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
+        stageRegistry = new StageRegistry(queryStateMachine, metadata, originalPlan);
     }
 
     @Override
@@ -457,13 +457,17 @@ public class EventDrivenFaultTolerantQueryScheduler
     private static class StageRegistry
     {
         private final QueryStateMachine queryStateMachine;
+        private final Metadata metadata;
         private final AtomicReference<SubPlan> plan;
         private final Map<StageId, SqlStage> stages = new ConcurrentHashMap<>();
+        private final Map<PlanFragmentId, Map<PlanNodeId, TableInfo>> tables = new ConcurrentHashMap<>();
 
-        public StageRegistry(QueryStateMachine queryStateMachine, SubPlan plan)
+        public StageRegistry(QueryStateMachine queryStateMachine, Metadata metadata, SubPlan plan)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-            this.plan = new AtomicReference<>(requireNonNull(plan, "plan is null"));
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            collectTables(requireNonNull(plan, "plan is null"));
+            this.plan = new AtomicReference<>(plan);
         }
 
         public void add(SqlStage stage)
@@ -473,7 +477,23 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void updatePlan(SubPlan plan)
         {
-            this.plan.set(requireNonNull(plan, "plan is null"));
+            // tables are collected before the plan is published, as stages which are not created yet are reported with them
+            collectTables(requireNonNull(plan, "plan is null"));
+            this.plan.set(plan);
+        }
+
+        public Map<PlanNodeId, TableInfo> getTables(PlanFragmentId fragmentId)
+        {
+            Map<PlanNodeId, TableInfo> fragmentTables = tables.get(fragmentId);
+            checkArgument(fragmentTables != null, "Tables are not collected for fragment %s", fragmentId);
+            return fragmentTables;
+        }
+
+        private void collectTables(SubPlan plan)
+        {
+            for (PlanFragment fragment : plan.getAllFragments()) {
+                tables.computeIfAbsent(fragment.getId(), _ -> TableInfo.extract(queryStateMachine.getSession(), metadata, fragment));
+            }
         }
 
         public StagesInfo getStages()
@@ -503,7 +523,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     stageInfo = StageInfo.createInitial(
                             queryStateMachine.getQueryId(),
                             queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
-                            fragments.get(fragmentId));
+                            fragments.get(fragmentId),
+                            getTables(fragmentId));
                 }
                 reportedStageInfos.put(fragmentId, stageInfo);
             });
@@ -725,7 +746,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class Scheduler
+    @VisibleForTesting
+    static class Scheduler
             implements EventListener<Void>
     {
         private static final int EVENT_BUFFER_CAPACITY = 100;
@@ -790,7 +812,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final SetMultimap<StageId, StageId> stageConsumers = HashMultimap.create();
 
         private final SchedulingQueue schedulingQueue = new SchedulingQueue();
-        private int nextSchedulingPriority;
+        private Map<StageId, Integer> schedulingPriorities;
 
         private final PreSchedulingTaskContexts preSchedulingTaskContexts = new PreSchedulingTaskContexts();
 
@@ -875,7 +897,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 eventDebugInfos = Optional.empty();
             }
 
-            planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+            updatePlanInTopologicalOrder();
             noEventsStopwatch.start();
         }
 
@@ -1045,7 +1067,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("maxPartitionCount", maxPartitionCount)
                     .add("stageEstimationForEagerParentEnabled", stageEstimationForEagerParentEnabled)
                     .add("started", started)
-                    .add("nextSchedulingPriority", nextSchedulingPriority)
+                    .add("schedulingPriorities", schedulingPriorities)
                     .add("preSchedulingTaskContexts", preSchedulingTaskContexts)
                     .add("schedulingDelayer", schedulingDelayer)
                     .add("queryOutputSet", queryOutputSet)
@@ -1141,9 +1163,25 @@ public class EventDrivenFaultTolerantQueryScheduler
             SubPlan oldPlan = plan;
             plan = optimizePlan(plan);
             if (plan != oldPlan) {
-                planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+                updatePlanInTopologicalOrder();
                 stageRegistry.updatePlan(plan);
             }
+        }
+
+        private void updatePlanInTopologicalOrder()
+        {
+            planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+            ImmutableMap.Builder<StageId, Integer> priorities = ImmutableMap.builder();
+            for (int priority = 0; priority < planInTopologicalOrder.size(); priority++) {
+                StageId stageId = getStageId(planInTopologicalOrder.get(priority).getFragment().getId());
+                priorities.put(stageId, priority);
+                StageExecution stageExecution = stageExecutions.get(stageId);
+                if (stageExecution != null) {
+                    stageExecution.setSchedulingPriority(priority);
+                }
+            }
+            schedulingPriorities = priorities.buildOrThrow();
+            schedulingQueue.updatePriorities(schedulingPriorities);
         }
 
         private SubPlan optimizePlan(SubPlan plan)
@@ -1228,7 +1266,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                                 subPlan,
                                 fragmentId.equals(rootFragmentId),
                                 result.getSourceOutputSizeEstimates(),
-                                nextSchedulingPriority++,
+                                schedulingPriorities.get(stageId),
                                 result.isSpeculative(),
                                 result.isEager());
                     }
@@ -1461,11 +1499,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                         metadata,
                         stageId,
                         fragment,
-                        TableInfo.extract(session, metadata, fragment),
+                        stageRegistry.getTables(fragment.getId()),
                         remoteTaskFactory,
                         session,
                         summarizeTaskInfo,
                         nodeTaskMap,
+                        nodeManager,
                         queryStateMachine.getStateMachineExecutor(),
                         tracer,
                         schedulerSpan,
@@ -1805,9 +1844,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void loadMoreTaskDescriptorsIfNecessary()
         {
-            boolean schedulingQueueIsFull = schedulingQueue.getTaskCount(STANDARD) >= maxTasksWaitingForExecution;
             for (StageExecution stageExecution : stageExecutions.values()) {
-                if (!schedulingQueueIsFull || stageExecution.hasOpenTaskRunning() || stageExecution.isEager()) {
+                boolean shouldLoadMoreTaskDescriptors = schedulingQueue.shouldLoadMoreTaskDescriptors(stageExecution.getSchedulingPriority(), maxTasksWaitingForExecution);
+                if (shouldLoadMoreTaskDescriptors || stageExecution.hasOpenTaskRunning() || stageExecution.isEager()) {
                     stageExecution.loadMoreTaskDescriptors().ifPresent(future -> Futures.addCallback(future, new FutureCallback<>()
                     {
                         @Override
@@ -1968,8 +2007,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                     executionFailureInfo.remoteHost());
         }
 
-        private static class PreSchedulingTaskContexts
+        @VisibleForTesting
+        static class PreSchedulingTaskContexts
         {
+            private static final int MAX_CONTEXTS_TO_LOG = 10;
+
             private final Map<ScheduledTask, PreSchedulingTaskContext> contexts = new HashMap<>();
             private final Map<TaskExecutionClass, AtomicInteger> waitCounters;
 
@@ -2053,6 +2095,17 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 context.setExecutionClass(executionClass);
             }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("taskCount", contexts.size())
+                        .add("waitCounters", waitCounters)
+                        .add("contexts", contexts.entrySet().stream().limit(MAX_CONTEXTS_TO_LOG).toList())
+                        .add("omittedContexts", Math.max(0, contexts.size() - MAX_CONTEXTS_TO_LOG))
+                        .toString();
+            }
         }
     }
 
@@ -2070,7 +2123,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final OutputStatsEstimator outputStatsEstimator;
         private final int maxTaskExecutionAttempts;
-        private final int schedulingPriority;
+        private int schedulingPriority;
         private final boolean eager;
         private boolean speculative;
 
@@ -2384,6 +2437,16 @@ public class EventDrivenFaultTolerantQueryScheduler
                 runningPartitions.add(partitionId);
             });
             return task;
+        }
+
+        public int getSchedulingPriority()
+        {
+            return schedulingPriority;
+        }
+
+        public void setSchedulingPriority(int schedulingPriority)
+        {
+            this.schedulingPriority = schedulingPriority;
         }
 
         public boolean isEager()
@@ -3188,18 +3251,20 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private record ScheduledTask(StageId stageId, int partitionId)
+    @VisibleForTesting
+    record ScheduledTask(StageId stageId, int partitionId)
     {
-        private ScheduledTask
+        ScheduledTask
         {
             requireNonNull(stageId, "stageId is null");
             checkArgument(partitionId >= 0, "partitionId must be greater than or equal to zero: %s", partitionId);
         }
     }
 
-    private record PrioritizedScheduledTask(ScheduledTask task, TaskExecutionClass executionClass, int priority)
+    @VisibleForTesting
+    record PrioritizedScheduledTask(ScheduledTask task, TaskExecutionClass executionClass, int priority)
     {
-        private PrioritizedScheduledTask
+        PrioritizedScheduledTask
         {
             requireNonNull(task, "task is null");
             requireNonNull(executionClass, "executionClass is null");
@@ -3228,7 +3293,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class SchedulingQueue
+    @VisibleForTesting
+    static class SchedulingQueue
     {
         private final Map<TaskExecutionClass, IndexedPriorityQueue<ScheduledTask>> queues;
 
@@ -3240,6 +3306,17 @@ public class EventDrivenFaultTolerantQueryScheduler
         private int getTaskCount(TaskExecutionClass executionClass)
         {
             return queues.get(executionClass).size();
+        }
+
+        public boolean shouldLoadMoreTaskDescriptors(int priority, int maxTasksWaitingForExecution)
+        {
+            IndexedPriorityQueue<ScheduledTask> queue = queues.get(STANDARD);
+            if (queue.size() < maxTasksWaitingForExecution) {
+                return true;
+            }
+            // A stage ranked ahead of every queued task loads past the limit.
+            IndexedPriorityQueue.Prioritized<ScheduledTask> nextTask = queue.peekPrioritized();
+            return nextTask != null && priority < nextTask.priority();
         }
 
         public SchedulingQueue()
@@ -3262,6 +3339,21 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             queues.values().forEach(queue -> queue.remove(prioritizedTask.task()));
             queues.get(prioritizedTask.getExecutionClass()).addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
+        }
+
+        public void updatePriorities(Map<StageId, Integer> priorities)
+        {
+            for (IndexedPriorityQueue<ScheduledTask> queue : queues.values()) {
+                for (ScheduledTask task : ImmutableList.copyOf(queue)) {
+                    Integer priority = priorities.get(task.stageId());
+                    if (priority == null) {
+                        queue.remove(task);
+                    }
+                    else {
+                        queue.addOrUpdate(task, priority);
+                    }
+                }
+            }
         }
 
         private static PrioritizedScheduledTask getPrioritizedTask(TaskExecutionClass executionClass, IndexedPriorityQueue.Prioritized<ScheduledTask> task)
@@ -3690,7 +3782,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class PreSchedulingTaskContext
+    @VisibleForTesting
+    static class PreSchedulingTaskContext
     {
         private final NodeLease nodeLease;
         private TaskExecutionClass executionClass;
@@ -3698,7 +3791,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean waitingForSinkInstanceHandle;
 
         // called only from PreSchedulingTaskContexts
-        private PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
+        PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
         {
             this.nodeLease = requireNonNull(nodeLease, "nodeLease is null");
             this.executionClass = requireNonNull(executionClass, "executionClass is null");
@@ -3721,8 +3814,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.executionClass = executionClass;
         }
 
-        // to be called only from TaskExecutionContexts methods
-        private void markWaitingForNodeCompleted()
+        // Called when the scheduler processes the node acquisition event.
+        @VisibleForTesting
+        void markWaitingForNodeCompleted()
         {
             verify(waitingForNode, "waitingForNode flag is false");
             waitingForNode = false;
@@ -3747,7 +3841,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         public String toString()
         {
             return toStringHelper(this)
-                    .add("nodeLease", nodeLease)
+                    .add("nodeFutureDone", nodeLease.getNode().isDone())
+                    .add("nodeFutureCancelled", nodeLease.getNode().isCancelled())
+                    .add("waitingForNode", waitingForNode)
                     .add("executionClass", executionClass)
                     .add("waitingForSinkInstanceHandle", waitingForSinkInstanceHandle)
                     .toString();

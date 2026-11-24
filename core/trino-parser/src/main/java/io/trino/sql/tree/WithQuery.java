@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WithQuery
+public final class WithQuery
         extends Node
 {
     private final Identifier name;
@@ -60,12 +60,6 @@ public class WithQuery
     public Optional<List<Identifier>> getColumnNames()
     {
         return columnNames;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWithQuery(this, context);
     }
 
     @Override

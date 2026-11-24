@@ -41,6 +41,7 @@ import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.node.NodeState.INACTIVE;
+import static io.trino.node.RemoteNodeState.UNKNOWN_INSTANCE_ID;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,21 +61,21 @@ class TestCoordinatorNodeManager
     TestCoordinatorNodeManager()
     {
         NodeVersion expectedVersion = new NodeVersion("1");
-        coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
-        currentNode = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.1.1"), expectedVersion, false);
+        coordinator = new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
+        currentNode = new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.1.1"), expectedVersion, false);
 
         activeNodes = ImmutableSet.of(
                 copy(currentNode),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.1:8080"), expectedVersion, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.3"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.2.1:8080"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.2.3"), expectedVersion, false),
                 coordinator);
         inactiveNodes = ImmutableSet.of(
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
         invalidNodes = ImmutableSet.of(
-                new InternalNode("bad_version_unknown", URI.create("https://192.0.7.1"), NodeVersion.UNKNOWN, false),
-                new InternalNode("bad_version_2", URI.create("https://192.0.7.2"), new NodeVersion("2"), false),
-                new InternalNode("bad_environment", URI.create("https://192.0.7.3"), expectedVersion, false));
+                new InternalNode("bad_version_unknown", "bad_version_unknown-instance", URI.create("https://192.0.7.1"), NodeVersion.UNKNOWN, false),
+                new InternalNode("bad_version_2", UNKNOWN_INSTANCE_ID, URI.create("https://192.0.7.2"), new NodeVersion("2"), false),
+                new InternalNode("bad_environment", "bad_environment-instance", URI.create("https://192.0.7.3"), expectedVersion, false));
 
         ImmutableMap.Builder<String, ServerInfo> hostsBuilder = ImmutableMap.builder();
         for (InternalNode activeNode : activeNodes) {
@@ -253,6 +254,7 @@ class TestCoordinatorNodeManager
     {
         return new InternalNode(
                 node.getNodeIdentifier(),
+                node.getInstanceId(),
                 node.getInternalUri(),
                 node.getNodeVersion(),
                 node.isCoordinator());
@@ -262,6 +264,8 @@ class TestCoordinatorNodeManager
     {
         return new ServerInfo(
                 inactiveNode.getNodeIdentifier(),
+                // a server running a different version may not report the instance id
+                inactiveNode.getInstanceId().equals(UNKNOWN_INSTANCE_ID) ? Optional.empty() : Optional.of(inactiveNode.getInstanceId()),
                 nodeState,
                 inactiveNode.getNodeVersion(),
                 environment,

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Update
+public final class Update
         extends Statement
 {
     private final Table table;
@@ -59,12 +59,6 @@ public class Update
         nodes.addAll(assignments);
         where.ifPresent(nodes::add);
         return nodes.build();
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitUpdate(this, context);
     }
 
     @Override

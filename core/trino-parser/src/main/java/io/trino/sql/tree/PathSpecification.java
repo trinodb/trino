@@ -38,12 +38,6 @@ public final class PathSpecification
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPathSpecification(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return path;

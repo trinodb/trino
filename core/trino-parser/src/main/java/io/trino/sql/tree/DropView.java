@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DropView
+public final class DropView
         extends Statement
 {
     private final QualifiedName name;
@@ -41,12 +41,6 @@ public class DropView
     public boolean isExists()
     {
         return exists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropView(this, context);
     }
 
     @Override

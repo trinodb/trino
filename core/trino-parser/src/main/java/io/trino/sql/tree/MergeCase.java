@@ -18,8 +18,11 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class MergeCase
+public abstract sealed class MergeCase
         extends Node
+        permits MergeDelete,
+                MergeInsert,
+                MergeUpdate
 {
     protected final Optional<Expression> expression;
 
@@ -39,12 +42,6 @@ public abstract class MergeCase
     public Optional<Expression> getExpression()
     {
         return expression;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeCase(this, context);
     }
 
     public abstract List<Identifier> getSetColumns();

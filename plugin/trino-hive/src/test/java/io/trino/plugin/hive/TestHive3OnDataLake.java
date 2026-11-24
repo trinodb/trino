@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -49,6 +50,30 @@ class TestHive3OnDataLake
         }
         finally {
             assertUpdate("DROP TABLE " + testTable);
+        }
+    }
+
+    @Test
+    void testInsertIntoCompressedInsertOnlyTextTable()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "compression_codec", "GZIP")
+                .build();
+        String tableName = "test_insert_only_text_" + randomNameSuffix();
+        String hiveTableName = getHiveTestTableName(tableName);
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        hiveFlociDataLake.runOnHive("CREATE TABLE " + hiveTableName + " (id int, name string) STORED AS TEXTFILE TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')");
+        try {
+            assertUpdate(session, "INSERT INTO " + testTable + " VALUES (1, 'a'), (2, 'b')", 2);
+
+            assertQuery("SELECT id, name FROM " + testTable, "VALUES (1, 'a'), (2, 'b')");
+            assertThat(hiveFlociDataLake.runOnHive("SELECT id, name FROM " + hiveTableName))
+                    .containsPattern("[ |]+1[ |]+a[ |]+")
+                    .containsPattern("[ |]+2[ |]+b[ |]+");
+        }
+        finally {
+            hiveFlociDataLake.runOnHive("DROP TABLE " + hiveTableName);
         }
     }
 

@@ -17,16 +17,17 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,28 +43,24 @@ public final class DeterminismEvaluator
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean deterministic = new AtomicBoolean(true);
-        new Visitor(resolvedFunctionSupplier).process(expression, deterministic);
+        evaluate(expression, resolvedFunctionSupplier, deterministic);
         return deterministic.get();
     }
 
-    private static class Visitor
-            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+    private static void evaluate(Node node, Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier, AtomicBoolean deterministic)
     {
-        private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
-
-        public Visitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
-        {
-            this.resolvedFunctionSupplier = resolvedFunctionSupplier;
-        }
-
-        @Override
-        protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
-        {
-            if (!resolvedFunctionSupplier.apply(node).deterministic()) {
-                deterministic.set(false);
-                return null;
+        switch (node) {
+            case SubqueryExpression _ -> {
+                // Don't traverse into subqueries within an expression
             }
-            return super.visitFunctionCall(node, deterministic);
+            case FunctionCall functionCall -> {
+                if (!resolvedFunctionSupplier.apply(functionCall).deterministic()) {
+                    deterministic.set(false);
+                    return;
+                }
+                forEachChild(node, child -> evaluate(child, resolvedFunctionSupplier, deterministic));
+            }
+            default -> forEachChild(node, child -> evaluate(child, resolvedFunctionSupplier, deterministic));
         }
     }
 
@@ -71,47 +68,20 @@ public final class DeterminismEvaluator
     {
         requireNonNull(node, "node is null");
 
-        AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
-        new DeterminismEvaluator.TemporalFunctionVisitor().process(node, hasTemporalFunction);
-        return hasTemporalFunction.get();
+        return hasTemporalFunction(node);
     }
 
-    private static class TemporalFunctionVisitor
-            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+    private static boolean hasTemporalFunction(Node node)
     {
-        @Override
-        protected Void visitCurrentDate(CurrentDate node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTimestamp(CurrentTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTime(LocalTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTimestamp(LocalTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
+        return switch (node) {
+            case CurrentDate _, CurrentTime _, CurrentTimestamp _, LocalTime _, LocalTimestamp _ -> true;
+            // Don't traverse into subqueries within an expression
+            case SubqueryExpression _ -> false;
+            default -> {
+                AtomicBoolean found = new AtomicBoolean(false);
+                forEachChild(node, child -> found.compareAndSet(false, hasTemporalFunction(child)));
+                yield found.get();
+            }
+        };
     }
 }

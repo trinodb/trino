@@ -18,6 +18,7 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarMap;
 
 import java.io.IOException;
@@ -48,15 +49,16 @@ public class MapColumnWriter
     public void writeBlock(ColumnChunk columnChunk)
             throws IOException
     {
-        ColumnarMap columnarMap = ColumnarMap.toColumnarMap(columnChunk.getBlock());
+        Block block = columnChunk.getBlock();
+        ColumnarMap columnarMap = ColumnarMap.toColumnarMap(block);
 
         List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
                 .addAll(columnChunk.getDefLevelWriterProviders())
-                .add(DefLevelWriterProviders.of(columnarMap, maxDefinitionLevel)).build();
+                .add(DefLevelWriterProviders.of(columnarMap, block, maxDefinitionLevel)).build();
 
         List<RepLevelWriterProvider> repLevelIterables = ImmutableList.<RepLevelWriterProvider>builder()
                 .addAll(columnChunk.getRepLevelWriterProviders())
-                .add(RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel)).build();
+                .add(RepLevelWriterProviders.of(columnarMap, block, maxRepetitionLevel)).build();
 
         keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelWriterProviders, repLevelIterables));
         valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelWriterProviders, repLevelIterables));

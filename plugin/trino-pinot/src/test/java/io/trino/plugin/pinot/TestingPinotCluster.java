@@ -48,7 +48,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -289,7 +288,8 @@ public class TestingPinotCluster
 
     public void publishOfflineSegment(String tableName, Path segmentPath)
     {
-        try {
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> Files.deleteIfExists(segmentPath));
             String rawTableName = TableNameBuilder.extractRawTableName(tableName);
             String fileName = segmentPath.toFile().getName();
             checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
@@ -320,14 +320,6 @@ public class TestingPinotCluster
         }
         catch (Exception e) {
             throw new RuntimeException(e);
-        }
-        finally {
-            try {
-                Files.deleteIfExists(segmentPath);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
         }
     }
 

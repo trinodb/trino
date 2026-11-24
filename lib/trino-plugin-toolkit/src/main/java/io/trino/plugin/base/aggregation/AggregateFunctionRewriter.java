@@ -14,7 +14,8 @@
 package io.trino.plugin.base.aggregation;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule.RewriteContext;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.spi.connector.AggregateFunction;
@@ -22,7 +23,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -67,10 +67,10 @@ public final class AggregateFunctionRewriter<AggregationResult, ExpressionResult
         };
 
         for (AggregateFunctionRule<AggregationResult, ExpressionResult> rule : rules) {
-            Iterator<Match> matches = rule.getPattern().match(aggregateFunction, context).iterator();
-            while (matches.hasNext()) {
-                Match match = matches.next();
-                Optional<AggregationResult> rewritten = rule.rewrite(aggregateFunction, match.captures(), context);
+            MatchCursor cursor = rule.getPattern().matchCursor(aggregateFunction, context);
+            while (cursor.matches()) {
+                Captures captures = cursor.current();
+                Optional<AggregationResult> rewritten = rule.rewrite(aggregateFunction, captures, context);
                 if (rewritten.isPresent()) {
                     return rewritten;
                 }

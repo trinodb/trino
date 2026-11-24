@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
@@ -171,6 +170,7 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.core.JacksonException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -827,7 +827,6 @@ public class DeltaLakeMetadata
             return null;
         }
         DeltaMetastoreTable table = convertToDeltaMetastoreTable(metastoreTable.get());
-        boolean managed = table.managed();
 
         String tableLocation = table.location();
         Optional<DeltaLakeTableCredentials> tableCredentials = getTableCredentials(table);
@@ -839,7 +838,7 @@ public class DeltaLakeMetadata
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return new CorruptedDeltaLakeTableHandle(tableName, table.catalogOwned(), table.managed(), tableLocation, e);
+                return new CorruptedDeltaLakeTableHandle(tableName, table.catalogOwned(), table.tableType(), tableLocation, e);
             }
             throw e;
         }
@@ -866,7 +865,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                managed,
+                table.tableType(),
                 tableLocation,
                 metadataEntry,
                 protocolEntry,
@@ -1508,7 +1507,7 @@ public class DeltaLakeMetadata
                 throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
-            external = !tableHandle.isManaged();
+            external = !tableHandle.tableType().isManaged();
         }
 
         if (location == null) {
@@ -1703,7 +1702,7 @@ public class DeltaLakeMetadata
                 throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
-            external = !handle.isManaged();
+            external = !handle.tableType().isManaged();
         }
         if (location == null) {
             location = getTableLocation(schema, tableName);
@@ -1839,6 +1838,9 @@ public class DeltaLakeMetadata
 
     private void validateTableForReplaceOperation(DeltaLakeTableHandle tableHandle, ConnectorTableMetadata existingTableMetadata, ConnectorTableMetadata newTableMetadata)
     {
+        // Replace keeps the table's existing protocol, so the existing table must be writable
+        checkWriteSupported(tableHandle);
+
         if (isAppendOnly(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot replace a table when '" + APPEND_ONLY_CONFIGURATION_KEY + "' is set to true");
         }
@@ -2411,7 +2413,6 @@ public class DeltaLakeMetadata
     }
 
     private static void appendAddFileEntries(TransactionLogWriter transactionLogWriter, List<DataFileInfo> dataFileInfos, List<String> partitionColumnNames, List<String> originalColumnNames, boolean dataChange)
-            throws JsonProcessingException
     {
         appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumnNames, originalColumnNames, dataChange, Optional.empty());
     }
@@ -2423,7 +2424,6 @@ public class DeltaLakeMetadata
             List<String> originalColumnNames,
             boolean dataChange,
             Optional<String> cloneSourceLocation)
-            throws JsonProcessingException
     {
         Map<String, String> toOriginalColumnNames = originalColumnNames.stream()
                 .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), identity()));
@@ -3539,7 +3539,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
         DeltaMetastoreTable table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.managed() && !allowManagedTableRename) {
+        if (table.tableType().isManaged() && !allowManagedTableRename) {
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
         metastore.renameTable(handle.getSchemaTableName(), newTableName);
@@ -3799,7 +3799,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                tableHandle.isManaged(),
+                tableHandle.tableType(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -4097,7 +4097,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
-                handle.isManaged(),
+                handle.tableType(),
                 handle.getLocation(),
                 metadata,
                 handle.getProtocolEntry(),
@@ -4319,7 +4319,7 @@ public class DeltaLakeMetadata
                     addFileEntry.getTags(),
                     addFileEntry.getDeletionVector());
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Statistics serialization error", e);
         }
     }

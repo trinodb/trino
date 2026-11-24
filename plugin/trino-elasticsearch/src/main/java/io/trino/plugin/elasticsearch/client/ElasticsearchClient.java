@@ -13,18 +13,14 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
@@ -64,6 +60,13 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import javax.net.ssl.SSLContext;
 
@@ -73,7 +76,7 @@ import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +104,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
@@ -116,6 +120,13 @@ public class ElasticsearchClient
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
     private static final Set<String> NODE_ROLES = ImmutableSet.of("data", "data_content", "data_hot", "data_warm", "data_cold", "data_frozen");
+
+    // _cat/indices fails when an index is deleted while the response is being built
+    private static final RetryPolicy<List<String>> INDEX_LISTING_RETRY_POLICY = RetryPolicy.<List<String>>builder()
+            .withMaxAttempts(3)
+            .withBackoff(10, 100, MILLIS)
+            .handleIf(ElasticsearchClient::isIndexNotFound)
+            .build();
 
     private final BackpressureRestClient client;
     private final int scrollSize;
@@ -384,15 +395,20 @@ public class ElasticsearchClient
 
     public List<String> getIndexes()
     {
+        return Failsafe.with(INDEX_LISTING_RETRY_POLICY).get(this::listIndexes);
+    }
+
+    private List<String> listIndexes()
+    {
         return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
             try {
                 ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = JSON_MAPPER.readTree(body);
                 for (int i = 0; i < root.size(); i++) {
-                    String index = root.get(i).get("index").asText();
+                    String index = root.get(i).get("index").asString();
                     // make sure the index has mappings we can use to derive the schema
-                    int docsCount = root.get(i).get("docs.count").asInt();
-                    int deletedDocsCount = root.get(i).get("docs.deleted").asInt();
+                    long docsCount = root.get(i).get("docs.count").asLong();
+                    long deletedDocsCount = root.get(i).get("docs.deleted").asLong();
                     if (docsCount == 0 && deletedDocsCount == 0) {
                         try {
                             // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
@@ -414,7 +430,7 @@ public class ElasticsearchClient
                 }
                 return result.build();
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
@@ -429,14 +445,14 @@ public class ElasticsearchClient
 
                 for (Entry<String, JsonNode> element : root.properties()) {
                     JsonNode aliases = element.getValue().get("aliases");
-                    Iterator<String> aliasNames = aliases.fieldNames();
-                    if (aliasNames.hasNext()) {
+                    Collection<String> aliasNames = aliases.propertyNames();
+                    if (!aliasNames.isEmpty()) {
                         result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
                     }
                 }
                 return result.buildOrThrow();
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
@@ -448,7 +464,7 @@ public class ElasticsearchClient
             try {
                 return JSON_MAPPER.readTree(body);
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
@@ -478,7 +494,7 @@ public class ElasticsearchClient
         JsonNode settings = indexMetadata.path("settings");
         return !settings.isObject()
                 || (settings.has("index.mapping.ignore_malformed")
-                && !settings.path("index.mapping.ignore_malformed").asText().equals("false"));
+                && !settings.path("index.mapping.ignore_malformed").asString().equals("false"));
     }
 
     private Map<String, Set<String>> fetchIgnoredMalformedFields(String index)
@@ -492,7 +508,7 @@ public class ElasticsearchClient
                         for (JsonNode field : indexEntry.getValue().path("mappings")) {
                             for (JsonNode mapping : field.path("mapping")) {
                                 if (mapping.path("ignore_malformed").asBoolean(false)) {
-                                    fields.add(field.path("full_name").asText());
+                                    fields.add(field.path("full_name").asString());
                                 }
                             }
                         }
@@ -500,7 +516,7 @@ public class ElasticsearchClient
                     }
                     return result.buildOrThrow();
                 }
-                catch (IOException e) {
+                catch (JacksonException e) {
                     throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
                 }
             });
@@ -516,14 +532,14 @@ public class ElasticsearchClient
 
     private IndexMetadata.ObjectType parseIndexMetadata(JsonNode mappings, Optional<Set<String>> ignoredMalformedFields)
     {
-        if (!mappings.elements().hasNext()) {
+        if (!mappings.iterator().hasNext()) {
             return new IndexMetadata.ObjectType(ImmutableList.of());
         }
         if (!mappings.has("properties")) {
             // Older versions of ElasticSearch supported multiple "type" mappings
             // for a given index. Newer versions support only one and don't
             // expose it in the document. Here we skip it if it's present.
-            mappings = mappings.elements().next();
+            mappings = mappings.iterator().next();
             if (!mappings.has("properties")) {
                 return new IndexMetadata.ObjectType(ImmutableList.of());
             }
@@ -543,7 +559,7 @@ public class ElasticsearchClient
                 || ignoredMalformedFields.isEmpty();
         ImmutableSet.Builder<String> unsupportedFields = ImmutableSet.builder();
         unsupportedFields.addAll(ignoredMalformedFields.orElse(ImmutableSet.of()));
-        unsupportedFields.addAll(mappings.path("runtime").fieldNames());
+        unsupportedFields.addAll(mappings.path("runtime").propertyNames());
         collectCopyToTargets(properties, unsupportedFields);
         MappingSafety mappingSafety = new MappingSafety(
                 unsupportedFields.build(),
@@ -629,12 +645,12 @@ public class ElasticsearchClient
             // default type is object
             String type = "object";
             if (value.has("type")) {
-                type = value.get("type").asText();
+                type = value.get("type").asString();
             }
             String path = parentPath.isEmpty() ? name : parentPath + "." + name;
             JsonNode metaNode = nullSafeNode(metaProperties, name);
-            boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
-            boolean asRawJson = !metaNode.isNull() && metaNode.has("asRawJson") && metaNode.get("asRawJson").asBoolean();
+            boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean(false);
+            boolean asRawJson = !metaNode.isNull() && metaNode.has("asRawJson") && metaNode.get("asRawJson").asBoolean(false);
             boolean supportsPredicates = !unsupportedAncestor && !asRawJson && !isArray
                     && mappingSafety.supportsPushdown(path, type.equals("object") || type.equals("nested"))
                     && mappingSupportsPredicates(type, value);
@@ -653,7 +669,7 @@ public class ElasticsearchClient
                 case "date" -> {
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
-                        formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
+                        formats = Arrays.asList(value.get("format").asString().split("\\|\\|"));
                     }
                     result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats), supportsPredicates, supportsTopNAndAggregations));
                 }
@@ -693,12 +709,12 @@ public class ElasticsearchClient
 
     private static List<Pattern> sourceFilterPatterns(JsonNode patterns)
     {
-        if (patterns.isTextual()) {
-            return ImmutableList.of(sourceFilterPattern(patterns.asText()));
+        if (patterns.isString()) {
+            return ImmutableList.of(sourceFilterPattern(patterns.asString()));
         }
         ImmutableList.Builder<Pattern> result = ImmutableList.builder();
         for (JsonNode pattern : patterns) {
-            result.add(sourceFilterPattern(pattern.asText()));
+            result.add(sourceFilterPattern(pattern.asString()));
         }
         return result.build();
     }
@@ -726,11 +742,11 @@ public class ElasticsearchClient
     {
         for (JsonNode mapping : properties) {
             JsonNode copyTo = mapping.path("copy_to");
-            if (copyTo.isTextual()) {
-                targets.add(copyTo.asText());
+            if (copyTo.isString()) {
+                targets.add(copyTo.asString());
             }
             else {
-                copyTo.forEach(target -> targets.add(target.asText()));
+                copyTo.forEach(target -> targets.add(target.asString()));
             }
             collectCopyToTargets(mapping.path("properties"), targets);
             collectCopyToTargets(mapping.path("fields"), targets);
@@ -857,7 +873,7 @@ public class ElasticsearchClient
             try {
                 return parseAggregationResponse(EntityUtils.toByteArray(response.getEntity()));
             }
-            catch (IOException e) {
+            catch (IOException | JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         }
@@ -874,14 +890,12 @@ public class ElasticsearchClient
 
     @VisibleForTesting
     static AggregationSearchResult parseAggregationResponse(byte[] responseBody)
-            throws IOException
     {
         JsonNode response = parseCompleteSearchResponse(responseBody, "aggregation");
         return new AggregationSearchResult(response, extractExactHitCount(response), responseBody.length);
     }
 
     private static JsonNode parseCompleteSearchResponse(byte[] responseBody, String operation)
-            throws IOException
     {
         JsonNode response = JSON_MAPPER.readTree(responseBody);
         if (response == null || !response.path("timed_out").isBoolean() || !response.path("_shards").path("failed").isIntegralNumber()) {
@@ -955,7 +969,7 @@ public class ElasticsearchClient
             try {
                 return parseCountResponse(EntityUtils.toByteArray(response.getEntity()));
             }
-            catch (IOException e) {
+            catch (IOException | JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         }
@@ -966,7 +980,6 @@ public class ElasticsearchClient
 
     @VisibleForTesting
     static long parseCountResponse(byte[] responseBody)
-            throws IOException
     {
         return extractExactHitCount(parseCompleteSearchResponse(responseBody, "count"));
     }
@@ -975,7 +988,7 @@ public class ElasticsearchClient
     {
         JsonNode total = response.path("hits").path("total");
         JsonNode value = total.path("value");
-        if (!"eq".equals(total.path("relation").asText()) || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {
+        if (!"eq".equals(total.path("relation").asString()) || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {
             throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, "Elasticsearch count response is missing an exact nonnegative hit count");
         }
         return value.longValue();
@@ -1006,19 +1019,18 @@ public class ElasticsearchClient
         try {
             return parseSearchResponse(EntityUtils.toByteArray(response.getEntity()));
         }
-        catch (IOException e) {
+        catch (IOException | JacksonException e) {
             throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
     }
 
     @VisibleForTesting
     static SearchResult parseSearchResponse(byte[] responseBody)
-            throws IOException
     {
         JsonNode root = parseCompleteSearchResponse(responseBody, "scan");
 
         Optional<String> scrollId = Optional.ofNullable(root.get("_scroll_id"))
-                .map(JsonNode::asText);
+                .map(JsonNode::asString);
 
         JsonNode hitsNode = root.path("hits").path("hits");
         if (!hitsNode.isArray()) {
@@ -1027,7 +1039,7 @@ public class ElasticsearchClient
         ImmutableList.Builder<SearchDocument> hits = ImmutableList.builder();
 
         for (JsonNode hitNode : hitsNode) {
-            String id = hitNode.get("_id").asText();
+            String id = hitNode.get("_id").asString();
             float score = hitNode.has("_score") && !hitNode.get("_score").isNull()
                     ? hitNode.get("_score").floatValue()
                     : Float.NaN;
@@ -1061,8 +1073,8 @@ public class ElasticsearchClient
 
     private static Object nodeToValue(JsonNode node)
     {
-        if (node.isTextual()) {
-            return node.asText();
+        if (node.isString()) {
+            return node.asString();
         }
         if (node.isNumber()) {
             return node.numberValue();
@@ -1124,6 +1136,24 @@ public class ElasticsearchClient
         }
     }
 
+    private static boolean isIndexNotFound(Throwable throwable)
+    {
+        if (!(throwable.getCause() instanceof ResponseException exception)) {
+            return false;
+        }
+        HttpEntity entity = exception.getResponse().getEntity();
+        if (exception.getResponse().getStatusLine().getStatusCode() != 404 || entity == null) {
+            return false;
+        }
+        try {
+            JsonNode type = JSON_MAPPER.readTree(EntityUtils.toByteArray(entity)).path("error").path("type");
+            return type.isString() && type.asString().equals("index_not_found_exception");
+        }
+        catch (IOException | JacksonException e) {
+            return false;
+        }
+    }
+
     private static TrinoException propagate(ResponseException exception)
     {
         HttpEntity entity = exception.getResponse().getEntity();
@@ -1136,10 +1166,10 @@ public class ElasticsearchClient
                         .path("reason");
 
                 if (!reason.isMissingNode()) {
-                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asString(), exception);
                 }
             }
-            catch (IOException e) {
+            catch (IOException | JacksonException e) {
                 TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
                 result.addSuppressed(e);
                 throw result;

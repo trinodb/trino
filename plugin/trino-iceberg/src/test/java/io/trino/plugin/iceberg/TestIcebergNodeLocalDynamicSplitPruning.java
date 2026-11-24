@@ -75,6 +75,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.orc.metadata.CompressionKind.NONE;
@@ -175,6 +176,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(0),
                             ImmutableMap.of(0, PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                            Optional.empty(),
                             2,
                             TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                             TupleDomain.all(),
@@ -236,6 +238,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(0),
                             ImmutableMap.of(0, PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                            Optional.empty(),
                             2,
                             TupleDomain.all(),
                             TupleDomain.all(),
@@ -349,6 +352,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(partitionSpec.specId()),
                             ImmutableMap.of(partitionSpec.specId(), PartitionSpecParser.toJson(partitionSpec)),
+                            Optional.empty(),
                             2,
                             TupleDomain.all(),
                             TupleDomain.all(),
@@ -503,6 +507,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(partitionSpec.specId()),
                             ImmutableMap.of(partitionSpec.specId(), PartitionSpecParser.toJson(partitionSpec)),
+                            Optional.empty(),
                             2,
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(
@@ -590,7 +595,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ParquetFooterCache.noop(),
                 blocksHashFactory,
                 icebergConfig,
-                ENCRYPTION_MANAGER_FACTORY);
+                ENCRYPTION_MANAGER_FACTORY,
+                newDirectExecutorService());
         return factory.createPageSourceProvider(MemoryContext.NO_LIMIT).createPageSource(
                 transaction,
                 getSession(icebergConfig),

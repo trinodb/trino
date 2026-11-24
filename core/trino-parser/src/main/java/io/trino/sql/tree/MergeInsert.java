@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MergeInsert
+public final class MergeInsert
         extends MergeCase
 {
     private final List<Identifier> columns;
@@ -43,12 +43,6 @@ public class MergeInsert
     public List<Expression> getValues()
     {
         return values;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeInsert(this, context);
     }
 
     @Override

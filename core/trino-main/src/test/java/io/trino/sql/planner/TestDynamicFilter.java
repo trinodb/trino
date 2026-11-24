@@ -31,7 +31,12 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -71,11 +76,13 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFilter
         extends BasePlanTest
@@ -418,6 +425,17 @@ public class TestDynamicFilter
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_EXTENDEDPRICE", "extendedprice"))))))));
+
+        // NaN is not equal to itself in NUMBER either, while the same join with = gets a dynamic filter
+        assertThat(joinDynamicFilters("SELECT 1 FROM (SELECT CAST(orderkey AS number) k FROM orders) o, (SELECT CAST(orderkey AS number) k FROM lineitem) l WHERE l.k IS NOT DISTINCT FROM o.k")).isEmpty();
+        assertThat(joinDynamicFilters("SELECT 1 FROM (SELECT CAST(orderkey AS number) k FROM orders) o, (SELECT CAST(orderkey AS number) k FROM lineitem) l WHERE l.k = o.k")).isNotEmpty();
+    }
+
+    private List<PlanNode> joinDynamicFilters(@Language("SQL") String sql)
+    {
+        return searchFrom(plan(sql).getRoot())
+                .where(node -> node instanceof JoinNode join && !join.getDynamicFilters().isEmpty())
+                .findAll();
     }
 
     @Test

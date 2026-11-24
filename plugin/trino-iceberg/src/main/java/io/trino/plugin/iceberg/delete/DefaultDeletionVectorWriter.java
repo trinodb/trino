@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.plugin.iceberg.IcebergFileNameProvider;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
@@ -61,7 +62,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
@@ -85,6 +85,7 @@ public class DefaultDeletionVectorWriter
     private static final String CARDINALITY_KEY = "cardinality";
 
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final IcebergFileNameProvider fileNameProvider;
     // It is technically possible to read legacy position delete files directly, but would be annoying to maintain
     private final IcebergPageSourceProviderFactory pageSourceProviderFactory;
     private final IcebergColumnHandle deleteFilePathColumnHandle;
@@ -94,11 +95,13 @@ public class DefaultDeletionVectorWriter
     @Inject
     public DefaultDeletionVectorWriter(
             IcebergFileSystemFactory fileSystemFactory,
+            IcebergFileNameProvider fileNameProvider,
             TypeManager typeManager,
             IcebergPageSourceProviderFactory pageSourceProviderFactory,
             NodeVersion nodeVersion)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileNameProvider = requireNonNull(fileNameProvider, "fileNameProvider is null");
         this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
         this.deleteFilePathColumnHandle = getColumnHandle(DELETE_FILE_PATH, typeManager);
         this.deleteFilePositionColumnHandle = getColumnHandle(DELETE_FILE_POS, typeManager);
@@ -213,7 +216,7 @@ public class DefaultDeletionVectorWriter
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
 
         // write deletion vectors to a puffin file and delete files to the row delta
-        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, deletionVectorInfoByPath, partiallyDeletedFiles, trinoVersion)
+        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, fileNameProvider, deletionVectorInfoByPath, partiallyDeletedFiles, trinoVersion)
                 .forEach(rowDelta::addDeletes);
 
         // remove existing DVs and file-scoped position deletes, including for dropped files
@@ -275,6 +278,7 @@ public class DefaultDeletionVectorWriter
             ConnectorSession session,
             Table icebergTable,
             LocationProvider locationProvider,
+            IcebergFileNameProvider fileNameProvider,
             Map<String, DeletionVectorInfo> deletionVectorInfoByPath,
             Map<String, DeletionVector> deletionVectors,
             String trinoVersion)
@@ -283,7 +287,7 @@ public class DefaultDeletionVectorWriter
             return List.of();
         }
 
-        String fileName = "dv-" + session.getQueryId() + "-" + UUID.randomUUID() + ".puffin";
+        String fileName = fileNameProvider.newFileName(session, FileContent.POSITION_DELETES, PUFFIN);
         String puffinPath = locationProvider.newDataLocation(fileName);
 
         FileIO fileIO = icebergTable.io();

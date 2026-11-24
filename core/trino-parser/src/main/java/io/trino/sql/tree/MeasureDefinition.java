@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MeasureDefinition
+public final class MeasureDefinition
         extends Node
 {
     private final Expression expression;
@@ -42,12 +42,6 @@ public class MeasureDefinition
     public Identifier getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMeasureDefinition(this, context);
     }
 
     @Override

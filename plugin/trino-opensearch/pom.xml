@@ -21,16 +21,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -184,6 +174,16 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
@@ -347,7 +347,7 @@
         <dependency>
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch-testcontainers</artifactId>
-            <version>4.1.0</version>
+            <version>4.1.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -357,24 +357,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <!-- Versions pinned by opensearch; newer ones come only from test dependencies -->
-                                <exclude>org.apache.lucene:lucene-analysis-common</exclude>
-                                <exclude>com.github.luben:zstd-jni</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
-                    </rules>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

@@ -18,7 +18,7 @@ import java.util.Optional;
 import static io.trino.sql.tree.NumericParser.parseNumeric;
 import static java.util.Objects.requireNonNull;
 
-public class LongLiteral
+public final class LongLiteral
         extends Literal
 {
     private final String value;
@@ -50,12 +50,6 @@ public class LongLiteral
     public long getParsedValue()
     {
         return parsedValue;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLongLiteral(this, context);
     }
 
     @Override

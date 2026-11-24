@@ -107,7 +107,11 @@ public class StructColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE +
-                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
+        // Avoid using streams here for performance reasons
+        long retainedBytes = INSTANCE_SIZE;
+        for (ColumnWriter columnWriter : columnWriters) {
+            retainedBytes += columnWriter.getRetainedBytes();
+        }
+        return retainedBytes;
     }
 }

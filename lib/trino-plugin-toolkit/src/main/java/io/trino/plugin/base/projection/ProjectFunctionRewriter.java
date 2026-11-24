@@ -14,7 +14,8 @@
 package io.trino.plugin.base.projection;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.matching.Match;
+import io.trino.matching.Captures;
+import io.trino.matching.MatchCursor;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.projection.ProjectFunctionRule.RewriteContext;
 import io.trino.spi.connector.ColumnHandle;
@@ -22,7 +23,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.expression.ConnectorExpression;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -69,10 +69,10 @@ public final class ProjectFunctionRewriter<ProjectionResult, ExpressionResult>
 
         for (ProjectFunctionRule<ProjectionResult, ExpressionResult> rule : rules) {
             if (rule.isEnabled(context.getSession())) {
-                Iterator<Match> matches = rule.getPattern().match(projectionExpression, context).iterator();
-                while (matches.hasNext()) {
-                    Match match = matches.next();
-                    Optional<ProjectionResult> rewritten = rule.rewrite(handle, projectionExpression, match.captures(), context);
+                MatchCursor cursor = rule.getPattern().matchCursor(projectionExpression, context);
+                while (cursor.matches()) {
+                    Captures captures = cursor.current();
+                    Optional<ProjectionResult> rewritten = rule.rewrite(handle, projectionExpression, captures, context);
                     if (rewritten.isPresent()) {
                         return rewritten;
                     }

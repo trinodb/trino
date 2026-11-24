@@ -29,6 +29,7 @@ import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.ConnectorTableCredentialsVisitor;
@@ -76,6 +77,7 @@ public final class SqlStage
     private final Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
+    private final InternalNodeManager nodeManager;
     private final boolean summarizeTaskInfo;
 
     private final Set<DynamicFilterId> outboundDynamicFilterIds;
@@ -98,6 +100,7 @@ public final class SqlStage
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
+            InternalNodeManager nodeManager,
             Executor stateMachineExecutor,
             Tracer tracer,
             Span schedulerSpan,
@@ -111,6 +114,7 @@ public final class SqlStage
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
         requireNonNull(tracer, "tracer is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
@@ -130,6 +134,7 @@ public final class SqlStage
                 stateMachine,
                 remoteTaskFactory,
                 nodeTaskMap,
+                nodeManager,
                 summarizeTaskInfo,
                 bucketCountProvider,
                 memoize(context.wrapSupplier(() -> extractTableCredentials(session, metadata, fragment))::get));
@@ -142,6 +147,7 @@ public final class SqlStage
             StageStateMachine stateMachine,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
+            InternalNodeManager nodeManager,
             boolean summarizeTaskInfo,
             LocalExchangeBucketCountProvider bucketCountProvider,
             Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider)
@@ -150,6 +156,7 @@ public final class SqlStage
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
@@ -290,6 +297,10 @@ public final class SqlStage
 
         stateMachine.transitionToScheduling();
 
+        // The node may have been selected long before the task is created, and the worker may have been restarted since.
+        // Nothing was sent to the previous instance yet, so the task can be created on the current one.
+        InternalNode currentNode = nodeManager.getCurrentInstance(node);
+
         // set partitioning information on coordinator side
         PlanFragment fragment = stateMachine.getFragment();
         fragment = fragment.withOutputPartitioning(bucketToPartition, skewedBucketCount);
@@ -302,13 +313,13 @@ public final class SqlStage
                 session,
                 stateMachine.getStageSpan(),
                 taskId,
-                node,
+                currentNode,
                 speculative,
                 fragment,
                 tableCredentialsProvider.get(),
                 splits,
                 outputBuffers,
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                nodeTaskMap.createPartitionedSplitCountTracker(currentNode, taskId),
                 outboundDynamicFilterIds,
                 estimatedMemory,
                 summarizeTaskInfo);
@@ -317,7 +328,7 @@ public final class SqlStage
 
         tasks.put(taskId, task);
         allTasks.add(taskId);
-        nodeTaskMap.addTask(node, task);
+        nodeTaskMap.addTask(currentNode, task);
 
         task.addStateChangeListener(this::updateTaskStatus);
         task.addStateChangeListener(new MemoryUsageListener());

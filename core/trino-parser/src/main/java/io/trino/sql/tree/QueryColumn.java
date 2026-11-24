@@ -26,7 +26,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class QueryColumn
+public final class QueryColumn
         extends JsonTableColumnDefinition
 {
     private final Identifier name;
@@ -98,12 +98,6 @@ public class QueryColumn
     public Optional<EmptyOrErrorBehavior> getErrorBehavior()
     {
         return errorBehavior;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQueryColumn(this, context);
     }
 
     @Override

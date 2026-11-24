@@ -13,11 +13,11 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,12 +40,6 @@ public record Lambda(List<Symbol> arguments, Expression body)
         return new FunctionType(
                 arguments.stream().map(Symbol::type).collect(Collectors.toList()),
                 body.type());
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLambda(this, context);
     }
 
     @Override

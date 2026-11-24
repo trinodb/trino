@@ -3966,8 +3966,8 @@ class AstBuilder
         };
 
         boolean valid = from instanceof IntervalField.Day ||
-                from instanceof IntervalField.Hour && (to instanceof IntervalField.Minute || to instanceof IntervalField.Second) ||
-                from instanceof IntervalField.Minute && to instanceof IntervalField.Second;
+                (from instanceof IntervalField.Hour && (to instanceof IntervalField.Minute || to instanceof IntervalField.Second)) ||
+                (from instanceof IntervalField.Minute && to instanceof IntervalField.Second);
 
         if (!valid) {
             throw parseError("Invalid interval qualifier: " + context.start.getText() + " TO " + context.end.getText(), context);

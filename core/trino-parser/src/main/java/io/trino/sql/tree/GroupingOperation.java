@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class GroupingOperation
+public final class GroupingOperation
         extends Expression
 {
     private final List<Expression> groupingColumns;
@@ -38,12 +38,6 @@ public class GroupingOperation
     public List<Expression> getGroupingColumns()
     {
         return groupingColumns;
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGroupingOperation(this, context);
     }
 
     @Override

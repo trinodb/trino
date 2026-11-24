@@ -82,12 +82,6 @@ public final class BetweenPredicate
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitBetweenPredicate(this, context);
-    }
-
-    @Override
     public boolean shallowEquals(Node other)
     {
         return sameClass(this, other)

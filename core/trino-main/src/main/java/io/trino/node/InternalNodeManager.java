@@ -18,6 +18,7 @@ import io.trino.spi.HostAddress;
 
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +48,24 @@ public interface InternalNodeManager
     }
 
     AllNodes getAllNodes();
+
+    /**
+     * Returns the given node as it is currently known. A node selected some time ago, for example
+     * when a query started, may have been restarted since, and then it is known with a different
+     * instance id. Returns the given node when it is no longer known.
+     */
+    default InternalNode getCurrentInstance(InternalNode node)
+    {
+        AllNodes allNodes = getAllNodes();
+        if (allNodes.activeNodes().contains(node)) {
+            return node;
+        }
+        return Stream.of(allNodes.activeNodes(), allNodes.inactiveNodes(), allNodes.drainingNodes(), allNodes.drainedNodes(), allNodes.shuttingDownNodes())
+                .flatMap(Set::stream)
+                .filter(candidate -> candidate.getNodeIdentifier().equals(node.getNodeIdentifier()) && candidate.getInternalUri().equals(node.getInternalUri()))
+                .findFirst()
+                .orElse(node);
+    }
 
     boolean isGone(HostAddress hostAddress);
 

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
@@ -87,6 +88,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -95,9 +97,11 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -117,6 +121,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
@@ -238,17 +243,12 @@ public class TestIcebergSplitSource
         String tableName = "test_large_dynamic_filter_bucket_pruning";
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(key, 2)']) AS SELECT key FROM UNNEST(sequence(0, 999)) t(key)", 1000);
         try {
-            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
-            Table table = catalog.loadTable(SESSION, schemaTableName);
-            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all());
-            IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
-                    .columnType(BIGINT)
-                    .build();
+            BucketedTable table = loadBucketedTable(tableName);
             SerializableFunction<Long, Integer> bucket = Transforms.<Long>bucket(2).bind(Types.LongType.get());
 
             // value set of one bucket prunes the file of the other bucket
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 0)))).hasSize(1);
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 1)))).hasSize(1);
+            assertThat(generateSplits(table, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 0)))).hasSize(1);
+            assertThat(generateSplits(table, multipleValues(LongStream.range(0, 1000).filter(value -> bucket.apply(value) == 1)))).hasSize(1);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -263,17 +263,55 @@ public class TestIcebergSplitSource
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(key, 2)']) AS SELECT key FROM UNNEST(sequence(0, 499)) t(key)", 500);
         try {
             assertUpdate("INSERT INTO " + tableName + " SELECT key FROM UNNEST(sequence(500, 999)) t(key)", 500);
-            SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
-            Table table = catalog.loadTable(SESSION, schemaTableName);
-            IcebergTableHandle tableHandle = createTableHandle(schemaTableName, table, TupleDomain.all());
-            IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
-                    .columnType(BIGINT)
-                    .build();
+            BucketedTable table = loadBucketedTable(tableName);
 
             // Iceberg prunes the files outside the span of the value set
             InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
-            assertThat(generateSplits(table, tableHandle, key, multipleValues(LongStream.range(0, 300)), metricsReporter)).hasSize(2);
+            assertThat(generateSplits(table.table(), table.tableHandle(), table.key(), multipleValues(LongStream.range(0, 300)), metricsReporter)).hasSize(2);
             assertThat(metricsReporter.scanReport().scanMetrics().skippedDataFiles().value()).isEqualTo(2);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testRangeBucketPruning()
+            throws Exception
+    {
+        String tableName = "test_range_bucket_pruning";
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(key, 8)']) AS SELECT key, key % 100 AS other FROM UNNEST(sequence(0, 999)) t(key)", 1000);
+        try {
+            BucketedTable table = loadBucketedTable(tableName);
+            SerializableFunction<Long, Integer> bucket = Transforms.<Long>bucket(8).bind(Types.LongType.get());
+            Set<Integer> allBuckets = IntStream.range(0, 8).boxed().collect(toImmutableSet());
+
+            // range on the bucket column keeps only the files of buckets holding its values
+            Set<Integer> rangeBuckets = LongStream.rangeClosed(10, 12).mapToObj(bucket::apply).collect(toImmutableSet());
+            Domain range = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 10L, true, 12L, true)), false);
+            assertBucketFiles(table, generateSplits(table, range), rangeBuckets);
+            assertBucketFiles(table, generateSplits(table, Domain.create(range.getValues(), true)), rangeBuckets);
+
+            IcebergTableHandle rangeTableHandle = createTableHandle(table.tableHandle().getSchemaTableName(), table.table(), TupleDomain.withColumnDomains(ImmutableMap.of(table.key(), range)));
+            assertBucketFiles(table, generateSplits(table.table(), rangeTableHandle, table.key(), Domain.all(BIGINT)), rangeBuckets);
+
+            // ranges expand up to 1000 values for 8 buckets
+            List<Long> bucketZeroValues = LongStream.iterate(2, value -> value + 1)
+                    .filter(value -> bucket.apply(value) == 0)
+                    .limit(999)
+                    .boxed()
+                    .collect(toImmutableList());
+            Domain twoValueRange = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 1L, true)), false);
+            Domain limitValues = twoValueRange.union(Domain.multipleValues(BIGINT, bucketZeroValues.subList(0, 998)));
+            assertBucketFiles(table, generateSplits(table, limitValues), ImmutableSet.of(0, bucket.apply(0L), bucket.apply(1L)));
+            Domain overLimitValues = twoValueRange.union(Domain.multipleValues(BIGINT, bucketZeroValues));
+            assertBucketFiles(table, generateSplits(table, overLimitValues), allBuckets);
+
+            // range on a column other than the bucket column keeps all files
+            IcebergColumnHandle other = IcebergColumnHandle.optional(new ColumnIdentity(2, "other", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                    .columnType(BIGINT)
+                    .build();
+            assertBucketFiles(table, generateSplits(table.table(), table.tableHandle(), other, range), allBuckets);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -297,6 +335,36 @@ public class TestIcebergSplitSource
         TupleDomain<ColumnHandle> dynamicFilterPredicate = TupleDomain.<ColumnHandle>withColumnDomains(ImmutableMap.of(column, dynamicFilterDomain));
         return generateSplits(SESSION, table, tableHandle, ImmutableSet.of(column), new DynamicFilterSnapshot(dynamicFilterPredicate, true), metricsReporter);
     }
+
+    private List<IcebergSplit> generateSplits(BucketedTable table, Domain keyDomain)
+            throws Exception
+    {
+        return generateSplits(table.table(), table.tableHandle(), table.key(), keyDomain);
+    }
+
+    private BucketedTable loadBucketedTable(String tableName)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+        Table table = catalog.loadTable(SESSION, schemaTableName);
+        IcebergColumnHandle key = IcebergColumnHandle.optional(new ColumnIdentity(1, "key", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
+        return new BucketedTable(table, createTableHandle(schemaTableName, table, TupleDomain.all()), key);
+    }
+
+    private static void assertBucketFiles(BucketedTable table, List<IcebergSplit> splits, Set<Integer> buckets)
+            throws IOException
+    {
+        try (CloseableIterable<FileScanTask> tasks = table.table().newScan().planFiles()) {
+            List<String> bucketFiles = Streams.stream(tasks)
+                    .filter(task -> buckets.contains(task.file().partition().get(0, Integer.class)))
+                    .map(task -> task.file().location())
+                    .collect(toImmutableList());
+            assertEqualsIgnoreOrder(splits.stream().map(IcebergSplit::path).collect(toImmutableList()), bucketFiles);
+        }
+    }
+
+    private record BucketedTable(Table table, IcebergTableHandle tableHandle, IcebergColumnHandle key) {}
 
     @Test
     public void testBigintPartitionPruning()
@@ -885,6 +953,7 @@ public class TestIcebergSplitSource
                 SchemaParser.toJson(nationTable.schema()),
                 nationTable.spec() == null ? OptionalInt.empty() : OptionalInt.of(nationTable.spec().specId()),
                 transformValues(nationTable.specs(), PartitionSpecParser::toJson),
+                Optional.empty(),
                 1,
                 unenforcedPredicate,
                 TupleDomain.all(),

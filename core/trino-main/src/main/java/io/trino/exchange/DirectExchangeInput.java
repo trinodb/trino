@@ -29,14 +29,17 @@ public class DirectExchangeInput
 
     private final TaskId taskId;
     private final String location;
+    private final String nodeInstanceId;
 
     @JsonCreator
     public DirectExchangeInput(
             @JsonProperty("taskId") TaskId taskId,
-            @JsonProperty("location") String location)
+            @JsonProperty("location") String location,
+            @JsonProperty("nodeInstanceId") String nodeInstanceId)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
     }
 
     @JsonProperty
@@ -51,12 +54,22 @@ public class DirectExchangeInput
         return location;
     }
 
+    /**
+     * Instance id of the server process running the task the data is read from
+     */
+    @JsonProperty
+    public String getNodeInstanceId()
+    {
+        return nodeInstanceId;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("location", location)
+                .add("nodeInstanceId", nodeInstanceId)
                 .toString();
     }
 
@@ -65,6 +78,7 @@ public class DirectExchangeInput
     {
         return INSTANCE_SIZE
                 + taskId.getRetainedSizeInBytes()
-                + estimatedSizeOf(location);
+                + estimatedSizeOf(location)
+                + estimatedSizeOf(nodeInstanceId);
     }
 }

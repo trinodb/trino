@@ -37,8 +37,8 @@ public record Constant(Type type, @JsonIgnore Object value)
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static Constant fromJson(
-            @JsonProperty Type type,
-            @JsonProperty Block valueAsBlock)
+            @JsonProperty("type") Type type,
+            @JsonProperty("valueAsBlock") Block valueAsBlock)
     {
         return new Constant(type, readNativeValue(type, valueAsBlock, 0));
     }
@@ -50,18 +50,12 @@ public record Constant(Type type, @JsonIgnore Object value)
         }
     }
 
-    @JsonProperty
+    @JsonProperty("valueAsBlock")
     public Block getValueAsBlock()
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         return blockBuilder.build();
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitConstant(this, context);
     }
 
     @Override

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class Analyze
+public final class Analyze
         extends Statement
 {
     private final QualifiedName tableName;
@@ -42,12 +42,6 @@ public class Analyze
     public List<Property> getProperties()
     {
         return properties;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAnalyze(this, context);
     }
 
     @Override

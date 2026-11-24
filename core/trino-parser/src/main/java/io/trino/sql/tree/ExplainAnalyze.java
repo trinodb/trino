@@ -45,12 +45,6 @@ public final class ExplainAnalyze
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExplainAnalyze(this, context);
-    }
-
-    @Override
     public List<Node> getChildren()
     {
         return ImmutableList.of(statement);

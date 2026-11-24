@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateCatalog
+public final class CreateCatalog
         extends Statement
 {
     private final Identifier catalogName;
@@ -78,12 +78,6 @@ public class CreateCatalog
     public Optional<String> getComment()
     {
         return comment;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateCatalog(this, context);
     }
 
     @Override

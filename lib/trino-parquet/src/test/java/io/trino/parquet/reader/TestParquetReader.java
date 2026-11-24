@@ -81,6 +81,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -417,6 +418,63 @@ public class TestParquetReader
                     .startsWith((firstRow + 8) * 10, (firstRow + 9) * 10, (firstRow + 10) * 10);
         }
     }
+
+    @Test
+    public void testPageIndexNotReadForFullyMatchingRowGroups()
+            throws URISyntaxException, IOException
+    {
+        List<String> columnNames = ImmutableList.of("l_shipdate", "l_commitdate");
+        List<Type> types = ImmutableList.of(DATE, DATE);
+        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
+        File file = new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(new FileParquetDataSource(file, options), Optional.empty());
+        assertThat(parquetMetadata.getBlocks()).hasSize(2);
+        long rowCount = parquetMetadata.getBlocks().stream()
+                .mapToLong(BlockMetadata::rowCount)
+                .sum();
+
+        // Row group statistics prove that every row matches
+        TupleDomain<String> allRowsPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                "l_shipdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1900, 1, 1).toEpochDay())), false)));
+
+        ReadSummary unfiltered = readAllPages(file, parquetMetadata, types, columnNames, TupleDomain.all());
+        ReadSummary allRows = readAllPages(file, parquetMetadata, types, columnNames, allRowsPredicate);
+        assertThat(unfiltered.rows()).isEqualTo(rowCount);
+        assertThat(allRows).isEqualTo(unfiltered);
+
+        // The page index is fetched when it can exclude pages
+        ReadSummary pageSkipping = readAllPages(file, parquetMetadata, types, columnNames, sortedLineitemPageSkippingPredicate());
+        assertThat(pageSkipping.rows()).isEqualTo(2387);
+        assertThat(pageSkipping.dataSourceReads()).isGreaterThan(unfiltered.dataSourceReads());
+    }
+
+    private static ReadSummary readAllPages(File file, ParquetMetadata parquetMetadata, List<Type> types, List<String> columnNames, TupleDomain<String> predicate)
+            throws IOException
+    {
+        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
+        AtomicInteger reads = new AtomicInteger();
+        ParquetDataSource dataSource = new FileParquetDataSource(file, options)
+        {
+            @Override
+            protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+                    throws IOException
+            {
+                reads.incrementAndGet();
+                super.readInternal(position, buffer, bufferOffset, bufferLength);
+            }
+        };
+        long rows = 0;
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, options, newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                // Load every column
+                page.getPage();
+                rows += page.getPositionCount();
+            }
+        }
+        return new ReadSummary(rows, reads.get());
+    }
+
+    private record ReadSummary(long rows, int dataSourceReads) {}
 
     // The predicate and the sorted file are prepared so that page indexes result in non-overlapping row ranges
     // which eliminate the entire first row group while the second row group still has to be read

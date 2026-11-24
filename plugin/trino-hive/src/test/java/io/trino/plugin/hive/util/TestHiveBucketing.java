@@ -18,11 +18,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.type.TypeInfo;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.HiveTablePartitioning;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.common.type.Date;
@@ -35,18 +44,26 @@ import org.junit.jupiter.api.Test;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
+import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -222,6 +239,69 @@ public class TestHiveBucketing
                 32,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    @Test
+    public void testBucketFilterFromRanges()
+    {
+        HiveColumnHandle key = createBaseColumn("key", 0, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+        HiveColumnHandle other = createBaseColumn("other", 1, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+        Domain keyRange = closedRange(10, 12);
+        Domain keyValues = Domain.multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L));
+        Domain otherRange = closedRange(20, 21);
+        for (BucketingVersion bucketingVersion : BucketingVersion.values()) {
+            HiveTableHandle keyTable = bucketedTable(bucketingVersion, ImmutableList.of(key, other), ImmutableList.of(key));
+            Optional<HiveBucketFilter> keyValuesFilter = getBucketFilter(keyTable, ImmutableMap.of(key, keyValues));
+            assertThat(keyValuesFilter).isPresent();
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(key, keyRange))).isEqualTo(keyValuesFilter);
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(key, keyRange, other, otherRange))).isEqualTo(keyValuesFilter);
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(other, otherRange))).isEmpty();
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(key, Domain.create(keyRange.getValues(), true))))
+                    .isEqualTo(getBucketFilter(keyTable, ImmutableMap.of(key, Domain.create(keyValues.getValues(), true))));
+
+            // ranges expand up to 1000 values for 8 buckets
+            List<Long> bucketZeroValues = LongStream.iterate(2, value -> value + 1)
+                    .filter(value -> getBucket(bucketingVersion, value) == 0)
+                    .limit(999)
+                    .boxed()
+                    .collect(toImmutableList());
+            Domain twoValueRange = closedRange(0, 1);
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(key, twoValueRange.union(Domain.multipleValues(BIGINT, bucketZeroValues.subList(0, 998))))))
+                    .contains(new HiveBucketFilter(ImmutableSet.of(0, getBucket(bucketingVersion, 0), getBucket(bucketingVersion, 1))));
+            assertThat(getBucketFilter(keyTable, ImmutableMap.of(key, twoValueRange.union(Domain.multipleValues(BIGINT, bucketZeroValues))))).isEmpty();
+
+            // ranges on all bucket columns expand into combinations of their values
+            HiveTableHandle keyOtherTable = bucketedTable(bucketingVersion, ImmutableList.of(key, other), ImmutableList.of(key, other));
+            Optional<HiveBucketFilter> keyOtherValuesFilter = getBucketFilter(keyOtherTable, ImmutableMap.of(key, keyValues, other, Domain.multipleValues(BIGINT, ImmutableList.of(20L, 21L))));
+            assertThat(keyOtherValuesFilter).isPresent();
+            assertThat(getBucketFilter(keyOtherTable, ImmutableMap.of(key, keyRange, other, otherRange))).isEqualTo(keyOtherValuesFilter);
+        }
+    }
+
+    private static Optional<HiveBucketFilter> getBucketFilter(HiveTableHandle table, Map<ColumnHandle, Domain> domains)
+    {
+        return getHiveBucketFilter(table, TupleDomain.withColumnDomains(domains));
+    }
+
+    private static HiveTableHandle bucketedTable(BucketingVersion bucketingVersion, List<HiveColumnHandle> dataColumns, List<HiveColumnHandle> bucketColumns)
+    {
+        return new HiveTableHandle(
+                "schema",
+                "table",
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                dataColumns,
+                Optional.of(new HiveTablePartitioning(true, bucketingVersion, 8, bucketColumns, false, ImmutableList.of(), false)));
+    }
+
+    private static int getBucket(BucketingVersion bucketingVersion, long value)
+    {
+        return getOnlyElement(getHiveBuckets(bucketingVersion, 8, ImmutableList.of(HIVE_LONG.getTypeInfo()), ImmutableList.of(ImmutableList.of(NullableValue.of(BIGINT, value)))).orElseThrow());
+    }
+
+    private static Domain closedRange(long low, long high)
+    {
+        return Domain.create(ValueSet.ofRanges(Range.range(BIGINT, low, true, high, true)), false);
     }
 
     private static void assertBucketsEqual(List<String> hiveTypeStrings, List<List<Object>> hiveValues, int bucketCount, Optional<Set<Integer>> expectedBucketsV1, Optional<Set<Integer>> expectedBucketsV2)

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class LogicalExpression
+public final class LogicalExpression
         extends Expression
 {
     public enum Operator
@@ -68,12 +68,6 @@ public class LogicalExpression
     public List<Expression> getTerms()
     {
         return terms;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLogicalExpression(this, context);
     }
 
     @Override

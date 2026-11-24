@@ -17,6 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergFileNameProvider;
 import io.trino.plugin.iceberg.IcebergFileWriter;
 import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.MetricsWrapper;
@@ -39,7 +40,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 
 public class PositionDeleteWriter
 {
@@ -56,6 +56,7 @@ public class PositionDeleteWriter
             PartitionSpec partitionSpec,
             Optional<PartitionData> partition,
             LocationProvider locationProvider,
+            IcebergFileNameProvider fileNameProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
             ConnectorSession session,
@@ -67,10 +68,7 @@ public class PositionDeleteWriter
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        // Prepend query ID to the file name, allowing us to determine the files written by a query.
-        // This is necessary for opportunistic cleanup of extra files, which may be present for
-        // successfully completed queries in the presence of failure recovery mechanisms.
-        String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
+        String fileName = fileNameProvider.newFileName(session, FileContent.POSITION_DELETES, fileFormat.toIceberg());
         this.outputPath = partition
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));

@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"fr\\\"\\n=====\\nI like coffee\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"fr\\\"\\n=====\\nI like coffee\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -73,7 +73,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"es\\\"\\n=====\\nI like coffee\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"es\\\"\\n=====\\nI like coffee\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -126,7 +126,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"zh-CN\\\"\\n=====\\nI like coffee\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"zh-CN\\\"\\n=====\\nI like coffee\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {
@@ -179,7 +179,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"zh-TW\\\"\\n=====\\nI like coffee\\n\"\n  } ],\n  \"seed\" : 0\n}"
+          "value" : "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"Translate the text below to the language specified.\\nThe language is encoded as a JSON string.\\nOutput only the translated text.\\nLanguage: \\\"zh-TW\\\"\\n=====\\nI like coffee\\n\"}],\"seed\":0}"
         } ]
       },
       "response" : {

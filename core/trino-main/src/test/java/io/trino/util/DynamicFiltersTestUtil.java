@@ -16,8 +16,10 @@ package io.trino.util;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
@@ -36,6 +38,7 @@ import java.util.stream.LongStream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
+import static io.trino.spi.predicate.Range.range;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -64,6 +67,21 @@ public final class DynamicFiltersTestUtil
         else {
             formattedValues = format("{[%d], ..., [%d]}", low, high);
         }
+        return formatSimplifiedDomain(type, rangeCount, formattedValues);
+    }
+
+    public static String getSimplifiedRangeDomainString(long low, long high, Type type)
+    {
+        return formatSimplifiedDomain(type, 1, format("{[%d,%d]}", low, high));
+    }
+
+    public static Domain closedRange(Type type, long low, long high)
+    {
+        return Domain.create(ValueSet.ofRanges(range(type, low, true, high, true)), false);
+    }
+
+    private static String formatSimplifiedDomain(Type type, int rangeCount, String formattedValues)
+    {
         return "[ " +
                 new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
                         .add("type=" + type)

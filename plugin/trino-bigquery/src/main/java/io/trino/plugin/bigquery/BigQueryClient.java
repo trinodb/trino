@@ -503,7 +503,9 @@ public class BigQueryClient
     public long executeUpdate(ConnectorSession session, QueryJobConfiguration job)
     {
         log.debug("Execute query: %s", job.getQuery());
-        return execute(session, job).getTotalRows();
+        TableResult result = execute(session, job);
+        // totalRows is 0 for a DML query which does not complete within the jobs.query wait
+        return requireNonNullElse(result.getNumDmlAffectedRows(), result.getTotalRows());
     }
 
     public TableResult executeQuery(ConnectorSession session, String sql)

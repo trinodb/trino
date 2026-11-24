@@ -14,12 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.server.HttpConfig;
-import io.airlift.http.server.HttpServerConfig;
-import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -48,8 +43,8 @@ import software.amazon.awssdk.services.sts.model.Credentials;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
-import java.util.Optional;
 
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.createTestingHttpServer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
@@ -115,13 +110,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
 
         RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
-        NodeInfo nodeInfo = new NodeInfo("test");
-        HttpServerConfig config = new HttpServerConfig()
-                .setHttpEnabled(true);
-        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
-        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
-                .withLegacyUriCompliance(true)
-                .build());
+        TestingHttpServer testServer = createTestingHttpServer(servlet);
         testServer.start();
         closeAfterClass(testServer::stop);
 

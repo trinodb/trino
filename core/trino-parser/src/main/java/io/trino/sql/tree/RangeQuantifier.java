@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class RangeQuantifier
+public final class RangeQuantifier
         extends PatternQuantifier
 {
     private final Optional<LongLiteral> atLeast;
@@ -43,12 +43,6 @@ public class RangeQuantifier
     public Optional<LongLiteral> getAtMost()
     {
         return atMost;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRangeQuantifier(this, context);
     }
 
     @Override

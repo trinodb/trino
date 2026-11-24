@@ -13,23 +13,31 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.SortedSet;
 
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
+import static java.lang.Math.multiplyExact;
 import static java.util.Comparator.comparingInt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 
-final class TestTimeZoneKey
+public final class TestTimeZoneKey
 {
     private static final TimeZoneKey PLUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(7 * 60);
     private static final TimeZoneKey MINUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(-7 * 60);
@@ -49,6 +57,7 @@ final class TestTimeZoneKey
         assertThat(TimeZoneKey.getTimeZoneKey("UT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("UCT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Universal")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Greenwich")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT0")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("GMT+0")).isSameAs(UTC_KEY);
@@ -67,6 +76,8 @@ final class TestTimeZoneKey
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/UT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/UCT")).isSameAs(UTC_KEY);
         assertThat(TimeZoneKey.getTimeZoneKey("Etc/Universal")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Etc/Greenwich")).isSameAs(UTC_KEY);
+        assertThat(TimeZoneKey.getTimeZoneKey("Etc/Zulu")).isSameAs(UTC_KEY);
     }
 
     @Test
@@ -153,11 +164,63 @@ final class TestTimeZoneKey
     }
 
     @Test
+    public void testPrefixedOffsetZones()
+    {
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            if (!(timeZoneKey.getZoneId() instanceof ZoneOffset offset)) {
+                continue;
+            }
+            for (String prefix : List.of("GMT", "UTC", "UT", "Etc/UTC", "Etc/UT")) {
+                String zoneId = prefix + offset.getId();
+                assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).as(zoneId).isSameAs(timeZoneKey);
+            }
+            String zoneId = "Etc/GMT" + ZoneOffset.ofTotalSeconds(-offset.getTotalSeconds()).getId();
+            assertThat(TimeZoneKey.getTimeZoneKey(zoneId)).as(zoneId).isSameAs(timeZoneKey);
+        }
+    }
+
+    @Test
     public void testZoneKeyLookup()
     {
         for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
             assertThat(TimeZoneKey.getTimeZoneKey(timeZoneKey.getKey())).isSameAs(timeZoneKey);
             assertThat(TimeZoneKey.getTimeZoneKey(timeZoneKey.getId())).isSameAs(timeZoneKey);
+        }
+    }
+
+    @Test
+    public void testTimeZoneSupport()
+    {
+        long[] checkpoints = {
+                0,
+                SECONDS_PER_DAY,
+                365L * SECONDS_PER_DAY,
+                // past modern date time
+                ZonedDateTime.of(2005, 9, 10, 13, 31, 0, 0, ZoneId.of("Europe/Warsaw")).toEpochSecond(),
+                // more recent modern date time
+                ZonedDateTime.of(2026, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toEpochSecond(),
+                // recent before epoch
+                -SECONDS_PER_DAY,
+                // TODO test with distant past and future dates. Currently, JDK and Joda time zones disagree on dates in the middle of 20th century and also for distant future dates
+        };
+
+        for (TimeZoneKey timeZoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            ZoneId jdkZone = timeZoneKey.getZoneId();
+            DateTimeZone jodaZone = DateTimeZone.forID(timeZoneKey.getId());
+
+            for (long epochSeconds : checkpoints) {
+                int jdkOffset = multiplyExact(jdkZone.getRules().getOffset(Instant.ofEpochSecond(epochSeconds)).getTotalSeconds(), 1000);
+                int jodaOffset = jodaZone.getOffset(multiplyExact(epochSeconds, 1000));
+                if (jdkOffset != jodaOffset) {
+                    fail("For TimeZoneKey %s, JDK ZoneId %s and Joda DateTimeZone %s offsets differ at epoch seconds %d: JDK offset %d, Joda offset %d",
+                            timeZoneKey,
+                            jdkZone,
+                            jodaZone,
+                            epochSeconds,
+                            jdkOffset,
+                            jodaOffset);
+                }
+            }
         }
     }
 
@@ -234,7 +297,6 @@ final class TestTimeZoneKey
 
     @Test
     public void testRoundTripSerialization()
-            throws IOException
     {
         JsonMapper mapper = new JsonMapper();
 

@@ -18,10 +18,11 @@ import org.apache.iceberg.SortField;
 
 import static java.util.Objects.requireNonNull;
 
-public record TrinoSortField(int sourceColumnId, SortOrder sortOrder)
+public record TrinoSortField(int sourceColumnId, String transform, SortOrder sortOrder)
 {
     public TrinoSortField
     {
+        requireNonNull(transform, "transform is null");
         requireNonNull(sortOrder, "sortOrder is null");
     }
 
@@ -38,6 +39,6 @@ public record TrinoSortField(int sourceColumnId, SortOrder sortOrder)
             };
         };
 
-        return new TrinoSortField(sortField.sourceId(), sortOrder);
+        return new TrinoSortField(sortField.sourceId(), sortField.transform().toString(), sortOrder);
     }
 }

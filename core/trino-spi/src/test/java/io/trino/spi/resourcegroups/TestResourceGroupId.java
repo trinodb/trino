@@ -36,7 +36,7 @@ class TestResourceGroupId
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("test.test"), "foo");
         assertThat(codec.fromJson(codec.toJson(resourceGroupId))).isEqualTo(resourceGroupId);
 
-        assertThat(codec.toJson(resourceGroupId)).isEqualTo("[ \"test.test\", \"foo\" ]");
+        assertThat(codec.toJson(resourceGroupId)).isEqualTo("[\"test.test\",\"foo\"]");
         assertThat(codec.fromJson("[\"test.test\", \"foo\"]")).isEqualTo(resourceGroupId);
     }
 

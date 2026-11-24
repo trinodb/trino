@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class TruncateTable
+public final class TruncateTable
         extends Statement
 {
     private final QualifiedName tableName;
@@ -34,12 +34,6 @@ public class TruncateTable
     public QualifiedName getTableName()
     {
         return tableName;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTruncateTable(this, context);
     }
 
     @Override

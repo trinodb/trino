@@ -13,7 +13,6 @@
  */
 package io.trino.jsonpath;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -81,6 +80,7 @@ import io.trino.type.RealOperators;
 import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
+import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

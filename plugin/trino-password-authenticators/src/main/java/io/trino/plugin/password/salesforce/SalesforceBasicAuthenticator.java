@@ -152,6 +152,16 @@ public class SalesforceBasicAuthenticator
         Document xmlResponse;
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            // Defense in depth: without a DOCTYPE, the settings below have nothing to act on
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "");
+            factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "");
+            factory.setFeature("http://javax.xml.XMLConstants/feature/secure-processing", true);
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
             DocumentBuilder builder = factory.newDocumentBuilder();
             xmlResponse = builder.parse(new InputSource(Reader.of(
                     response.getBody())));

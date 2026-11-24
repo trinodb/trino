@@ -27,6 +27,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -389,6 +390,95 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_part");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part");
+    }
+
+    @Test
+    public void testTimeTravelOnMaterializedView()
+    {
+        String tableName = "test_time_travel_base_" + randomNameSuffix();
+        String materializedViewName = "test_time_travel_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES 1, 2) t(x)", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT x FROM " + tableName);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+        long firstSnapshotId = getStorageTableMetadata(materializedViewName).currentSnapshot().snapshotId();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+        long secondSnapshotId = getStorageTableMetadata(materializedViewName).currentSnapshot().snapshotId();
+        assertThat(secondSnapshotId).isNotEqualTo(firstSnapshotId);
+
+        assertThat(query("SELECT x FROM " + materializedViewName)).matches("VALUES 1, 2, 3");
+        assertThat(query("SELECT x FROM " + materializedViewName + " FOR VERSION AS OF " + firstSnapshotId)).matches("VALUES 1, 2");
+        assertThat(query("SELECT x FROM " + materializedViewName + " FOR VERSION AS OF " + secondSnapshotId)).matches("VALUES 1, 2, 3");
+
+        long incorrectSnapshotId = secondSnapshotId + 1;
+        assertThat(query("SELECT x FROM " + materializedViewName + " FOR VERSION AS OF " + incorrectSnapshotId))
+                .failure()
+                .hasMessageContaining("Iceberg snapshot ID does not exists: " + incorrectSnapshotId);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelOnStaleMaterializedView()
+    {
+        for (WhenStaleBehavior whenStale : WhenStaleBehavior.values()) {
+            testTimeTravelOnStaleMaterializedView(whenStale);
+        }
+    }
+
+    private void testTimeTravelOnStaleMaterializedView(WhenStaleBehavior whenStale)
+    {
+        String tableName = "test_time_travel_stale_base_" + randomNameSuffix();
+        String materializedViewName = "test_time_travel_stale_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES 1, 2) t(x)", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " GRACE PERIOD INTERVAL '0' SECOND WHEN STALE " + whenStale.name() + " AS SELECT x FROM " + tableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+        long snapshotId = getStorageTableMetadata(materializedViewName).currentSnapshot().snapshotId();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+        assertQuery(
+                "SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'",
+                "VALUES 'STALE'");
+
+        switch (whenStale) {
+            case INLINE -> assertThat(query("SELECT x FROM " + materializedViewName)).matches("VALUES 1, 2, 3");
+            case FAIL -> assertThat(query("SELECT x FROM " + materializedViewName)).failure().hasMessageContaining("is stale");
+        }
+        // Versioned reads use the storage table snapshot regardless of freshness
+        assertThat(query("SELECT x FROM " + materializedViewName + " FOR VERSION AS OF " + snapshotId)).matches("VALUES 1, 2");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelOnReplacedMaterializedViewWithDifferentSchema()
+    {
+        String tableName = "test_time_travel_replace_base_" + randomNameSuffix();
+        String materializedViewName = "test_time_travel_replace_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t(x, y)", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT x FROM " + tableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+        long originalSnapshotId = getStorageTableMetadata(materializedViewName).currentSnapshot().snapshotId();
+
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW " + materializedViewName + " AS SELECT x, y FROM " + tableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+        long replacedSnapshotId = getStorageTableMetadata(materializedViewName).currentSnapshot().snapshotId();
+        assertThat(replacedSnapshotId).isNotEqualTo(originalSnapshotId);
+
+        assertThat(query("SELECT * FROM " + materializedViewName)).matches("VALUES (1, VARCHAR 'a'), (2, VARCHAR 'b')");
+        assertThat(query("SELECT * FROM " + materializedViewName + " FOR VERSION AS OF " + replacedSnapshotId))
+                .matches("VALUES (1, VARCHAR 'a'), (2, VARCHAR 'b')");
+        // The snapshot predates the replace, so its schema no longer matches the current materialized view definition
+        assertThat(query("SELECT * FROM " + materializedViewName + " FOR VERSION AS OF " + originalSnapshotId))
+                .failure()
+                .hasMessageContaining("storage table column count (1) does not match column count derived from the materialized view query analysis (2)");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

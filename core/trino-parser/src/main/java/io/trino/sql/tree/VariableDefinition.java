@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class VariableDefinition
+public final class VariableDefinition
         extends Node
 {
     private final Identifier name;
@@ -42,12 +42,6 @@ public class VariableDefinition
     public Expression getExpression()
     {
         return expression;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitVariableDefinition(this, context);
     }
 
     @Override

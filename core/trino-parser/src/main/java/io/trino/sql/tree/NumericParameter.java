@@ -22,7 +22,7 @@ import java.util.Optional;
 import static io.trino.sql.tree.NumericParser.parseNumeric;
 import static java.util.Objects.requireNonNull;
 
-public class NumericParameter
+public final class NumericParameter
         extends DataTypeParameter
 {
     private final String value;
@@ -60,12 +60,6 @@ public class NumericParameter
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNumericTypeParameter(this, context);
     }
 
     @Override

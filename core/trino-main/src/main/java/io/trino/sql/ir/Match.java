@@ -13,10 +13,10 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 
@@ -58,12 +58,6 @@ public record Match(Expression operand, List<MatchClause> clauses, Expression de
     public Type type()
     {
         return clauses.getFirst().result().type();
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMatch(this, context);
     }
 
     @Override

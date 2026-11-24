@@ -17,8 +17,8 @@
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
         <dep.nessie.version>0.109.0</dep.nessie.version>
-        <dep.keycloak-admin.version>26.0.12</dep.keycloak-admin.version>
-        <dep.keycloak.version>26.8.1</dep.keycloak.version>
+        <dep.keycloak-admin.version>26.0.13</dep.keycloak-admin.version>
+        <dep.keycloak.version>26.8.2</dep.keycloak.version>
     </properties>
 
     <dependencyManagement>
@@ -39,16 +39,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -349,6 +339,16 @@
         </dependency>
 
         <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
@@ -643,6 +643,7 @@
             <artifactId>trino-blob-cache-alluxio</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-blob-cache-memory</artifactId>
@@ -831,6 +832,18 @@
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
             <version>${dep.keycloak.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
 

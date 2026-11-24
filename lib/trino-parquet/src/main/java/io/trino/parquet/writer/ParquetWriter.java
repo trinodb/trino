@@ -45,11 +45,13 @@ import org.apache.parquet.format.BloomFilterCompression;
 import org.apache.parquet.format.BloomFilterHash;
 import org.apache.parquet.format.BloomFilterHeader;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.ColumnOrder;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SplitBlockAlgorithm;
+import org.apache.parquet.format.TypeDefinedOrder;
 import org.apache.parquet.format.Uncompressed;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.format.XxHash;
@@ -91,7 +93,9 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriter
@@ -115,6 +119,8 @@ public class ParquetWriter
     private List<ColumnWriter> columnWriters;
     private int rows;
     private long estimatedBufferedBytes;
+    // the page sink asks for the retained size before and after every page, and walking all column writers each time is costly
+    private long retainedBytes;
     private CompressionStats previousCompressionStats = CompressionStats.EMPTY;
     private OptionalInt footerReadSize = OptionalInt.empty();
     private boolean closed;
@@ -149,6 +155,7 @@ public class ParquetWriter
         recordValidation(validation -> validation.setCreatedBy(createdBy));
         initColumnWriters();
         this.chunkMaxBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
+        updateRetainedBytes();
     }
 
     public long getEstimatedWrittenBytes()
@@ -158,11 +165,7 @@ public class ParquetWriter
 
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE +
-                outputStream.getRetainedSize() +
-                compressionBuffers.getRetainedSize() +
-                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum() +
-                validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
+        return retainedBytes;
     }
 
     public void write(Page page)
@@ -190,6 +193,7 @@ public class ParquetWriter
             writeOffset += chunk.getPositionCount();
             writeChunk(chunk);
         }
+        updateRetainedBytes();
     }
 
     private void writeChunk(Page page)
@@ -230,6 +234,7 @@ public class ParquetWriter
             writeFooter();
         }
         estimatedBufferedBytes = 0;
+        updateRetainedBytes();
     }
 
     public void validate(ParquetDataSource input)
@@ -406,6 +411,7 @@ public class ParquetWriter
                             null);
                     bloomFilter.writeTo(outputStream);
                     columns.get(i).getMeta_data().setBloom_filter_offset(bloomFilterOffset);
+                    columns.get(i).getMeta_data().setBloom_filter_length(toIntExact(outputStream.longSize() - bloomFilterOffset));
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -460,6 +466,19 @@ public class ParquetWriter
         return "parquet-mr-trino version " + trinoVersion + " (build n/a)";
     }
 
+    private void updateRetainedBytes()
+    {
+        long columnWritersRetainedBytes = 0;
+        for (ColumnWriter columnWriter : columnWriters) {
+            columnWritersRetainedBytes += columnWriter.getRetainedBytes();
+        }
+        retainedBytes = INSTANCE_SIZE +
+                outputStream.getRetainedSize() +
+                compressionBuffers.getRetainedSize() +
+                columnWritersRetainedBytes +
+                validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
+    }
+
     private void initColumnWriters()
     {
         this.columnWriters = ParquetWriters.getColumnWriters(
@@ -505,6 +524,8 @@ public class ParquetWriter
                     totalRows,
                     ImmutableList.copyOf(rowGroups));
             fileMetaData.setCreated_by(createdBy);
+            // Statistics are written in the type defined order, declare it so that readers can interpret the min and max values
+            fileMetaData.setColumn_orders(nCopies(messageType.getColumns().size(), ColumnOrder.TYPE_ORDER(new TypeDefinedOrder())));
             // Added based on org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport
             parquetTimeZone.ifPresent(dateTimeZone -> fileMetaData.setKey_value_metadata(
                     ImmutableList.of(new KeyValue("writer.time.zone").setValue(dateTimeZone.getID()))));

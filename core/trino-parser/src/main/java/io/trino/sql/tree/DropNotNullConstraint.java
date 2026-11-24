@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DropNotNullConstraint
+public final class DropNotNullConstraint
         extends Statement
 {
     private final QualifiedName table;
@@ -49,12 +49,6 @@ public class DropNotNullConstraint
     public boolean isTableExists()
     {
         return tableExists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropNotNullConstraint(this, context);
     }
 
     @Override

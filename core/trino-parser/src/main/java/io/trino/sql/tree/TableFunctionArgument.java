@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TableFunctionArgument
+public final class TableFunctionArgument
         extends Node
 {
     private final Optional<Identifier> name;
@@ -45,12 +45,6 @@ public class TableFunctionArgument
     public Node getValue()
     {
         return value;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableFunctionArgument(this, context);
     }
 
     @Override

@@ -13,17 +13,18 @@
  */
 package io.trino.sql.analyzer;
 
-import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 
 public final class ConstantExpressionVerifier
 {
@@ -31,42 +32,20 @@ public final class ConstantExpressionVerifier
 
     public static void verifyExpressionIsConstant(Set<NodeRef<Expression>> columnReferences, Expression expression)
     {
-        new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
+        verify(columnReferences, expression, expression);
     }
 
-    private static class ConstantExpressionVerifierVisitor
-            extends DefaultTraversalVisitor<Void>
+    private static void verify(Set<NodeRef<Expression>> columnReferences, Expression expression, Node node)
     {
-        private final Set<NodeRef<Expression>> columnReferences;
-        private final Expression expression;
-
-        public ConstantExpressionVerifierVisitor(Set<NodeRef<Expression>> columnReferences, Expression expression)
-        {
-            this.columnReferences = columnReferences;
-            this.expression = expression;
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
-        {
-            if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+        switch (node) {
+            case DereferenceExpression dereference -> {
+                if (columnReferences.contains(NodeRef.<Expression>of(dereference))) {
+                    throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+                }
+                verify(columnReferences, expression, dereference.getBase());
             }
-
-            process(node.getBase(), context);
-            return null;
-        }
-
-        @Override
-        protected Void visitIdentifier(Identifier node, Void context)
-        {
-            throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-        }
-
-        @Override
-        protected Void visitFieldReference(FieldReference node, Void context)
-        {
-            throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            case Identifier _, FieldReference _ -> throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            default -> forEachChild(node, child -> verify(columnReferences, expression, child));
         }
     }
 }

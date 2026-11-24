@@ -39,12 +39,6 @@ public final class PropertiesCharacteristic
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPropertiesCharacteristic(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of();

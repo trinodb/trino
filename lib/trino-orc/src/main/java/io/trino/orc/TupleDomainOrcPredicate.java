@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -68,6 +69,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate
@@ -75,31 +77,29 @@ public class TupleDomainOrcPredicate
 {
     private final List<ColumnDomain> columnDomains;
     private final boolean orcBloomFiltersEnabled;
-    private final int domainCompactionThreshold;
 
     public static TupleDomainOrcPredicateBuilder builder()
     {
         return new TupleDomainOrcPredicateBuilder();
     }
 
-    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled, int domainCompactionThreshold)
+    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled)
     {
         this.columnDomains = ImmutableList.copyOf(requireNonNull(columnDomains, "columnDomains is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
-        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
     public boolean matches(long numberOfRows, ColumnMetadata<ColumnStatistics> allColumnStatistics)
     {
         for (ColumnDomain column : columnDomains) {
-            ColumnStatistics columnStatistics = allColumnStatistics.get(column.getColumnId());
+            ColumnStatistics columnStatistics = allColumnStatistics.get(column.columnId());
             if (columnStatistics == null) {
                 // no statistics for this column, so we can't exclude this section
                 continue;
             }
 
-            if (!columnOverlaps(column.getDomain(), numberOfRows, columnStatistics)) {
+            if (!columnOverlaps(column.domain(), column.discreteValues(), numberOfRows, columnStatistics)) {
                 return false;
             }
         }
@@ -108,7 +108,7 @@ public class TupleDomainOrcPredicate
         return true;
     }
 
-    private boolean columnOverlaps(Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
+    private boolean columnOverlaps(Domain predicateDomain, Optional<Collection<Object>> discreteValues, long numberOfRows, ColumnStatistics columnStatistics)
     {
         Domain stripeDomain = getDomain(predicateDomain.getType(), numberOfRows, columnStatistics);
         if (!stripeDomain.overlaps(predicateDomain)) {
@@ -131,8 +131,6 @@ public class TupleDomainOrcPredicate
             return true;
         }
 
-        // extract the discrete values from the predicate
-        Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
         if (discreteValues.isEmpty()) {
             // values are not discrete, so we can't exclude this section
             return true;
@@ -146,15 +144,6 @@ public class TupleDomainOrcPredicate
 
         // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
         return discreteValues.get().stream().anyMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()));
-    }
-
-    private Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
-    {
-        if (!valueSet.isDiscreteSet()) {
-            return valueSet.tryExpandRanges(domainCompactionThreshold);
-        }
-
-        return Optional.of(valueSet.getDiscreteSet());
     }
 
     // checks whether a value part of the effective predicate is likely to be part of this bloom filter
@@ -183,24 +172,37 @@ public class TupleDomainOrcPredicate
         }
 
         // Bloom filters for timestamps are truncated to millis
-        if (sqlType.equals(TIMESTAMP_MILLIS)) {
-            return bloomFilter.testLong(((Number) predicateValue).longValue());
-        }
-        if (sqlType.equals(TIMESTAMP_MICROS)) {
-            return bloomFilter.testLong(floorDiv(((Number) predicateValue).longValue(), MICROSECONDS_PER_MILLISECOND));
+        if (sqlType.equals(TIMESTAMP_MILLIS) || sqlType.equals(TIMESTAMP_MICROS)) {
+            long epochMicros = ((Number) predicateValue).longValue();
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            boolean onMillisecondBoundary = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) == 0;
+            return testMillisOrPreviousOnBoundary(bloomFilter, epochMillis, onMillisecondBoundary);
         }
         if (sqlType.equals(TIMESTAMP_NANOS)) {
             return bloomFilter.testLong(floorDiv(((LongTimestamp) predicateValue).getEpochMicros(), MICROSECONDS_PER_MILLISECOND));
         }
         if (sqlType.equals(TIMESTAMP_TZ_MILLIS)) {
-            return bloomFilter.testLong(unpackMillisUtc(((Number) predicateValue).longValue()));
+            return testMillisOrPreviousOnBoundary(bloomFilter, unpackMillisUtc(((Number) predicateValue).longValue()), true);
         }
-        if (sqlType.equals(TIMESTAMP_TZ_MICROS) || sqlType.equals(TIMESTAMP_TZ_NANOS)) {
+        if (sqlType.equals(TIMESTAMP_TZ_MICROS)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) predicateValue;
+            return testMillisOrPreviousOnBoundary(bloomFilter, timestamp.getEpochMillis(), timestamp.getPicosOfMilli() == 0);
+        }
+        if (sqlType.equals(TIMESTAMP_TZ_NANOS)) {
             return bloomFilter.testLong(((LongTimestampWithTimeZone) predicateValue).getEpochMillis());
         }
 
         // todo support DECIMAL, and CHAR
         return true;
+    }
+
+    // Reads below nanosecond precision round half up, so a value on a millisecond boundary may be stored under the previous millisecond
+    private static boolean testMillisOrPreviousOnBoundary(BloomFilter bloomFilter, long epochMillis, boolean onMillisecondBoundary)
+    {
+        if (bloomFilter.testLong(epochMillis)) {
+            return true;
+        }
+        return onMillisecondBoundary && bloomFilter.testLong(epochMillis - 1);
     }
 
     @VisibleForTesting
@@ -338,14 +340,13 @@ public class TupleDomainOrcPredicate
 
     public static class TupleDomainOrcPredicateBuilder
     {
-        private final List<ColumnDomain> columns = new ArrayList<>();
+        private final List<AddedColumn> columns = new ArrayList<>();
         private boolean bloomFiltersEnabled;
         private int domainCompactionThreshold;
 
         public TupleDomainOrcPredicateBuilder addColumn(OrcColumnId columnId, Domain domain)
         {
-            requireNonNull(domain, "domain is null");
-            columns.add(new ColumnDomain(columnId, domain));
+            columns.add(new AddedColumn(columnId, domain));
             return this;
         }
 
@@ -363,29 +364,42 @@ public class TupleDomainOrcPredicate
 
         public TupleDomainOrcPredicate build()
         {
-            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled, domainCompactionThreshold);
+            List<ColumnDomain> columnDomains = columns.stream()
+                    .map(column -> new ColumnDomain(column.columnId(), column.domain(), extractDiscreteValues(column.domain().getValues())))
+                    .collect(toImmutableList());
+            return new TupleDomainOrcPredicate(columnDomains, bloomFiltersEnabled);
+        }
+
+        private Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+        {
+            if (!bloomFiltersEnabled) {
+                return Optional.empty();
+            }
+
+            if (!valueSet.isDiscreteSet()) {
+                return valueSet.tryExpandRanges(domainCompactionThreshold);
+            }
+
+            return Optional.of(valueSet.getDiscreteSet());
         }
     }
 
-    private static class ColumnDomain
+    private record AddedColumn(OrcColumnId columnId, Domain domain)
     {
-        private final OrcColumnId columnId;
-        private final Domain domain;
-
-        public ColumnDomain(OrcColumnId columnId, Domain domain)
+        private AddedColumn
         {
-            this.columnId = requireNonNull(columnId, "columnId is null");
-            this.domain = requireNonNull(domain, "domain is null");
+            requireNonNull(columnId, "columnId is null");
+            requireNonNull(domain, "domain is null");
         }
+    }
 
-        public OrcColumnId getColumnId()
+    private record ColumnDomain(OrcColumnId columnId, Domain domain, Optional<Collection<Object>> discreteValues)
+    {
+        private ColumnDomain
         {
-            return columnId;
-        }
-
-        public Domain getDomain()
-        {
-            return domain;
+            requireNonNull(columnId, "columnId is null");
+            requireNonNull(domain, "domain is null");
+            requireNonNull(discreteValues, "discreteValues is null");
         }
 
         @Override

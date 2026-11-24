@@ -65,7 +65,6 @@ public class SparkIceberg
                 .add("--master", "local[*]")
                 .add("--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2")
                 .add("--name", "Thrift JDBC/ODBC Server")
-                .add("--packages", "org.apache.spark:spark-avro_2.12:3.2.1")
                 .add("--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT)
                 .add("spark-internal")
                 .build());

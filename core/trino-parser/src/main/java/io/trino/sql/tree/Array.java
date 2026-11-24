@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Array
+public final class Array
         extends Expression
 {
     private final List<Expression> values;
@@ -40,12 +40,6 @@ public class Array
     public List<Expression> getValues()
     {
         return values;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArray(this, context);
     }
 
     @Override

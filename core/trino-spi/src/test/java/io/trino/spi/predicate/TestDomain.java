@@ -13,7 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
@@ -24,6 +23,7 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 
@@ -41,6 +41,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDomain
 {
+    @Test
+    public void testSetOperationReuse()
+    {
+        Domain point = Domain.singleValue(BIGINT, 1L);
+        assertThat(point.intersect(point)).isSameAs(point);
+        assertThat(point.union(point)).isSameAs(point);
+        assertThat(point.intersect(Domain.all(BIGINT))).isSameAs(point);
+        assertThat(Domain.all(BIGINT).intersect(point)).isSameAs(point);
+        assertThat(point.union(Domain.none(BIGINT))).isSameAs(point);
+        assertThat(Domain.none(BIGINT).union(point)).isSameAs(point);
+        assertThatThrownBy(() -> point.intersect(Domain.all(DOUBLE))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> point.union(Domain.none(DOUBLE))).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     public void testOrderableNone()
     {
@@ -522,7 +536,6 @@ public class TestDomain
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(

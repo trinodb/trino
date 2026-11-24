@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static java.util.Objects.requireNonNull;
 
-public class ValueColumn
+public final class ValueColumn
         extends JsonTableColumnDefinition
 {
     private final Identifier name;
@@ -56,7 +56,7 @@ public class ValueColumn
         checkArgument(emptyBehavior != DEFAULT || emptyDefault.isPresent(), "DEFAULT ... ON EMPTY option requires default value");
         this.errorBehavior = requireNonNull(errorBehavior, "errorBehavior is null");
         this.errorDefault = requireNonNull(errorDefault, "errorDefault is null");
-        checkArgument(errorBehavior.isPresent() && errorBehavior.get() == DEFAULT || !errorDefault.isPresent(), "default value can be specified only for DEFAULT ... ON ERROR option");
+        checkArgument((errorBehavior.isPresent() && errorBehavior.get() == DEFAULT) || !errorDefault.isPresent(), "default value can be specified only for DEFAULT ... ON ERROR option");
         checkArgument(!errorBehavior.isPresent() || errorBehavior.get() != DEFAULT || errorDefault.isPresent(), "DEFAULT ... ON ERROR option requires default value");
     }
 
@@ -93,12 +93,6 @@ public class ValueColumn
     public Optional<Expression> getErrorDefault()
     {
         return errorDefault;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitValueColumn(this, context);
     }
 
     @Override

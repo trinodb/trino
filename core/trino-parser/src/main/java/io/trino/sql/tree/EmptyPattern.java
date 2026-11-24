@@ -19,18 +19,12 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class EmptyPattern
+public final class EmptyPattern
         extends RowPattern
 {
     public EmptyPattern(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitEmptyPattern(this, context);
     }
 
     @Override

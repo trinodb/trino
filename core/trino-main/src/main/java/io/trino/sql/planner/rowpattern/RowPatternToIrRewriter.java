@@ -17,7 +17,6 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.planner.rowpattern.ir.IrAlternation;
 import io.trino.sql.planner.rowpattern.ir.IrAnchor;
-import io.trino.sql.planner.rowpattern.ir.IrAnchor.Type;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
 import io.trino.sql.planner.rowpattern.ir.IrEmpty;
 import io.trino.sql.planner.rowpattern.ir.IrExclusion;
@@ -27,7 +26,6 @@ import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.planner.rowpattern.ir.IrQuantifier;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AnchorPattern;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.OneOrMoreQuantifier;
@@ -54,7 +52,6 @@ import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.zeroOrOne;
 import static java.util.Objects.requireNonNull;
 
 public class RowPatternToIrRewriter
-        extends AstVisitor<IrRowPattern, Void>
 {
     private final Analysis analysis;
 
@@ -68,95 +65,40 @@ public class RowPatternToIrRewriter
         return new RowPatternToIrRewriter(analysis).process(node);
     }
 
-    @Override
-    protected IrRowPattern visitPatternAlternation(PatternAlternation node, Void context)
+    private IrRowPattern process(RowPattern node)
     {
-        List<IrRowPattern> patterns = node.getPatterns().stream()
-                .map(this::process)
-                .collect(toImmutableList());
-
-        return new IrAlternation(patterns);
+        return switch (node) {
+            case PatternAlternation alternation -> new IrAlternation(processAll(alternation.getPatterns()));
+            case PatternConcatenation concatenation -> new IrConcatenation(processAll(concatenation.getPatterns()));
+            case QuantifiedPattern quantified -> new IrQuantified(process(quantified.getPattern()), rewritePatternQuantifier(quantified.getPatternQuantifier()));
+            case AnchorPattern anchor -> new IrAnchor(switch (anchor.getType()) {
+                case PARTITION_START -> PARTITION_START;
+                case PARTITION_END -> PARTITION_END;
+            });
+            case EmptyPattern _ -> new IrEmpty();
+            case ExcludedPattern excluded -> new IrExclusion(process(excluded.getPattern()));
+            case PatternPermutation permutation -> new IrPermutation(processAll(permutation.getPatterns()));
+            case PatternVariable variable -> new IrLabel(variable.getName().getCanonicalValue());
+        };
     }
 
-    @Override
-    protected IrRowPattern visitPatternConcatenation(PatternConcatenation node, Void context)
+    private List<IrRowPattern> processAll(List<RowPattern> patterns)
     {
-        List<IrRowPattern> patterns = node.getPatterns().stream()
+        return patterns.stream()
                 .map(this::process)
                 .collect(toImmutableList());
-
-        return new IrConcatenation(patterns);
-    }
-
-    @Override
-    protected IrRowPattern visitQuantifiedPattern(QuantifiedPattern node, Void context)
-    {
-        IrRowPattern pattern = process(node.getPattern());
-        IrQuantifier quantifier = rewritePatternQuantifier(node.getPatternQuantifier());
-
-        return new IrQuantified(pattern, quantifier);
     }
 
     private IrQuantifier rewritePatternQuantifier(PatternQuantifier quantifier)
     {
-        if (quantifier instanceof ZeroOrMoreQuantifier) {
-            return zeroOrMore(quantifier.isGreedy());
-        }
-
-        if (quantifier instanceof OneOrMoreQuantifier) {
-            return oneOrMore(quantifier.isGreedy());
-        }
-
-        if (quantifier instanceof ZeroOrOneQuantifier) {
-            return zeroOrOne(quantifier.isGreedy());
-        }
-
-        if (quantifier instanceof RangeQuantifier rangeQuantifier) {
-            Range range = analysis.getRange(rangeQuantifier);
-            return range(range.getAtLeast(), range.getAtMost(), quantifier.isGreedy());
-        }
-
-        throw new IllegalStateException("unsupported pattern quantifier type: " + quantifier.getClass().getSimpleName());
-    }
-
-    @Override
-    protected IrRowPattern visitAnchorPattern(AnchorPattern node, Void context)
-    {
-        Type type = switch (node.getType()) {
-            case PARTITION_START -> PARTITION_START;
-            case PARTITION_END -> PARTITION_END;
+        return switch (quantifier) {
+            case ZeroOrMoreQuantifier _ -> zeroOrMore(quantifier.isGreedy());
+            case OneOrMoreQuantifier _ -> oneOrMore(quantifier.isGreedy());
+            case ZeroOrOneQuantifier _ -> zeroOrOne(quantifier.isGreedy());
+            case RangeQuantifier rangeQuantifier -> {
+                Range range = analysis.getRange(rangeQuantifier);
+                yield range(range.getAtLeast(), range.getAtMost(), quantifier.isGreedy());
+            }
         };
-
-        return new IrAnchor(type);
-    }
-
-    @Override
-    protected IrRowPattern visitEmptyPattern(EmptyPattern node, Void context)
-    {
-        return new IrEmpty();
-    }
-
-    @Override
-    protected IrRowPattern visitExcludedPattern(ExcludedPattern node, Void context)
-    {
-        IrRowPattern pattern = process(node.getPattern());
-
-        return new IrExclusion(pattern);
-    }
-
-    @Override
-    protected IrRowPattern visitPatternPermutation(PatternPermutation node, Void context)
-    {
-        List<IrRowPattern> patterns = node.getPatterns().stream()
-                .map(this::process)
-                .collect(toImmutableList());
-
-        return new IrPermutation(patterns);
-    }
-
-    @Override
-    protected IrRowPattern visitPatternVariable(PatternVariable node, Void context)
-    {
-        return new IrLabel(node.getName().getCanonicalValue());
     }
 }

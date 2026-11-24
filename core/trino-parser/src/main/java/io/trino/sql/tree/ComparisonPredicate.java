@@ -96,12 +96,6 @@ public final class ComparisonPredicate
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitComparisonPredicate(this, context);
-    }
-
-    @Override
     public boolean shallowEquals(Node other)
     {
         return sameClass(this, other) && operator == ((ComparisonPredicate) other).operator;

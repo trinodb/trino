@@ -17,18 +17,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class ResetSessionAuthorization
+public final class ResetSessionAuthorization
         extends Statement
 {
     public ResetSessionAuthorization(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitResetSessionAuthorization(this, context);
     }
 
     @Override

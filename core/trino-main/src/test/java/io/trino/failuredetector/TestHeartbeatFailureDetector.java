@@ -13,8 +13,6 @@
  */
 package io.trino.failuredetector;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
@@ -34,6 +32,8 @@ import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
 import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -100,6 +100,6 @@ public class TestHeartbeatFailureDetector
         serialized = jsonMapper.writeValueAsString(stats);
         deserialized = jsonMapper.readTree(serialized);
         assertThat(deserialized.get("lastFailureInfo").isNull()).isFalse();
-        assertThat(deserialized.get("lastFailureInfo").get("type").asText()).isEqualTo(SocketTimeoutException.class.getName());
+        assertThat(deserialized.get("lastFailureInfo").get("type").asString()).isEqualTo(SocketTimeoutException.class.getName());
     }
 }

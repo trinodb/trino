@@ -53,12 +53,6 @@ public final class RepeatStatement
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitRepeatStatement(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return ImmutableList.<Node>builder()

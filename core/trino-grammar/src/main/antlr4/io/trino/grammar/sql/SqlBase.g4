@@ -674,7 +674,18 @@ primaryExpression
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
     | base=primaryExpression '.' stringField=string                                       #stringLiteralDereference
-    | name=CURRENT_DATE                                                                   #currentDate
+    | sqlStandardFunction                                                                 #sqlStandardFunctionExpression
+    // Prefer grouping when a following bare field can be an implicit alias.
+    | '(' expression ')'                                                                  #parenthesizedExpression
+    | '(' valueExpression ')' intervalQualifier                                           #intervalValueExpression
+    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | jsonFunction                                                                        #jsonFunctionExpression
+    ;
+
+// Kept out of primaryExpression so its generated method stays under HotSpot's 8000 bytecode limit
+// (HugeMethodLimit); larger methods are never JIT-compiled.
+sqlStandardFunction
+    : name=CURRENT_DATE                                                                   #currentDate
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
@@ -691,11 +702,11 @@ primaryExpression
         FROM start=valueExpression (FOR length=valueExpression)? ')'                      #overlay
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
-    // Prefer grouping when a following bare field can be an implicit alias.
-    | '(' expression ')'                                                                  #parenthesizedExpression
-    | '(' valueExpression ')' intervalQualifier                                           #intervalValueExpression
-    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
-    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
+    ;
+
+// Kept out of primaryExpression for the same reason as sqlStandardFunction.
+jsonFunction
+    : JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
     | JSON_VALUE '('
         jsonPathInvocation
         (RETURNING type)?

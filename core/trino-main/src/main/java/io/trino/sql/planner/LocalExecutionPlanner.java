@@ -2578,7 +2578,7 @@ public class LocalExecutionPlanner
                 if ((comparison instanceof Comparison.LessThan || comparison instanceof Comparison.LessThanOrEqual)
                         && comparison.left() instanceof Call spatialFunction) {
                     Expression radius = comparison.right();
-                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius) || radius instanceof Constant) {
+                    if ((radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) || radius instanceof Constant) {
                         Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(comparison.operator()));
                         if (operation.isPresent()) {
                             return operation.get();
@@ -3067,7 +3067,8 @@ public class LocalExecutionPlanner
                         node.getFilter().isPresent(),
                         probeTypes,
                         probeJoinChannels,
-                        Optional.of(probeOutputChannels));
+                        Optional.of(probeOutputChannels),
+                        hashCompiler);
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();

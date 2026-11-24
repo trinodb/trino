@@ -76,12 +76,6 @@ public final class IfStatement
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIfStatement(this, context);
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         return (obj instanceof IfStatement other) &&

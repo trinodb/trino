@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShowTables
+public final class ShowTables
         extends Statement
 {
     private final Optional<QualifiedName> schema;
@@ -54,12 +54,6 @@ public class ShowTables
     public Optional<String> getEscape()
     {
         return escape;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitShowTables(this, context);
     }
 
     @Override

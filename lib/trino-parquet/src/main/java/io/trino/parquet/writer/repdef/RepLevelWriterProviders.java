@@ -20,6 +20,7 @@ import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariantBlock;
 
 import java.util.Optional;
@@ -44,14 +45,25 @@ public class RepLevelWriterProviders
         return new PrimitiveRepLevelWriterProvider(block);
     }
 
-    public static RepLevelWriterProvider of(ColumnarArray columnarArray, int maxRepetitionLevel)
+    /**
+     * @param arrayBlock the block {@code columnarArray} was created from, which {@link ColumnarArray} does not expose
+     */
+    public static RepLevelWriterProvider of(ColumnarArray columnarArray, Block arrayBlock, int maxRepetitionLevel)
     {
-        return new ColumnArrayRepLevelWriterProvider(columnarArray, maxRepetitionLevel);
+        return new ColumnArrayRepLevelWriterProvider(columnarArray, isNullRun(arrayBlock), maxRepetitionLevel);
     }
 
-    public static RepLevelWriterProvider of(ColumnarMap columnarMap, int maxRepetitionLevel)
+    /**
+     * @param mapBlock the block {@code columnarMap} was created from, which {@link ColumnarMap} does not expose
+     */
+    public static RepLevelWriterProvider of(ColumnarMap columnarMap, Block mapBlock, int maxRepetitionLevel)
     {
-        return new ColumnMapRepLevelWriterProvider(columnarMap, maxRepetitionLevel);
+        return new ColumnMapRepLevelWriterProvider(columnarMap, isNullRun(mapBlock), maxRepetitionLevel);
+    }
+
+    private static boolean isNullRun(Block block)
+    {
+        return block instanceof RunLengthEncodedBlock runLengthEncodedBlock && runLengthEncodedBlock.getValue().isNull(0);
     }
 
     static class PrimitiveRepLevelWriterProvider
@@ -96,10 +108,12 @@ public class RepLevelWriterProviders
             implements RepLevelWriterProvider
     {
         private final Block block;
+        private final boolean nullRun;
 
         RowRepLevelWriterProvider(Block block)
         {
             this.block = requireNonNull(block, "block is null");
+            this.nullRun = isNullRun(block);
             checkArgument(block.getUnderlyingValueBlock() instanceof RowBlock, "block is not a row block");
         }
 
@@ -123,6 +137,10 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (nullRun) {
+                        writeNullRun(parentLevel, positionsCount);
+                        return;
+                    }
                     if (!block.mayHaveNull()) {
                         nestedWriter.writeRepetitionLevels(parentLevel, positionsCount);
                         offset += positionsCount;
@@ -146,6 +164,13 @@ public class RepLevelWriterProviders
                     }
                     offset += positionsCount;
                 }
+
+                private void writeNullRun(int parentLevel, int positionsCount)
+                {
+                    // Every row is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
+                    offset += positionsCount;
+                }
             };
         }
     }
@@ -154,10 +179,12 @@ public class RepLevelWriterProviders
             implements RepLevelWriterProvider
     {
         private final Block block;
+        private final boolean nullRun;
 
         VariantRepLevelWriterProvider(Block block)
         {
             this.block = requireNonNull(block, "block is null");
+            this.nullRun = isNullRun(block);
             checkArgument(block.getUnderlyingValueBlock() instanceof VariantBlock, "block is not a variant block");
         }
 
@@ -181,6 +208,10 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (nullRun) {
+                        writeNullRun(parentLevel, positionsCount);
+                        return;
+                    }
                     if (!block.mayHaveNull()) {
                         nestedWriter.writeRepetitionLevels(parentLevel, positionsCount);
                         offset += positionsCount;
@@ -204,6 +235,13 @@ public class RepLevelWriterProviders
                     }
                     offset += positionsCount;
                 }
+
+                private void writeNullRun(int parentLevel, int positionsCount)
+                {
+                    // Every variant is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
+                    offset += positionsCount;
+                }
             };
         }
     }
@@ -212,11 +250,13 @@ public class RepLevelWriterProviders
             implements RepLevelWriterProvider
     {
         private final ColumnarMap columnarMap;
+        private final boolean nullRun;
         private final int maxRepetitionLevel;
 
-        ColumnMapRepLevelWriterProvider(ColumnarMap columnarMap, int maxRepetitionLevel)
+        ColumnMapRepLevelWriterProvider(ColumnarMap columnarMap, boolean nullRun, int maxRepetitionLevel)
         {
             this.columnarMap = requireNonNull(columnarMap, "columnarMap is null");
+            this.nullRun = nullRun;
             this.maxRepetitionLevel = maxRepetitionLevel;
         }
 
@@ -240,6 +280,10 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, columnarMap.getPositionCount());
+                    if (nullRun) {
+                        writeNullRun(parentLevel, positionsCount);
+                        return;
+                    }
                     if (!columnarMap.mayHaveNull()) {
                         for (int position = offset; position < offset + positionsCount; position++) {
                             writeNonNullableLevels(parentLevel, position);
@@ -254,6 +298,13 @@ public class RepLevelWriterProviders
                             writeNonNullableLevels(parentLevel, position);
                         }
                     }
+                    offset += positionsCount;
+                }
+
+                private void writeNullRun(int parentLevel, int positionsCount)
+                {
+                    // Every map is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
                     offset += positionsCount;
                 }
 
@@ -276,11 +327,13 @@ public class RepLevelWriterProviders
             implements RepLevelWriterProvider
     {
         private final ColumnarArray columnarArray;
+        private final boolean nullRun;
         private final int maxRepetitionLevel;
 
-        ColumnArrayRepLevelWriterProvider(ColumnarArray columnarArray, int maxRepetitionLevel)
+        ColumnArrayRepLevelWriterProvider(ColumnarArray columnarArray, boolean nullRun, int maxRepetitionLevel)
         {
             this.columnarArray = requireNonNull(columnarArray, "columnarArray is null");
+            this.nullRun = nullRun;
             this.maxRepetitionLevel = maxRepetitionLevel;
         }
 
@@ -304,6 +357,10 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, columnarArray.getPositionCount());
+                    if (nullRun) {
+                        writeNullRun(parentLevel, positionsCount);
+                        return;
+                    }
                     if (!columnarArray.mayHaveNull()) {
                         for (int position = offset; position < offset + positionsCount; position++) {
                             writeNonNullableLevels(parentLevel, position);
@@ -318,6 +375,13 @@ public class RepLevelWriterProviders
                             writeNonNullableLevels(parentLevel, position);
                         }
                     }
+                    offset += positionsCount;
+                }
+
+                private void writeNullRun(int parentLevel, int positionsCount)
+                {
+                    // Every array is null, so the nested writer has nothing to write
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
                     offset += positionsCount;
                 }
 

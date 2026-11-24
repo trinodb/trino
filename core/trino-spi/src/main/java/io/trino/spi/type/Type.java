@@ -236,6 +236,8 @@ public interface Type
 
     /**
      * Returns a stream of discrete values inside the specified range (if supported by this type).
+     * Both range endpoints are inclusive, and the stream is ascending from the minimum to the maximum.
+     * Returns {@link Optional#empty()} if either endpoint is not a value of this type.
      */
     default Optional<Stream<?>> getDiscreteValues(Range range)
     {

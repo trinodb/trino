@@ -83,19 +83,19 @@ public final class Header
 
     public static byte primitiveHeader(PrimitiveType primitiveType)
     {
-        return (byte) (PRIMITIVE.ordinal() | primitiveType.ordinal() << 2);
+        return (byte) (PRIMITIVE.id | primitiveType.id << 2);
     }
 
     public static byte shortStringHeader(int length)
     {
         checkArgument(length >= 0 && length <= SHORT_STRING_MAX_LENGTH, () -> "Short string length must be between 0 and %s: %s".formatted(SHORT_STRING_MAX_LENGTH, length));
-        return (byte) (SHORT_STRING.ordinal() | (length << 2));
+        return (byte) (SHORT_STRING.id | (length << 2));
     }
 
     public static byte objectHeader(int fieldIdSize, int fieldOffsetSize, boolean isLarge)
     {
         // Bits 0-1 represent the basic type
-        int header = BasicType.OBJECT.ordinal();
+        int header = BasicType.OBJECT.id;
         // Bits 2-3 represent the size of the field offsets
         checkArgument(fieldOffsetSize >= 1 && fieldOffsetSize <= 4, () -> "fieldOffsetSize must be between 1 and 4: %s".formatted(fieldOffsetSize));
         header |= (fieldOffsetSize - 1) << 2;
@@ -112,7 +112,7 @@ public final class Header
     public static byte arrayHeader(int fieldOffsetSize, boolean isLarge)
     {
         // Bits 0-1 represent the basic type
-        int header = BasicType.ARRAY.ordinal();
+        int header = BasicType.ARRAY.id;
         // Bits 2-3 represent the size of the field offsets
         checkArgument(fieldOffsetSize >= 1 && fieldOffsetSize <= 4, () -> "fieldOffsetSize must be between 1 and 4: %s".formatted(fieldOffsetSize));
         header |= (fieldOffsetSize - 1) << 2;
@@ -158,10 +158,25 @@ public final class Header
 
     public enum BasicType
     {
-        PRIMITIVE,
-        SHORT_STRING,
-        OBJECT,
-        ARRAY;
+        PRIMITIVE(0),
+        SHORT_STRING(1),
+        OBJECT(2),
+        ARRAY(3);
+
+        private static final BasicType[] BY_ID = new BasicType[4];
+
+        static {
+            for (BasicType value : values()) {
+                BY_ID[value.id] = value;
+            }
+        }
+
+        private final int id;
+
+        BasicType(int id)
+        {
+            this.id = id;
+        }
 
         public boolean isContainer()
         {
@@ -170,40 +185,54 @@ public final class Header
 
         private static BasicType fromHeader(byte header)
         {
-            int basicTypeBits = (header & 0b0000_0011);
-            return values()[basicTypeBits];
+            // Bits 0-1 represent the basic type
+            return BY_ID[header & 0b0000_0011];
         }
     }
 
     public enum PrimitiveType
     {
-        NULL,
-        BOOLEAN_TRUE,
-        BOOLEAN_FALSE,
-        INT8,
-        INT16,
-        INT32,
-        INT64,
-        DOUBLE,
-        DECIMAL4,
-        DECIMAL8,
-        DECIMAL16,
-        DATE,
-        TIMESTAMP_UTC_MICROS,
-        TIMESTAMP_NTZ_MICROS,
-        FLOAT,
-        BINARY,
-        STRING,
-        TIME_NTZ_MICROS,
-        TIMESTAMP_UTC_NANOS,
-        TIMESTAMP_NTZ_NANOS,
-        UUID;
+        NULL(0),
+        BOOLEAN_TRUE(1),
+        BOOLEAN_FALSE(2),
+        INT8(3),
+        INT16(4),
+        INT32(5),
+        INT64(6),
+        DOUBLE(7),
+        DECIMAL4(8),
+        DECIMAL8(9),
+        DECIMAL16(10),
+        DATE(11),
+        TIMESTAMP_UTC_MICROS(12),
+        TIMESTAMP_NTZ_MICROS(13),
+        FLOAT(14),
+        BINARY(15),
+        STRING(16),
+        TIME_NTZ_MICROS(17),
+        TIMESTAMP_UTC_NANOS(18),
+        TIMESTAMP_NTZ_NANOS(19),
+        UUID(20);
+
+        private static final PrimitiveType[] BY_ID = new PrimitiveType[21];
+
+        static {
+            for (PrimitiveType value : values()) {
+                BY_ID[value.id] = value;
+            }
+        }
+
+        private final int id;
+
+        PrimitiveType(int id)
+        {
+            this.id = id;
+        }
 
         private static PrimitiveType fromHeader(byte header)
         {
             // Bits 2-7 represent the primitive type
-            int primitiveTypeBits = (header & 0b1111_1100) >>> 2;
-            return values()[primitiveTypeBits];
+            return BY_ID[(header & 0b1111_1100) >>> 2];
         }
     }
 }

@@ -44,6 +44,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -52,6 +53,7 @@ class DynamicFiltersFetcher
 {
     private final TaskId taskId;
     private final URI taskUri;
+    private final String nodeInstanceId;
     private final Consumer<Throwable> onFail;
     private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
     private final Duration refreshMaxWait;
@@ -75,6 +77,7 @@ class DynamicFiltersFetcher
             Consumer<Throwable> onFail,
             TaskId taskId,
             URI taskUri,
+            String nodeInstanceId,
             Duration refreshMaxWait,
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             Executor executor,
@@ -87,6 +90,7 @@ class DynamicFiltersFetcher
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
@@ -161,6 +165,7 @@ class DynamicFiltersFetcher
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION_HEADER, Long.toString(localDynamicFiltersVersion))
                 .setHeader(TRINO_MAX_WAIT_HEADER, refreshMaxWait.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 

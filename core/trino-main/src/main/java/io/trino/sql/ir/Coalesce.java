@@ -13,9 +13,9 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -49,12 +49,6 @@ public record Coalesce(List<Expression> operands)
         for (int i = 1; i < operands.size(); i++) {
             validateType(operands.getFirst().type(), operands.get(i));
         }
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCoalesce(this, context);
     }
 
     @Override

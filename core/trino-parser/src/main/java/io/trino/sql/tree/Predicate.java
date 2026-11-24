@@ -37,10 +37,4 @@ public abstract sealed class Predicate
     {
         super(location);
     }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPredicate(this, context);
-    }
 }

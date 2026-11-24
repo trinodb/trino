@@ -39,12 +39,6 @@ public final class Lateral
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLateral(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of(query);

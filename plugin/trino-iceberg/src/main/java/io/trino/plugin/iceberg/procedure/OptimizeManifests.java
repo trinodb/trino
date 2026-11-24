@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.CommitMetricsReporter;
+import io.trino.spi.TrinoException;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
@@ -53,7 +54,9 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES_DEFAULT;
@@ -111,7 +114,12 @@ public final class OptimizeManifests
                 })
                 .scanManifestsWith(icebergScanExecutor);
         carryForwardMaterializedViewDependencies(rewriteManifests);
-        rewriteManifests.commit();
+        try {
+            rewriteManifests.commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, "Failed to optimize manifests: " + requireNonNullElse(e.getMessage(), e), e);
+        }
 
         CommitReport report = reporter.commitReport();
         if (report == null) {

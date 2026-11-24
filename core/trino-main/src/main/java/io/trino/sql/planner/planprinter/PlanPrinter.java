@@ -261,24 +261,17 @@ public class PlanPrinter
         return new JsonRenderer().renderJson(representation, representation.getRoot(), false);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Metadata metadata, FunctionManager functionManager, Session session)
+    public static String jsonDistributedPlan(
+            StagesInfo stages,
+            Session session,
+            Metadata metadata,
+            FunctionManager functionManager,
+            Anonymizer anonymizer)
     {
-        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(
-                root,
-                tableInfoSupplier,
-                ImmutableMap.of(),
-                valuePrinter,
-                StatsAndCosts.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                new NoOpAnonymizer())
-                .toJson();
+        return DISTRIBUTED_PLAN_CODEC.toJson(renderDistributedPlan(stages, session, metadata, functionManager, anonymizer));
     }
 
-    public static String jsonDistributedPlan(
+    public static Map<PlanFragmentId, JsonRenderedNode> renderDistributedPlan(
             StagesInfo stages,
             Session session,
             Metadata metadata,
@@ -297,7 +290,7 @@ public class PlanPrinter
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
 
-        return jsonDistributedPlan(
+        return renderDistributedPlan(
                 planFragments,
                 tableScanNode -> tableInfos.get(tableScanNode.getId()),
                 valuePrinter,
@@ -308,20 +301,20 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return jsonDistributedPlan(
+        return DISTRIBUTED_PLAN_CODEC.toJson(renderDistributedPlan(
                 plan.getAllFragments(),
                 tableInfoSupplier,
                 valuePrinter,
-                new NoOpAnonymizer());
+                new NoOpAnonymizer()));
     }
 
-    private static String jsonDistributedPlan(
+    private static Map<PlanFragmentId, JsonRenderedNode> renderDistributedPlan(
             List<PlanFragment> fragments,
             Function<TableScanNode, TableInfo> tableInfoSupplier,
             ValuePrinter valuePrinter,
             Anonymizer anonymizer)
     {
-        Map<PlanFragmentId, JsonRenderedNode> anonymizedPlan = fragments.stream()
+        return fragments.stream()
                 .collect(toImmutableMap(
                         PlanFragment::getId,
                         planFragment -> new PlanPrinter(
@@ -335,7 +328,6 @@ public class PlanPrinter
                                 ImmutableMap.of(),
                                 anonymizer)
                                 .toJsonRenderedNode()));
-        return DISTRIBUTED_PLAN_CODEC.toJson(anonymizedPlan);
     }
 
     public static String textLogicalPlan(

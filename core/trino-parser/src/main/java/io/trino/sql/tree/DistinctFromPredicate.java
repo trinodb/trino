@@ -52,12 +52,6 @@ public final class DistinctFromPredicate
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDistinctFromPredicate(this, context);
-    }
-
-    @Override
     public boolean shallowEquals(Node other)
     {
         return sameClass(this, other) && negated == ((DistinctFromPredicate) other).negated;

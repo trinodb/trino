@@ -22,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class PatternConcatenation
+public final class PatternConcatenation
         extends RowPattern
 {
     private final List<RowPattern> patterns;
@@ -37,12 +37,6 @@ public class PatternConcatenation
     public List<RowPattern> getPatterns()
     {
         return patterns;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPatternConcatenation(this, context);
     }
 
     @Override

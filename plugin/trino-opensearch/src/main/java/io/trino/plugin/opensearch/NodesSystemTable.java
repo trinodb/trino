@@ -32,6 +32,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Set;
 
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -93,10 +94,12 @@ public class NodesSystemTable
             }
         }
 
-        return new FixedPageSource(ImmutableList.of(new Page(
-                nodeId.build(),
-                trinoAddress.build(),
-                opensearchNodeId.build(),
-                opensearchAddress.build())));
+        return new FixedPageSource(
+                ImmutableList.of(new Page(
+                        nodeId.build(),
+                        trinoAddress.build(),
+                        opensearchNodeId.build(),
+                        opensearchAddress.build())),
+                NO_LIMIT);
     }
 }

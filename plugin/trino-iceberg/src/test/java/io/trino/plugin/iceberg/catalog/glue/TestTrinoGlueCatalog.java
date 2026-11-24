@@ -20,6 +20,8 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.FlociS3AndGlue;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -173,6 +175,8 @@ public class TestTrinoGlueCatalog
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
+                    new OrcReaderConfig().toOrcReaderOptions(),
+                    new ParquetReaderConfig().toParquetReaderOptions(),
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),

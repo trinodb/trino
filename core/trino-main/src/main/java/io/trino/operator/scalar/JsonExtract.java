@@ -13,28 +13,21 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.exc.StreamConstraintsException;
-import com.fasterxml.jackson.core.io.SerializedString;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.exc.StreamConstraintsException;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.core.io.SerializedString;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -42,6 +35,13 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.END_OBJECT;
+import static tools.jackson.core.JsonToken.PROPERTY_NAME;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_NULL;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 
 /**
  * Extracts values from JSON
@@ -121,7 +121,7 @@ public final class JsonExtract
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
+            .disable(CANONICALIZE_PROPERTY_NAMES)
             .build());
 
     private JsonExtract() {}
@@ -147,7 +147,7 @@ public final class JsonExtract
             }
             return jsonExtractor.extract(jsonParser);
         }
-        catch (JsonParseException e) {
+        catch (StreamReadException e) {
             // Return null if we failed to parse something
             return null;
         }
@@ -217,25 +217,25 @@ public final class JsonExtract
         public T extract(JsonParser jsonParser)
                 throws IOException
         {
-            if (jsonParser.getCurrentToken() == START_OBJECT) {
+            if (jsonParser.currentToken() == START_OBJECT) {
                 return processJsonObject(jsonParser);
             }
 
-            if (jsonParser.getCurrentToken() == START_ARRAY) {
+            if (jsonParser.currentToken() == START_ARRAY) {
                 return processJsonArray(jsonParser);
             }
 
-            throw new JsonParseException(jsonParser, "Expected a JSON object or array");
+            throw new StreamReadException(jsonParser, "Expected a JSON object or array");
         }
 
         public T processJsonObject(JsonParser jsonParser)
                 throws IOException
         {
-            while (!jsonParser.nextFieldName(fieldName)) {
+            while (!jsonParser.nextName(fieldName)) {
                 if (!jsonParser.hasCurrentToken()) {
-                    throw new JsonParseException(jsonParser, "Unexpected end of object");
+                    throw new StreamReadException(jsonParser, "Unexpected end of object");
                 }
-                if (jsonParser.getCurrentToken() == END_OBJECT) {
+                if (jsonParser.currentToken() == END_OBJECT) {
                     // Unable to find matching field
                     return null;
                 }
@@ -254,7 +254,7 @@ public final class JsonExtract
             while (true) {
                 JsonToken token = jsonParser.nextToken();
                 if (token == null) {
-                    throw new JsonParseException(jsonParser, "Unexpected end of array");
+                    throw new StreamReadException(jsonParser, "Unexpected end of array");
                 }
                 if (token == END_ARRAY) {
                     // Index out of bounds
@@ -281,14 +281,14 @@ public final class JsonExtract
         public Slice extract(JsonParser jsonParser)
                 throws IOException
         {
-            JsonToken token = jsonParser.getCurrentToken();
+            JsonToken token = jsonParser.currentToken();
             if (token == null) {
-                throw new JsonParseException(jsonParser, "Unexpected end of value");
+                throw new StreamReadException(jsonParser, "Unexpected end of value");
             }
             if (!token.isScalarValue() || token == VALUE_NULL) {
                 return null;
             }
-            return utf8Slice(jsonParser.getText());
+            return utf8Slice(jsonParser.getString());
         }
     }
 
@@ -300,7 +300,7 @@ public final class JsonExtract
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
-                throw new JsonParseException(jsonParser, "Unexpected end of value");
+                throw new StreamReadException(jsonParser, "Unexpected end of value");
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
@@ -319,10 +319,10 @@ public final class JsonExtract
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
-                throw new JsonParseException(jsonParser, "Unexpected end of value");
+                throw new StreamReadException(jsonParser, "Unexpected end of value");
             }
 
-            if (jsonParser.getCurrentToken() == START_ARRAY) {
+            if (jsonParser.currentToken() == START_ARRAY) {
                 long length = 0;
                 while (true) {
                     JsonToken token = jsonParser.nextToken();
@@ -338,7 +338,7 @@ public final class JsonExtract
                 }
             }
 
-            if (jsonParser.getCurrentToken() == START_OBJECT) {
+            if (jsonParser.currentToken() == START_OBJECT) {
                 long length = 0;
                 while (true) {
                     JsonToken token = jsonParser.nextToken();
@@ -349,7 +349,7 @@ public final class JsonExtract
                         return length;
                     }
 
-                    if (token == FIELD_NAME) {
+                    if (token == PROPERTY_NAME) {
                         length++;
                     }
                     else {

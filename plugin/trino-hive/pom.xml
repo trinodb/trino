@@ -17,11 +17,6 @@
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
@@ -265,6 +260,16 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>utils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
@@ -605,7 +610,6 @@
                             <excludes combine.children="append">
                                 <exclude>**/TestHiveS3AndGlueAws.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
-                                <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -641,7 +645,6 @@
                         <configuration>
                             <includes>
                                 <include>**/TestFullParquetReader.java</include>
-                                <include>**/TestParquetReader.java</include>
                             </includes>
                         </configuration>
                     </plugin>

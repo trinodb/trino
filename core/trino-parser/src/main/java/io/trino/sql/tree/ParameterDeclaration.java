@@ -60,12 +60,6 @@ public final class ParameterDeclaration
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitParameterDeclaration(this, context);
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         return (obj instanceof ParameterDeclaration other) &&

@@ -23,7 +23,7 @@ import java.util.Optional;
 import static io.trino.sql.ExpressionFormatter.formatJsonPathInvocation;
 import static java.util.Objects.requireNonNull;
 
-public class JsonPathInvocation
+public final class JsonPathInvocation
         extends Node
 {
     private final Expression inputExpression;
@@ -77,12 +77,6 @@ public class JsonPathInvocation
     public List<JsonPathParameter> getPathParameters()
     {
         return pathParameters;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonPathInvocation(this, context);
     }
 
     @Override

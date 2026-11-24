@@ -97,16 +97,6 @@ public class DeltaLakeFlociEnvironment
         trinoCluster.waitForClusterReady();
     }
 
-    public void copyResources(String resourcePath, String target)
-    {
-        floci.copyResources(resourcePath, BUCKET_NAME, target);
-    }
-
-    public String getBucketName()
-    {
-        return BUCKET_NAME;
-    }
-
     @Override
     public Connection createTrinoConnection()
             throws SQLException

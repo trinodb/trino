@@ -14,6 +14,13 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.HttpConfig;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.ServerFeature;
+import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.node.NodeInfo;
+import jakarta.servlet.http.HttpServlet;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -21,6 +28,7 @@ import org.apache.iceberg.jdbc.JdbcCatalog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 public final class RestCatalogTestUtils
 {
@@ -40,5 +48,17 @@ public final class RestCatalogTestUtils
         catalog.initialize("backend_jdbc", properties.buildOrThrow());
 
         return catalog;
+    }
+
+    public static TestingHttpServer createTestingHttpServer(HttpServlet servlet)
+            throws Exception
+    {
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig()
+                .setHttpEnabled(true);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
+        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
+                .withLegacyUriCompliance(true)
+                .build());
     }
 }

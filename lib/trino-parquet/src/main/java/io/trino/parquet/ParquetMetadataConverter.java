@@ -359,7 +359,7 @@ public final class ParquetMetadataConverter
     ///
     /// Trino and the table formats it writes to (Delta Lake, Iceberg) treat NaN as larger than any
     /// other value, so NaN-excluding bounds would cause incorrect pruning in readers unaware of
-    /// nan_count. Trino also does not declare column orders in file footers, and its consumers
+    /// nan_count. Trino declares the type-defined order in file footers, and its consumers
     /// (e.g. the Delta Lake writer) rely on the legacy behavior where NaN min/max values mark the
     /// statistics as invalid. Both writing and interpreting statistics must therefore keep using
     /// the type-defined order, and footers must omit floating point min/max whenever the column

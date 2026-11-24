@@ -15,6 +15,7 @@ package io.trino.plugin.base.projection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -45,7 +46,7 @@ public final class ApplyProjectionUtil
     {
         requireNonNull(expression, "expression is null");
         ImmutableList.Builder<ConnectorExpression> supportedSubExpressions = ImmutableList.builder();
-        fillSupportedProjectedColumns(expression, supportedSubExpressions, expressionPredicate, Set.of());
+        fillSupportedProjectedColumns(expression, supportedSubExpressions, expressionPredicate, ImmutableSet.of());
         return supportedSubExpressions.build();
     }
 
@@ -109,7 +110,7 @@ public final class ApplyProjectionUtil
      */
     public static ConnectorExpression replaceWithNewVariables(ConnectorExpression expression, Map<ConnectorExpression, Variable> expressionToVariableMappings)
     {
-        return replaceWithNewVariables(expression, expressionToVariableMappings, Set.of());
+        return replaceWithNewVariables(expression, expressionToVariableMappings, ImmutableSet.of());
     }
 
     private static ConnectorExpression replaceWithNewVariables(ConnectorExpression expression, Map<ConnectorExpression, Variable> expressionToVariableMappings, Set<String> localVariables)

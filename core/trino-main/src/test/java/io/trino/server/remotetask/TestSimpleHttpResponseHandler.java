@@ -22,6 +22,7 @@ import java.net.URI;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,6 +50,18 @@ public class TestSimpleHttpResponseHandler
         assertThat(callback.value).isNull();
         assertThat(callback.failure).isInstanceOf(RetryableResponseException.class);
         assertThat(callback.fatal).isNull();
+    }
+
+    @Test
+    public void testNodeInstanceMismatchIsFatal()
+    {
+        RecordingCallback callback = new RecordingCallback();
+        handler(callback).onSuccess(new JsonResponse<>(412, ImmutableListMultimap.of(), new byte[0]));
+
+        assertThat(callback.value).isNull();
+        assertThat(callback.failure).isNull();
+        assertThat(callback.fatal)
+                .isInstanceOfSatisfying(TrinoException.class, exception -> assertThat(exception.getErrorCode()).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode()));
     }
 
     @Test

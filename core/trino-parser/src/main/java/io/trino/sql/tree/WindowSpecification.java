@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WindowSpecification
+public final class WindowSpecification
         extends Node
         implements Window
 {
@@ -68,12 +68,6 @@ public class WindowSpecification
     public Optional<WindowFrame> getFrame()
     {
         return frame;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWindowSpecification(this, context);
     }
 
     @Override

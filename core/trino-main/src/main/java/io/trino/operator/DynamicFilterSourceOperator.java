@@ -159,7 +159,7 @@ public class DynamicFilterSourceOperator
     private final JoinDomainBuilder[] joinDomainBuilders;
 
     private int minMaxCollectionLimit;
-    private boolean isDomainCollectionComplete;
+    private boolean collectionStopped;
 
     private DynamicFilterSourceOperator(
             OperatorContext context,
@@ -210,7 +210,7 @@ public class DynamicFilterSourceOperator
         verify(!finished, "DynamicFilterSourceOperator: addInput() may not be called after finish()");
         current = page;
 
-        if (isDomainCollectionComplete) {
+        if (collectionStopped || stopIfConsumerComplete()) {
             return;
         }
 
@@ -221,6 +221,9 @@ public class DynamicFilterSourceOperator
                     joinDomainBuilders[channelIndex].disableMinMax();
                 }
                 finishDomainCollectionIfNecessary();
+                if (collectionStopped) {
+                    return;
+                }
             }
         }
 
@@ -229,7 +232,7 @@ public class DynamicFilterSourceOperator
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = page.getBlock(channels.get(channelIndex).index());
             joinDomainBuilders[channelIndex].add(block);
-            if (isDomainCollectionComplete) {
+            if (collectionStopped) {
                 return;
             }
             retainedSize += joinDomainBuilders[channelIndex].getRetainedSizeInBytes();
@@ -253,8 +256,7 @@ public class DynamicFilterSourceOperator
             return;
         }
         finished = true;
-        if (isDomainCollectionComplete) {
-            // dynamicPredicateConsumer was already notified with 'all'
+        if (collectionStopped || stopIfConsumerComplete()) {
             return;
         }
 
@@ -264,8 +266,7 @@ public class DynamicFilterSourceOperator
             domainsBuilder.put(filterId, joinDomainBuilders[channelIndex].build());
         }
         dynamicPredicateConsumer.addPartition(TupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
-        userMemoryContext.setBytes(0);
-        Arrays.fill(joinDomainBuilders, null);
+        releaseCollectedState();
     }
 
     @Override
@@ -283,12 +284,29 @@ public class DynamicFilterSourceOperator
 
     private void finishDomainCollectionIfNecessary()
     {
-        if (!isDomainCollectionComplete && stream(joinDomainBuilders).noneMatch(JoinDomainBuilder::isCollecting)) {
+        if (!collectionStopped && stream(joinDomainBuilders).noneMatch(JoinDomainBuilder::isCollecting)) {
             // allow all probe-side values to be read.
             dynamicPredicateConsumer.addPartition(TupleDomain.all());
-            isDomainCollectionComplete = true;
-            userMemoryContext.setBytes(0);
+            collectionStopped = true;
+            releaseCollectedState();
         }
+    }
+
+    // The consumer already has its result, so the collected values are not needed
+    private boolean stopIfConsumerComplete()
+    {
+        if (!dynamicPredicateConsumer.isDomainCollectionComplete()) {
+            return false;
+        }
+        collectionStopped = true;
+        releaseCollectedState();
+        return true;
+    }
+
+    private void releaseCollectedState()
+    {
+        userMemoryContext.setBytes(0);
+        Arrays.fill(joinDomainBuilders, null);
     }
 
     private static class PassthroughDynamicFilterSourceOperator

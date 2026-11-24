@@ -22,7 +22,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class Extract
+public final class Extract
         extends Expression
 {
     private final Expression expression;
@@ -67,12 +67,6 @@ public class Extract
     public Field getField()
     {
         return field;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitExtract(this, context);
     }
 
     @Override

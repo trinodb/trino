@@ -34,6 +34,7 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.StandardTypes;
+import io.trino.type.CodePoints;
 import io.trino.type.CodePointsType;
 import io.trino.util.Soundex;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
@@ -575,9 +576,9 @@ public final class StringFunctions
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
-        return SliceUtf8.leftTrim(slice, codePointsToTrim);
+        return SliceUtf8.leftTrim(slice, codePointsToTrim.codePoints());
     }
 
     // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
@@ -585,7 +586,7 @@ public final class StringFunctions
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charLeftTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return leftTrim(slice, codePointsToTrim);
     }
@@ -594,9 +595,9 @@ public final class StringFunctions
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
-        return SliceUtf8.rightTrim(slice, codePointsToTrim);
+        return SliceUtf8.rightTrim(slice, codePointsToTrim.codePoints());
     }
 
     // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
@@ -604,7 +605,7 @@ public final class StringFunctions
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return rightTrim(slice, codePointsToTrim);
     }
@@ -613,9 +614,9 @@ public final class StringFunctions
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice trim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
-        return SliceUtf8.trim(slice, codePointsToTrim);
+        return SliceUtf8.trim(slice, codePointsToTrim.codePoints());
     }
 
     // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
@@ -623,7 +624,7 @@ public final class StringFunctions
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) CodePoints codePointsToTrim)
     {
         return trim(slice, codePointsToTrim);
     }
@@ -631,17 +632,17 @@ public final class StringFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(CodePointsType.NAME)
-    public static int[] castVarcharToCodePoints(@SqlType("varchar(x)") Slice slice)
+    public static CodePoints castVarcharToCodePoints(@SqlType("varchar(x)") Slice slice)
     {
-        return castToCodePoints(slice);
+        return new CodePoints(castToCodePoints(slice));
     }
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(CodePointsType.NAME)
     @LiteralParameters("x")
-    public static int[] castCharToCodePoints(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
+    public static CodePoints castCharToCodePoints(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return castToCodePoints(padSpaces(slice, x));
+        return new CodePoints(castToCodePoints(padSpaces(slice, x)));
     }
 
     private static int[] castToCodePoints(Slice slice)

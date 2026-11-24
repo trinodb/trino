@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class WindowDefinition
+public final class WindowDefinition
         extends Node
 {
     private final Identifier name;
@@ -53,12 +53,6 @@ public class WindowDefinition
     public WindowSpecification getWindow()
     {
         return window;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWindowDefinition(this, context);
     }
 
     @Override

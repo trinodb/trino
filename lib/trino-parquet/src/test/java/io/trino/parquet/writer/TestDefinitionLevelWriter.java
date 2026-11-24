@@ -17,13 +17,20 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider.ValuesCount;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
+import io.trino.parquet.writer.valuewriter.RunLengthBitPackingHybridValuesWriter;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +42,9 @@ import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefin
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.RowBlock.getNullSuppressedRowFieldsFromBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.nCopies;
+import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDefinitionLevelWriter
@@ -57,6 +66,36 @@ public class TestDefinitionLevelWriter
             // Write definition levels for all positions with different group sizes
             assertDefinitionLevels(block, generateGroupSizes(block.getPositionCount()), maxDefinitionLevel);
         }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedDefinitionLevels()
+    {
+        for (Block block : ImmutableList.of(
+                RunLengthEncodedBlock.create(BIGINT, null, POSITIONS),
+                RunLengthEncodedBlock.create(BIGINT, 1L, POSITIONS))) {
+            int maxDefinitionLevel = 3;
+            assertDefinitionLevels(block, ImmutableList.of(), maxDefinitionLevel);
+            assertDefinitionLevels(block, nCopies(block.getPositionCount(), 1), maxDefinitionLevel);
+            assertDefinitionLevels(block, generateGroupSizes(block.getPositionCount()), maxDefinitionLevel);
+        }
+    }
+
+    @Test
+    public void testFullyDefinedPageIsSingleRleRun()
+            throws IOException
+    {
+        // The nested reader only skips level scans for pages written as a single RLE run of the max definition level
+        int maxDefinitionLevel = 3;
+        RunLengthBitPackingHybridValuesWriter levelsWriter = new RunLengthBitPackingHybridValuesWriter(getWidthFromMaxInt(maxDefinitionLevel), 1024 * 1024);
+        Block block = new LongArrayBlock(POSITIONS, Optional.empty(), new long[POSITIONS]);
+        DefLevelWriterProviders.of(block, maxDefinitionLevel)
+                .getDefinitionLevelWriter(Optional.empty(), levelsWriter)
+                .writeDefinitionLevels();
+
+        byte[] bytes = levelsWriter.getBytes().toByteArray();
+        // 4 byte length of the levels, an RLE run header of (POSITIONS << 1) = 0x3F40 as ULEB128 (0xC0 0x7E), and the one byte level
+        assertThat(bytes).containsExactly(3, 0, 0, 0, 0xC0, 0x7E, maxDefinitionLevel);
     }
 
     @Test
@@ -94,29 +133,57 @@ public class TestDefinitionLevelWriter
     }
 
     @Test
+    public void testWriteRunLengthEncodedRowDefinitionLevels()
+    {
+        for (Block rowBlock : ImmutableList.of(
+                RunLengthEncodedBlock.create(RowType.anonymous(ImmutableList.of(BIGINT)), null, POSITIONS),
+                RunLengthEncodedBlock.create(createRowBlock(Optional.empty(), 1), POSITIONS))) {
+            List<Block> fields = getNullSuppressedRowFieldsFromBlock(rowBlock);
+            int fieldMaxDefinitionLevel = 2;
+            for (int field = 0; field < fields.size(); field++) {
+                assertDefinitionLevels(rowBlock, fields, ImmutableList.of(), field, fieldMaxDefinitionLevel);
+                assertDefinitionLevels(rowBlock, fields, nCopies(rowBlock.getPositionCount(), 1), field, fieldMaxDefinitionLevel);
+                assertDefinitionLevels(rowBlock, fields, generateGroupSizes(rowBlock.getPositionCount()), field, fieldMaxDefinitionLevel);
+            }
+        }
+    }
+
+    @Test
     public void testWriteArrayDefinitionLevels()
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             Block arrayBlock = createArrayBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
-            ColumnarArray columnarArray = toColumnarArray(arrayBlock);
             int maxDefinitionLevel = 3;
             // Write definition levels for all positions
-            assertDefinitionLevels(
-                    columnarArray,
+            assertArrayDefinitionLevels(
+                    arrayBlock,
                     ImmutableList.of(),
                     maxDefinitionLevel);
 
             // Write definition levels for all positions one-at-a-time
-            assertDefinitionLevels(
-                    columnarArray,
-                    nCopies(columnarArray.getPositionCount(), 1),
+            assertArrayDefinitionLevels(
+                    arrayBlock,
+                    nCopies(arrayBlock.getPositionCount(), 1),
                     maxDefinitionLevel);
 
             // Write definition levels for all positions with different group sizes
-            assertDefinitionLevels(
-                    columnarArray,
-                    generateGroupSizes(columnarArray.getPositionCount()),
+            assertArrayDefinitionLevels(
+                    arrayBlock,
+                    generateGroupSizes(arrayBlock.getPositionCount()),
                     maxDefinitionLevel);
+        }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedArrayDefinitionLevels()
+    {
+        for (Block arrayBlock : ImmutableList.of(
+                RunLengthEncodedBlock.create(new ArrayType(BIGINT), null, POSITIONS),
+                RunLengthEncodedBlock.create(createArrayBlock(Optional.empty(), 1), POSITIONS))) {
+            int maxDefinitionLevel = 3;
+            assertArrayDefinitionLevels(arrayBlock, ImmutableList.of(), maxDefinitionLevel);
+            assertArrayDefinitionLevels(arrayBlock, nCopies(arrayBlock.getPositionCount(), 1), maxDefinitionLevel);
+            assertArrayDefinitionLevels(arrayBlock, generateGroupSizes(arrayBlock.getPositionCount()), maxDefinitionLevel);
         }
     }
 
@@ -125,29 +192,42 @@ public class TestDefinitionLevelWriter
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             Block mapBlock = createMapBlock(nullsProvider.getValidities(POSITIONS), POSITIONS);
-            ColumnarMap columnarMap = toColumnarMap(mapBlock);
             int keysMaxDefinitionLevel = 2;
             int valuesMaxDefinitionLevel = 3;
             // Write definition levels for all positions
             assertDefinitionLevels(
-                    columnarMap,
+                    mapBlock,
                     ImmutableList.of(),
                     keysMaxDefinitionLevel,
                     valuesMaxDefinitionLevel);
 
             // Write definition levels for all positions one-at-a-time
             assertDefinitionLevels(
-                    columnarMap,
-                    nCopies(columnarMap.getPositionCount(), 1),
+                    mapBlock,
+                    nCopies(mapBlock.getPositionCount(), 1),
                     keysMaxDefinitionLevel,
                     valuesMaxDefinitionLevel);
 
             // Write definition levels for all positions with different group sizes
             assertDefinitionLevels(
-                    columnarMap,
-                    generateGroupSizes(columnarMap.getPositionCount()),
+                    mapBlock,
+                    generateGroupSizes(mapBlock.getPositionCount()),
                     keysMaxDefinitionLevel,
                     valuesMaxDefinitionLevel);
+        }
+    }
+
+    @Test
+    public void testWriteRunLengthEncodedMapDefinitionLevels()
+    {
+        for (Block mapBlock : ImmutableList.of(
+                RunLengthEncodedBlock.create(new MapType(BIGINT, BIGINT, new TypeOperators()), null, POSITIONS),
+                RunLengthEncodedBlock.create(createMapBlock(Optional.empty(), 1), POSITIONS))) {
+            int keysMaxDefinitionLevel = 2;
+            int valuesMaxDefinitionLevel = 3;
+            assertDefinitionLevels(mapBlock, ImmutableList.of(), keysMaxDefinitionLevel, valuesMaxDefinitionLevel);
+            assertDefinitionLevels(mapBlock, nCopies(mapBlock.getPositionCount(), 1), keysMaxDefinitionLevel, valuesMaxDefinitionLevel);
+            assertDefinitionLevels(mapBlock, generateGroupSizes(mapBlock.getPositionCount()), keysMaxDefinitionLevel, valuesMaxDefinitionLevel);
         }
     }
 
@@ -163,8 +243,8 @@ public class TestDefinitionLevelWriter
         else {
             int totalValuesCount = 0;
             int maxDefinitionLevelValuesCount = 0;
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                ValuesCount valuesCount = primitiveDefLevelWriter.writeDefinitionLevels(1);
+            for (int positionsCount : writePositionCounts) {
+                ValuesCount valuesCount = primitiveDefLevelWriter.writeDefinitionLevels(positionsCount);
                 totalValuesCount += valuesCount.totalValuesCount();
                 maxDefinitionLevelValuesCount += valuesCount.maxDefinitionLevelValuesCount();
             }
@@ -188,7 +268,7 @@ public class TestDefinitionLevelWriter
     }
 
     private static void assertDefinitionLevels(
-            RowBlock block,
+            Block block,
             List<Block> nullSuppressedFields,
             List<Integer> writePositionCounts,
             int field,
@@ -240,16 +320,17 @@ public class TestDefinitionLevelWriter
         assertThat(valuesWriter.getWrittenValues()).isEqualTo(expectedDefLevelsBuilder.build());
     }
 
-    private static void assertDefinitionLevels(
-            ColumnarArray columnarArray,
+    private static void assertArrayDefinitionLevels(
+            Block arrayBlock,
             List<Integer> writePositionCounts,
             int maxDefinitionLevel)
     {
+        ColumnarArray columnarArray = toColumnarArray(arrayBlock);
         // Write definition levels
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         DefinitionLevelWriter elementsRootDefLevelWriter = getRootDefinitionLevelWriter(
                 ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarArray, maxDefinitionLevel - 1),
+                        DefLevelWriterProviders.of(columnarArray, arrayBlock, maxDefinitionLevel - 1),
                         DefLevelWriterProviders.of(columnarArray.getElementsBlock(), maxDefinitionLevel)),
                 valuesWriter);
         ValuesCount elementsValuesCount;
@@ -303,16 +384,17 @@ public class TestDefinitionLevelWriter
     }
 
     private static void assertDefinitionLevels(
-            ColumnarMap columnarMap,
+            Block mapBlock,
             List<Integer> writePositionCounts,
             int keysMaxDefinitionLevel,
             int valuesMaxDefinitionLevel)
     {
+        ColumnarMap columnarMap = toColumnarMap(mapBlock);
         // Write definition levels for map keys
         TestingValuesWriter keysWriter = new TestingValuesWriter();
         DefinitionLevelWriter keysRootDefLevelWriter = getRootDefinitionLevelWriter(
                 ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarMap, keysMaxDefinitionLevel),
+                        DefLevelWriterProviders.of(columnarMap, mapBlock, keysMaxDefinitionLevel),
                         DefLevelWriterProviders.of(columnarMap.getKeysBlock(), keysMaxDefinitionLevel)),
                 keysWriter);
         ValuesCount keysValueCount;
@@ -334,7 +416,7 @@ public class TestDefinitionLevelWriter
         TestingValuesWriter valuesWriter = new TestingValuesWriter();
         DefinitionLevelWriter valuesRootDefLevelWriter = getRootDefinitionLevelWriter(
                 ImmutableList.of(
-                        DefLevelWriterProviders.of(columnarMap, keysMaxDefinitionLevel),
+                        DefLevelWriterProviders.of(columnarMap, mapBlock, keysMaxDefinitionLevel),
                         DefLevelWriterProviders.of(columnarMap.getValuesBlock(), valuesMaxDefinitionLevel)),
                 valuesWriter);
         ValuesCount valuesValueCount;

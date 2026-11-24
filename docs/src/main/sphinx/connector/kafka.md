@@ -96,6 +96,7 @@ The following configuration properties are available:
 | `kafka.buffer-size`                                   | Kafka read buffer size.                                                                                                                                                                                                     |
 | `kafka.hide-internal-columns`                         | Controls whether internal columns are part of the table schema or not.                                                                                                                                                      |
 | `kafka.internal-column-prefix`                        | Prefix for internal columns, defaults to `_`                                                                                                                                                                                |
+| `kafka.key-partition-pushdown.enabled`                | Enable partition pruning based on `_key` predicates; defaults to `true`.                                                                                                                                                    |
 | `kafka.messages-per-split`                            | Number of messages that are processed by each Trino split; defaults to `100000`.                                                                                                                                            |
 | `kafka.protobuf-any-support-enabled`                  | Enable support for encoding Protobuf `any` types to `JSON` by setting the property to `true`, defaults to `false`.                                                                                                          |
 | `kafka.timestamp-upper-bound-force-push-down-enabled` | Controls if upper bound timestamp pushdown is enabled for topics using `CreateTime` mode.                                                                                                                                   |
@@ -150,6 +151,16 @@ enabled via `kafka.timestamp-upper-bound-force-push-down-enabled` config propert
 or `timestamp_upper_bound_force_push_down_enabled` session property.
 
 This property is optional; the default is `false`.
+
+### `kafka.key-partition-pushdown.enabled`
+
+Enables partition pruning for predicates on the `_key` column. The connector
+maps keys to partitions using Kafka's default partitioner. Partition pruning is
+enabled by default. Disable this property if messages in the topic were produced
+with a custom partitioner or with an explicitly selected partition. Otherwise,
+queries may omit matching rows.
+
+This property is optional; the default is `true`.
 
 ### `kafka.hide-internal-columns`
 
@@ -236,11 +247,11 @@ For each defined table, the connector maintains the following columns:
 | `_segment_end`      | BIGINT                         | Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as `_segment_start` of the next segment (if it exists). |
 | `_segment_count`    | BIGINT                         | Running count for the current row within the segment. For an uncompacted topic, `_segment_start + _segment_count` is equal to `_partition_offset`.                                  |
 | `_message_corrupt`  | BOOLEAN                        | True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.                                        |
-| `_message`          | VARCHAR                        | Message bytes as a UTF-8 encoded string. This is only useful for a text topic.                                                                                                      |
+| `_message`          | VARBINARY                      | Raw message bytes.                                                                                                                                                                  |
 | `_message_length`   | BIGINT                         | Number of bytes in the message.                                                                                                                                                     |
 | `_headers`          | map(VARCHAR, array(VARBINARY)) | Headers of the message where values with the same key are grouped as array.                                                                                                         |
 | `_key_corrupt`      | BOOLEAN                        | True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.                                            |
-| `_key`              | VARCHAR                        | Key bytes as a UTF-8 encoded string. This is only useful for textual keys.                                                                                                          |
+| `_key`              | VARBINARY                      | Raw key bytes.                                                                                                                                                                      |
 | `_key_length`       | BIGINT                         | Number of bytes in the key.                                                                                                                                                         |
 | `_timestamp`        | TIMESTAMP                      | Message timestamp.                                                                                                                                                                  |
 
@@ -302,9 +313,9 @@ this data must be mapped into columns to allow queries against the data.
 :::{note}
 For textual topics that contain JSON data, it is entirely possible to not
 use any table definition files, but instead use the Trino
-{doc}`/functions/json` to parse the `_message` column which contains
-the bytes mapped into a UTF-8 string. This is cumbersome and makes it
-difficult to write SQL queries. This only works when reading data.
+{doc}`/functions/json` to parse the `_message` column, converting the
+bytes into a UTF-8 string with {func}`from_utf8`. This is cumbersome and
+makes it difficult to write SQL queries. This only works when reading data.
 :::
 
 A table definition file consists of a JSON definition for a table. The

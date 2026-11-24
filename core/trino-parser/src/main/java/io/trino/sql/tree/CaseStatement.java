@@ -57,12 +57,6 @@ public final class CaseStatement
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCaseStatement(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

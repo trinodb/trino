@@ -13,21 +13,34 @@
  */
 package io.trino.faulttolerant;
 
+import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.execution.StageInfo;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -119,5 +132,30 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         assertThat(query("SELECT * FROM blackhole.default.delay UNION ALL SELECT * FROM blackhole.default.fast"))
                 .succeeds()
                 .matches("VALUES BIGINT '0', BIGINT '0'");
+    }
+
+    @Test
+    public void testTablesOfStageWhichWasNotCreated()
+    {
+        // the stage which scans nation is not created, as the stage it reads the other side of the join from fails
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                session,
+                "SELECT count(*) FROM nation n JOIN (SELECT regionkey / (regionkey - regionkey) AS regionkey FROM region) r ON n.regionkey = r.regionkey"))
+                .isInstanceOfSatisfying(QueryFailedException.class, exception -> {
+                    List<StageInfo> stages = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(exception.getQueryId())
+                            .getStages().orElseThrow()
+                            .getStages();
+                    assertThat(stages).anyMatch(stage -> stage.state() == ABORTED && stage.tasks().isEmpty() && !stage.tables().isEmpty());
+                    assertThat(stages).allSatisfy(stage -> assertThat(stage.tables().keySet()).isEqualTo(
+                            searchFrom(stage.plan().getRoot())
+                                    .where(TableScanNode.class::isInstance)
+                                    .findAll().stream()
+                                    .map(PlanNode::getId)
+                                    .collect(toImmutableSet())));
+                });
     }
 }

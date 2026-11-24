@@ -306,10 +306,15 @@ public abstract class AbstractColumnReaderRowRangesTest
                 .collect(toDataProvider());
 
         return Arrays.stream(cartesianProduct(definitionLevelsProviders, repetitionLevelsProviders, dictionaryEncodings))
-                // Skip ALL_NULLS case for dictionary encoded data
-                .filter(args -> args[0] != DefinitionLevelsProvider.ALL_1 || args[2].equals(DictionaryEncoding.NONE))
+                // Skip ALL_NULLS case for dictionary encoded data, a nullable field with max definition level 2 has only nulls at definition level 1
+                .filter(args -> !isAllNulls(field, (DefinitionLevelsProvider) args[0]) || args[2].equals(DictionaryEncoding.NONE))
                 .map(args -> new ColumnReaderInput(columnReaderProvider, (DefinitionLevelsProvider) args[0], (RepetitionLevelsProvider) args[1], (DictionaryEncoding) args[2]))
                 .toArray(ColumnReaderInput[]::new);
+    }
+
+    private static boolean isAllNulls(PrimitiveField field, DefinitionLevelsProvider definitionLevelsProvider)
+    {
+        return !field.isRequired() && field.getDefinitionLevel() == 2 && definitionLevelsProvider == DefinitionLevelsProvider.ALL_1;
     }
 
     private enum DefinitionLevelsProvider
@@ -422,8 +427,8 @@ public abstract class AbstractColumnReaderRowRangesTest
             }
             return switch (maxDef) {
                 case 0 -> new DefinitionLevelsProvider[] {};
-                case 1 -> new DefinitionLevelsProvider[] {ALL_0, RANDOM_0_1, ALTERNATE_0_1};
-                case 2 -> new DefinitionLevelsProvider[] {ALL_1, RANDOM_0_1, ALTERNATE_0_1, RANDOM_0_2, ALTERNATE_0_2};
+                case 1 -> new DefinitionLevelsProvider[] {ALL_0, ALL_1, RANDOM_0_1, ALTERNATE_0_1};
+                case 2 -> new DefinitionLevelsProvider[] {ALL_1, ALL_2, RANDOM_0_1, ALTERNATE_0_1, RANDOM_0_2, ALTERNATE_0_2};
                 default -> throw new IllegalArgumentException("Wrong definition level: " + maxDef);
             };
         }

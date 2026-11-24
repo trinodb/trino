@@ -31,6 +31,7 @@ import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.JsonPath;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -95,6 +96,8 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
+import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -113,6 +116,9 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.CodePointsType.CODE_POINTS;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -641,6 +647,50 @@ public class TestPageFunctionCompiler
         assertThat(compiler.getProjectionCache().getLoadCount()).isEqualTo(2);
         assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
         assertThat(compiler.getProjectionTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testProjectionCacheWithConstant()
+    {
+        PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        ResolvedFunction jsonExtractScalar = FUNCTION_RESOLUTION.resolveFunction("json_extract_scalar", fromTypes(VARCHAR, JSON_PATH));
+        ResolvedFunction joniRegexpLike = FUNCTION_RESOLUTION.resolveFunction("regexp_like", fromTypes(VARCHAR, JONI_REGEXP));
+        ResolvedFunction leftTrim = FUNCTION_RESOLUTION.resolveFunction("ltrim", fromTypes(VARCHAR, CODE_POINTS));
+        Reference input = new Reference(VARCHAR, "c");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "c"), 0);
+
+        // Separately created JSON paths with the same pattern: cache hit
+        cacheCompiler.compileProjection(call(jsonExtractScalar, input, new Constant(JSON_PATH, new JsonPath("$.a"))), layout, SQL_STANDARD, Optional.empty());
+        cacheCompiler.compileProjection(call(jsonExtractScalar, input, new Constant(JSON_PATH, new JsonPath("$.a"))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(2);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
+
+        // Different JSON path: cache miss
+        cacheCompiler.compileProjection(call(jsonExtractScalar, input, new Constant(JSON_PATH, new JsonPath("$.b"))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(3);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(2);
+
+        // Separately created Joni regexps with the same pattern: cache hit
+        cacheCompiler.compileProjection(call(joniRegexpLike, input, new Constant(JONI_REGEXP, joniRegexp(utf8Slice("a.*")))), layout, SQL_STANDARD, Optional.empty());
+        cacheCompiler.compileProjection(call(joniRegexpLike, input, new Constant(JONI_REGEXP, joniRegexp(utf8Slice("a.*")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(5);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(3);
+
+        // Different Joni regexp: cache miss
+        cacheCompiler.compileProjection(call(joniRegexpLike, input, new Constant(JONI_REGEXP, joniRegexp(utf8Slice("b.*")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(6);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(4);
+
+        // Separately created code points with the same content: cache hit
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ab")))), layout, SQL_STANDARD, Optional.empty());
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ab")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(8);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(5);
+
+        // Different code points: cache miss
+        cacheCompiler.compileProjection(call(leftTrim, input, new Constant(CODE_POINTS, castVarcharToCodePoints(utf8Slice("ac")))), layout, SQL_STANDARD, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(9);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(6);
     }
 
     @Test

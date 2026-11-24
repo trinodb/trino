@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.azure;
 
+import com.azure.core.util.BinaryData;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobItem;
@@ -412,5 +413,38 @@ public abstract class AbstractTestAzureFileSystem
             }
             assertThat(builder.build()).containsExactlyInAnyOrder(file1, file2);
         }
+    }
+
+    @Test
+    void testListBlobsWithLeadingSlash()
+            throws IOException
+    {
+        if (isHierarchical()) {
+            abort("ADLS Gen2 hierarchical canonicalizes runs of slashes, so blob names cannot start with a slash");
+        }
+        try (Closer closer = Closer.create()) {
+            for (String name : ImmutableList.of("/leading-slash/file", "/leading-slash/nested/file")) {
+                createBlobWithName(closer, name);
+            }
+            Location directory = getRootLocation().appendSuffix("/leading-slash/");
+
+            ImmutableList.Builder<Location> files = ImmutableList.builder();
+            FileIterator iterator = getFileSystem().listFiles(directory);
+            while (iterator.hasNext()) {
+                files.add(iterator.next().location());
+            }
+            assertThat(files.build()).containsExactlyInAnyOrder(
+                    directory.appendSuffix("file"),
+                    directory.appendSuffix("nested/file"));
+
+            assertThat(getFileSystem().listDirectories(directory))
+                    .containsExactly(directory.appendSuffix("nested/"));
+        }
+    }
+
+    private void createBlobWithName(Closer closer, String name)
+    {
+        blobContainerClient.getBlobClient(name).upload(BinaryData.fromString("abc"));
+        closer.register(() -> blobContainerClient.getBlobClient(name).deleteIfExists());
     }
 }

@@ -15,6 +15,7 @@ package io.trino.metastore.cache;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -22,11 +23,14 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.trino.metastore.cache.CachingHiveMetastoreConfig.DEFAULT_STATS_CACHE_TTL;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -95,5 +99,22 @@ public class TestCachingHiveMetastoreConfig
                 .setStatsCacheTtl(new Duration(135, MILLISECONDS))
                 .setMetastoreCacheTtl(new Duration(1111, DAYS))
                 .getStatsCacheTtl()).isEqualTo(new Duration(135, MILLISECONDS));
+    }
+
+    @Test
+    public void testMetastoreRefreshInterval()
+    {
+        assertValidates(new CachingHiveMetastoreConfig().setMetastoreRefreshInterval(new Duration(1, MILLISECONDS)));
+
+        assertFailsValidation(
+                new CachingHiveMetastoreConfig().setMetastoreRefreshInterval(new Duration(1, NANOSECONDS)),
+                "metastoreRefreshInterval",
+                "must be greater than or equal to 1ms",
+                MinDuration.class);
+        assertFailsValidation(
+                new CachingHiveMetastoreConfig().setMetastoreRefreshInterval(new Duration(0, SECONDS)),
+                "metastoreRefreshInterval",
+                "must be greater than or equal to 1ms",
+                MinDuration.class);
     }
 }

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SetPath
+public final class SetPath
         extends Statement
 {
     private final PathSpecification pathSpecification;
@@ -35,12 +35,6 @@ public class SetPath
     public PathSpecification getPathSpecification()
     {
         return pathSpecification;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetPath(this, context);
     }
 
     @Override

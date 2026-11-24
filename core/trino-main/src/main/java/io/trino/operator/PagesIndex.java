@@ -85,6 +85,7 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
+    private final NullSafeHashCompiler hashCompiler;
     private final BlockTypeOperators blockTypeOperators;
 
     private final List<Type> types;
@@ -103,6 +104,7 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
+            NullSafeHashCompiler hashCompiler,
             BlockTypeOperators blockTypeOperators,
             List<Type> types,
             int expectedPositions,
@@ -110,6 +112,7 @@ public class PagesIndex
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.hashCompiler = requireNonNull(hashCompiler, "hashCompiler is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
@@ -137,6 +140,7 @@ public class PagesIndex
         public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
         private final JoinCompiler joinCompiler;
+        private static final NullSafeHashCompiler NULL_SAFE_HASH_COMPILER = new NullSafeHashCompiler(TYPE_OPERATORS);
         private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;
 
@@ -154,7 +158,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, joinCompiler, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, joinCompiler, NULL_SAFE_HASH_COMPILER, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -163,14 +167,16 @@ public class PagesIndex
     {
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
+        private final NullSafeHashCompiler hashCompiler;
         private final boolean eagerCompact;
         private final BlockTypeOperators blockTypeOperators;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, BlockTypeOperators blockTypeOperators)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, NullSafeHashCompiler hashCompiler, FeaturesConfig featuresConfig, BlockTypeOperators blockTypeOperators)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.hashCompiler = requireNonNull(hashCompiler, "hashCompiler is null");
             this.eagerCompact = featuresConfig.isPagesIndexEagerCompactionEnabled();
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
@@ -178,7 +184,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, blockTypeOperators, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, hashCompiler, blockTypeOperators, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -531,14 +537,21 @@ public class PagesIndex
     {
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
+        int[] joinChannelsArray = joinChannels.stream().mapToInt(Integer::intValue).toArray();
+        List<Type> joinChannelTypes = joinChannels.stream().map(types::get).collect(toImmutableList());
+        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createChannelsHashGenerator(
+                joinChannelTypes, joinChannelsArray, hashCompiler);
         return lookupSourceFactory.createLookupSourceSupplier(
                 session,
                 valueAddresses,
                 channels,
+                positionCounts,
                 filterFunctionFactory,
                 sortChannel,
                 searchFunctionFactories,
-                hashArraySizeSupplier);
+                hashArraySizeSupplier,
+                joinChannels,
+                hashGenerator);
     }
 
     private static List<Integer> rangeList(int endExclusive)

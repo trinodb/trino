@@ -13,14 +13,14 @@
  */
 package io.trino.testing.containers;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Dns;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -196,7 +196,7 @@ public final class HdfsClient
             if (fileStatuses.isArray()) {
                 String[] names = new String[fileStatuses.size()];
                 for (int i = 0; i < fileStatuses.size(); i++) {
-                    names[i] = fileStatuses.get(i).path("pathSuffix").asText();
+                    names[i] = fileStatuses.get(i).path("pathSuffix").asString();
                 }
                 return names;
             }
@@ -212,7 +212,7 @@ public final class HdfsClient
      */
     public String getFileOwner(String path)
     {
-        return getFileStatus(path).path("owner").asText();
+        return getFileStatus(path).path("owner").asString();
     }
 
     /**
@@ -220,7 +220,7 @@ public final class HdfsClient
      */
     public String getFileGroup(String path)
     {
-        return getFileStatus(path).path("group").asText();
+        return getFileStatus(path).path("group").asString();
     }
 
     /**

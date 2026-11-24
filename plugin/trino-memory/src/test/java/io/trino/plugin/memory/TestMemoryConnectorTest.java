@@ -61,6 +61,9 @@ public class TestMemoryConnectorTest
                         .put("dynamic-filtering.partitioned.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.partitioned.range-row-limit-per-driver", "100000")
                         .put("dynamic-filtering.partitioned.max-size-per-driver", "50kB")
+                        // apply dynamic row filters regardless of selectivity to keep the probe row counts
+                        // in testJoinLargeBuildSideDynamicFiltering and testSemiJoinLargeBuildSideDynamicFiltering exact
+                        .put("dynamic-row-filtering.selectivity-threshold", "1.0")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                         // enable CREATE FUNCTION

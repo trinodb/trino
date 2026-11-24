@@ -14,7 +14,6 @@
 
 package io.trino.plugin.base.metrics;
 
-import com.fasterxml.jackson.core.Base64Variants;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
@@ -22,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.Base64Variants;
 
 import java.util.Arrays;
 import java.util.Map;

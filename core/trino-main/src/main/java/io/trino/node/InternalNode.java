@@ -38,15 +38,17 @@ public class InternalNode
         implements Node
 {
     private final String nodeIdentifier;
+    private final String instanceId;
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
     private final long longHashCode;
 
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, String instanceId, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
+        this.instanceId = requireNonNull(emptyToNull(instanceId), "instanceId is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
@@ -61,6 +63,15 @@ public class InternalNode
     public String getNodeIdentifier()
     {
         return nodeIdentifier;
+    }
+
+    /**
+     * Identifies the server process the node information was obtained from. Unlike the node identifier,
+     * it changes every time the server is restarted.
+     */
+    public String getInstanceId()
+    {
+        return instanceId;
     }
 
     @Override
@@ -119,6 +130,7 @@ public class InternalNode
         InternalNode o = (InternalNode) obj;
         return coordinator == o.coordinator &&
                 Objects.equals(nodeIdentifier, o.nodeIdentifier) &&
+                Objects.equals(instanceId, o.instanceId) &&
                 Objects.equals(internalUri, o.internalUri) &&
                 Objects.equals(nodeVersion, o.nodeVersion);
     }
@@ -139,6 +151,7 @@ public class InternalNode
     {
         return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
+                .add("instanceId", instanceId)
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .add("coordinator", coordinator)

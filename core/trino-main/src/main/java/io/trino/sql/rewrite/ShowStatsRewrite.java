@@ -43,11 +43,9 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
@@ -111,11 +109,10 @@ public class ShowStatsRewrite
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parameters, metadata, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector, statsCalculator).process(node, null);
+        return new Rewriter(session, parameters, metadata, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector, statsCalculator).process(node);
     }
 
-    private static class Visitor
-            extends AstVisitor<Node, Void>
+    private static class Rewriter
     {
         private final Session session;
         private final List<Expression> parameters;
@@ -125,7 +122,7 @@ public class ShowStatsRewrite
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
         private final StatsCalculator statsCalculator;
 
-        private Visitor(
+        private Rewriter(
                 Session session,
                 List<Expression> parameters,
                 Metadata metadata,
@@ -143,8 +140,15 @@ public class ShowStatsRewrite
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 
-        @Override
-        protected Node visitShowStats(ShowStats node, Void context)
+        public Statement process(Statement node)
+        {
+            return switch (node) {
+                case ShowStats showStats -> rewriteShowStats(showStats);
+                default -> node;
+            };
+        }
+
+        private Statement rewriteShowStats(ShowStats node)
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
@@ -164,7 +168,7 @@ public class ShowStatsRewrite
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
 
-        private Node rewriteShowStats(Plan plan, PlanNodeStatsEstimate planNodeStatsEstimate)
+        private Statement rewriteShowStats(Plan plan, PlanNodeStatsEstimate planNodeStatsEstimate)
         {
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
@@ -197,12 +201,6 @@ public class ShowStatsRewrite
             List<Expression> resultRows = rowsBuilder.build();
 
             return simpleQuery(selectAll(selectItems), aliased(new Values(resultRows), "table_stats", statsColumnNames));
-        }
-
-        @Override
-        protected Node visitNode(Node node, Void context)
-        {
-            return node;
         }
 
         private static List<String> buildColumnsNames()

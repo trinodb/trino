@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -113,6 +114,6 @@ public class RuleStatsSystemTable
                 .map(column -> blockBuilders.get(column.getName()).build())
                 .toArray(Block[]::new);
 
-        return new FixedPageSource(ImmutableList.of(new Page(positionCount, blocks)));
+        return new FixedPageSource(ImmutableList.of(new Page(positionCount, blocks)), NO_LIMIT);
     }
 }

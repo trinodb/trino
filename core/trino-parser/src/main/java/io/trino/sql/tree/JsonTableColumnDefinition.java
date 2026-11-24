@@ -13,8 +13,12 @@
  */
 package io.trino.sql.tree;
 
-public abstract class JsonTableColumnDefinition
+public abstract sealed class JsonTableColumnDefinition
         extends Node
+        permits NestedColumns,
+                OrdinalityColumn,
+                QueryColumn,
+                ValueColumn
 {
     protected JsonTableColumnDefinition(NodeLocation location)
     {

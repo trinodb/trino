@@ -13,10 +13,10 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 
@@ -44,12 +44,6 @@ public record Let(Symbol name, Expression value, Expression body)
     public Type type()
     {
         return body.type();
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLet(this, context);
     }
 
     @Override

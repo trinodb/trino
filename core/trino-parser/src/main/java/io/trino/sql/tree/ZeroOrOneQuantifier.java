@@ -13,17 +13,11 @@
  */
 package io.trino.sql.tree;
 
-public class ZeroOrOneQuantifier
+public final class ZeroOrOneQuantifier
         extends PatternQuantifier
 {
     public ZeroOrOneQuantifier(NodeLocation location, boolean greedy)
     {
         super(location, greedy);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitZeroOrOneQuantifier(this, context);
     }
 }

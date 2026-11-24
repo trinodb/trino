@@ -15,12 +15,12 @@ package io.trino.testing.containers;
 
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
 import java.util.Optional;
+
+import static io.trino.testing.containers.SparkContainers.sparkThriftServerWaitStrategy;
 
 /**
  * A reusable Spark container for Delta Lake product tests.
@@ -80,7 +80,6 @@ public class SparkDeltaContainer
                 --driver-memory 3g \\
                 --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 \\
                 --name 'Thrift JDBC/ODBC Server' \\
-                --packages 'org.apache.spark:spark-avro_2.12:3.2.1' \\
                 --properties-file /spark/conf/spark-defaults.conf \\
                 --conf spark.hive.server2.thrift.port=%d \\
                 spark-internal
@@ -104,8 +103,7 @@ public class SparkDeltaContainer
                 Transferable.of(STARTUP_SCRIPT, 0755),
                 "/spark/conf/startup.sh");
         withCommand("/spark/conf/startup.sh");
-        waitingFor(Wait.forListeningPort()
-                .withStartupTimeout(Duration.ofMinutes(3)));
+        waitingFor(sparkThriftServerWaitStrategy(SPARK_THRIFT_PORT));
     }
 
     public SparkDeltaContainer withS3Config(String endpoint, String accessKey, String secretKey, String region)

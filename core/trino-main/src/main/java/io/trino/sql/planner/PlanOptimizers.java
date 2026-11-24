@@ -43,6 +43,7 @@ import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
+import io.trino.sql.planner.iterative.rule.DeduplicatePartialAggregations;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -222,6 +223,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCoun
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
+import io.trino.sql.planner.iterative.rule.ReplaceStddevWithSqrtOfVariance;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
@@ -632,10 +634,11 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(
-                                new ApplyTableScanRedirection(plannerContext),
-                                new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, false))));
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new ApplyTableScanRedirection(plannerContext))
+                                .add(new PruneTableScanColumns(metadata))
+                                .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
+                                .build()));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -643,7 +646,7 @@ public class PlanOptimizers
                 .add(new PushProjectionIntoTableScan(plannerContext, scalarStatsCalculator))
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
-                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
                 .add(new PushSampleIntoTableScan(metadata))
                 // Disjoint with PushSampleIntoTableScan (matches BERNOULLI, while PushSampleIntoTableScan matches SYSTEM).
                 .add(new ImplementBernoulliSampleAsFilter(metadata))
@@ -725,7 +728,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
                                 .build()),
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -791,7 +794,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
                                 .build()),
                 pushProjectionIntoTableScanOptimizer
                         .withName("PushProjectionIntoTableScanAfterCrossJoin"),
@@ -807,7 +810,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
                                 .addAll(columnPruningRules)
                                 .add(new RemoveRedundantIdentityProjections())
                                 .build()),
@@ -843,6 +846,7 @@ public class PlanOptimizers
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new ReplaceDecimalSumAndAvgWithSumAndCount(plannerContext)) // must run after unreferenced columns are pruned
+                        .add(new ReplaceStddevWithSqrtOfVariance(metadata)) // must run after unreferenced columns are pruned and symbols are unaliased
                         .build()));
 
         builder.add(new IterativeOptimizer(
@@ -869,12 +873,13 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(
-                        new PushPredicateIntoTableScan(plannerContext, true),
-                        new RemoveEmptyUnionBranches(),
-                        new EvaluateEmptyIntersect(),
-                        new RemoveEmptyExceptBranches(),
-                        new TransformFilteringSemiJoinToInnerJoin())));
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new PushPredicateIntoTableScan(plannerContext, true).rules())
+                        .add(new RemoveEmptyUnionBranches())
+                        .add(new EvaluateEmptyIntersect())
+                        .add(new RemoveEmptyExceptBranches())
+                        .add(new TransformFilteringSemiJoinToInnerJoin())
+                        .build()));
 
         builder.add(new IterativeOptimizer(
                 "DetermineJoinDistributions",
@@ -899,7 +904,7 @@ public class PlanOptimizers
                         // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
                         // otherwise too early pushdown could prevent optimal plan from being selected.
                         .add(new PushJoinIntoTableScan(plannerContext))
-                        // DetermineTableScanNodePartitioning is needed to needs to ensure all table handles have proper partitioning determined
+                        // DetermineTableScanNodePartitioning is needed to ensure all table handles have proper partitioning determined
                         // Must run before AddExchanges
                         .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
                         .build()));
@@ -974,7 +979,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(plannerContext, false))
+                        .addAll(new PushPredicateIntoTableScan(plannerContext, false).rules())
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
@@ -1025,8 +1030,10 @@ public class PlanOptimizers
                         .addAll(new PushPartialAggregationThroughExchange(plannerContext).rules())
                         .add(new PruneJoinColumns(),
                                 new PruneJoinChildrenColumns(),
-                                new RemoveRedundantIdentityProjections())
+                                new RemoveRedundantIdentityProjections(),
+                                new DeduplicatePartialAggregations())
                         .build()));
+        builder.add(new UnaliasSymbolReferences()); // Resolve symbol renames added by pushing partial aggregations
         builder.add(new IterativeOptimizer(
                 "AddPartialAggBelowGroupIdExchanges",
                 plannerContext,

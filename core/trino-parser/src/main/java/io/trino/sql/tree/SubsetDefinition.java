@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class SubsetDefinition
+public final class SubsetDefinition
         extends Node
 {
     private final Identifier name;
@@ -43,12 +43,6 @@ public class SubsetDefinition
     public List<Identifier> getIdentifiers()
     {
         return identifiers;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSubsetDefinition(this, context);
     }
 
     @Override

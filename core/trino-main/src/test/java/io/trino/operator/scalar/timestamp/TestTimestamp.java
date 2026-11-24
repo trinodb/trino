@@ -2669,6 +2669,17 @@ public class TestTimestamp
     }
 
     @Test
+    public void testWithTimeZoneSubHourOffset()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT zone, to_unixtime(with_timezone(TIMESTAMP '1970-01-01 00:00:00', zone))
+                FROM (VALUES 'GMT-00:30', 'Etc/GMT-00:30', 'Etc/GMT+00:30') t(zone)
+                """))
+                .matches("VALUES ('GMT-00:30', 1800e0), ('Etc/GMT-00:30', -1800e0), ('Etc/GMT+00:30', 1800e0)");
+    }
+
+    @Test
     public void testSequenceIntervalDayToSecond()
     {
         assertThat(assertions.expression("sequence(TIMESTAMP '2020-01-01 12:34:56', TIMESTAMP '2020-01-01 12:34:59', INTERVAL '1' SECOND)"))

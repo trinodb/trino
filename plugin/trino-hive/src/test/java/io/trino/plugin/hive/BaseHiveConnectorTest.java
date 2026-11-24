@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -78,6 +77,7 @@ import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -628,6 +628,29 @@ public abstract class BaseHiveConnectorTest
                         "(null, null, null, null, 2, null, null)");
 
         assertUpdate("DROP TABLE test_nan_partition");
+    }
+
+    @Test
+    public void testPartitionValuesWithNonPositiveYears()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partition_non_positive_years_",
+                "(x int, d date, ts timestamp(3)) WITH (partitioned_by = ARRAY['d', 'ts'])")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " VALUES " +
+                            "(1, DATE '-0001-01-01', TIMESTAMP '-0001-01-01 01:02:03.123'), " +
+                            "(2, DATE '0000-06-01', TIMESTAMP '0000-06-01 00:00:00')",
+                    2);
+
+            assertThat(query("SELECT x, CAST(d AS varchar), CAST(ts AS varchar) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "(1, '-0001-01-01', '-0001-01-01 01:02:03.123'), " +
+                            "(2, '0000-06-01', '0000-06-01 00:00:00.000')");
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE d = DATE '-0001-01-01'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+        }
     }
 
     @Test
@@ -5708,6 +5731,25 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE test_bucket_filtering");
+        }
+    }
+
+    @Test
+    void testBucketFilteringByRange()
+    {
+        String tableName = "test_bucket_filtering_by_range_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (bucketed_by = ARRAY['key'], bucket_count = 10) AS SELECT key FROM UNNEST(sequence(0, 99)) t(key)", 100);
+        try {
+            // splits cover only the files of buckets holding the values
+            long bucketFiles = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE \"$bucket\" IN (SELECT \"$bucket\" FROM " + tableName + " WHERE key IN (10, 11, 12))");
+            assertQueryStats(
+                    getSession(),
+                    "SELECT * FROM " + tableName + " WHERE key IN (10, 11, 12)",
+                    queryStats -> assertThat((long) queryStats.getTotalDrivers()).isEqualTo(bucketFiles),
+                    results -> assertThat(results.getRowCount()).isEqualTo(3));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 

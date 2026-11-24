@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class MergeDelete
+public final class MergeDelete
         extends MergeCase
 {
     @Deprecated
@@ -33,12 +33,6 @@ public class MergeDelete
     public MergeDelete(NodeLocation location, Optional<Expression> expression)
     {
         super(location, expression);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitMergeDelete(this, context);
     }
 
     @Override

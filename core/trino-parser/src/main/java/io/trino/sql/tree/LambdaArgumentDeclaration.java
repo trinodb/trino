@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class LambdaArgumentDeclaration
+public final class LambdaArgumentDeclaration
         extends Expression
 {
     private final Identifier name;
@@ -40,12 +40,6 @@ public class LambdaArgumentDeclaration
     public Identifier getName()
     {
         return name;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitLambdaArgumentDeclaration(this, context);
     }
 
     @Override

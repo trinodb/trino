@@ -55,6 +55,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -65,7 +66,7 @@ public class TaskInfoFetcher
     private static final SpoolingOutputStats.Snapshot ALREADY_RETRIEVED_MARKER = new SpoolingOutputStats.Snapshot(Slices.EMPTY_SLICE, 0);
 
     private final TaskId taskId;
-    private final AtomicLong expectedTaskInstanceId = new AtomicLong();
+    private final String nodeInstanceId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final StateMachine<TaskInfo> taskInfo;
@@ -102,6 +103,7 @@ public class TaskInfoFetcher
             Consumer<Throwable> onFail,
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
+            String nodeInstanceId,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
@@ -119,7 +121,7 @@ public class TaskInfoFetcher
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.taskStatus().taskId();
-        this.expectedTaskInstanceId.set(initialTask.taskStatus().taskInstanceId());
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
@@ -152,6 +154,8 @@ public class TaskInfoFetcher
             return;
         }
         running = true;
+        // The first fetch waits one interval because the task update that starts the task returns its info
+        lastUpdateNanos.set(System.nanoTime());
         scheduleUpdate();
     }
 
@@ -248,6 +252,7 @@ public class TaskInfoFetcher
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
@@ -261,6 +266,15 @@ public class TaskInfoFetcher
         updateTaskInfo(newTaskInfo, isTaskInstanceMismatch(newTaskInfo));
     }
 
+    /**
+     * Applies the task info returned by a task update and postpones the next fetch.
+     */
+    void updateTaskInfoFromTaskUpdate(TaskInfo newTaskInfo)
+    {
+        lastUpdateNanos.set(System.nanoTime());
+        updateTaskInfo(newTaskInfo);
+    }
+
     private synchronized void updateTaskInfo(TaskInfo newTaskInfo, boolean taskInstanceMismatch)
     {
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
@@ -272,7 +286,7 @@ public class TaskInfoFetcher
                 log.debug(
                         "Task %s received TaskInfo with mismatched instance id (expected %s, observed %s) but local status is %s; deferring finalization",
                         taskId,
-                        expectedTaskInstanceId.get(),
+                        taskStatusFetcher.getExpectedTaskInstanceId(),
                         newTaskInfo.taskStatus().taskInstanceId(),
                         localTaskStatus.state());
                 return;
@@ -280,7 +294,7 @@ public class TaskInfoFetcher
             log.warn(
                     "Task %s received a TaskInfo from a different task instance (expected %s, observed %s); worker at %s likely restarted. Finalizing task info locally.",
                     taskId,
-                    expectedTaskInstanceId.get(),
+                    taskStatusFetcher.getExpectedTaskInstanceId(),
                     newTaskInfo.taskStatus().taskInstanceId(),
                     newTaskInfo.taskStatus().self());
             newTaskInfo = getTaskInfo().withTaskStatus(localTaskStatus);
@@ -395,27 +409,9 @@ public class TaskInfoFetcher
         }
     }
 
-    /**
-     * Checks whether the given {@code TaskInfo} was produced by a different task instance
-     * than the one this fetcher was created for. This happens when a worker container
-     * restarts at the same address: the replacement JVM creates a new task on demand
-     * ({@code SqlTaskManager#getTask}) with a different {@code taskInstanceId}.
-     *
-     * <p>The first non-zero instance id observed is latched as the expected value; any
-     * later response carrying a different non-zero instance id is a mismatch.
-     */
-    boolean isTaskInstanceMismatch(TaskInfo newTaskInfo)
+    private boolean isTaskInstanceMismatch(TaskInfo newTaskInfo)
     {
-        long remoteInstanceId = newTaskInfo.taskStatus().taskInstanceId();
-        if (remoteInstanceId == 0) {
-            return false;
-        }
-        long expected = expectedTaskInstanceId.get();
-        if (expected == 0) {
-            expectedTaskInstanceId.compareAndSet(0, remoteInstanceId);
-            return false;
-        }
-        return expected != remoteInstanceId;
+        return taskStatusFetcher.isTaskInstanceMismatch(newTaskInfo.taskStatus().taskInstanceId());
     }
 
     private synchronized void cleanupRequest()

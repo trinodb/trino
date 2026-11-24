@@ -20,7 +20,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class FieldReference
+public final class FieldReference
         extends Expression
 {
     private final int fieldIndex;
@@ -36,12 +36,6 @@ public class FieldReference
     public int getFieldIndex()
     {
         return fieldIndex;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFieldReference(this, context);
     }
 
     @Override

@@ -69,7 +69,7 @@ public class TestIcebergSortedWriting
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['truncate(comment, 5)', 'comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
                     "VALUES 60175");

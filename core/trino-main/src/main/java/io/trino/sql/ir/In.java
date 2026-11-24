@@ -13,9 +13,9 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,12 +40,6 @@ public record In(Expression value, List<Expression> valueList)
     public Type type()
     {
         return BOOLEAN;
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitIn(this, context);
     }
 
     @Override

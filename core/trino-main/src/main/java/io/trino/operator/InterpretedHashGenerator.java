@@ -98,6 +98,43 @@ public class InterpretedHashGenerator
         }
     }
 
+    /**
+     * Hashes given non-null positions and stores the results in the provided hashes array.
+     * The hashes array must be pre-allocated with the size of the page, while the
+     * provided `positions` array can hold any subset of non-null positions from this `page`.
+     */
+    public void hashNonNulls(Page page, int[] positions, long[] hashes)
+    {
+        for (int operatorIndex = 0; operatorIndex < hashCodeOperators.length; operatorIndex++) {
+            Block rawBlock = page.getBlock(hashChannels == null ? operatorIndex : hashChannels[operatorIndex]);
+            if (operatorIndex == 0) {
+                hashNonNullsFirstBlock(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+            else {
+                hashNonNullsBlockWithCombine(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+        }
+    }
+
+    /**
+     * Variant of {@link #hashNonNulls(Page, int[], long[])} that takes blocks directly.
+     * {@code blocks[i]} is the block for hash operator {@code i}; the {@code hashChannels}
+     * mapping is not consulted — caller provides the right blocks per operator.
+     * {@code hashes} must be pre-allocated with size ≥ block position count.
+     */
+    public void hashNonNulls(Block[] blocks, int[] positions, long[] hashes)
+    {
+        for (int operatorIndex = 0; operatorIndex < hashCodeOperators.length; operatorIndex++) {
+            Block rawBlock = blocks[operatorIndex];
+            if (operatorIndex == 0) {
+                hashNonNullsFirstBlock(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+            else {
+                hashNonNullsBlockWithCombine(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+        }
+    }
+
     @Override
     public long hashPosition(int position, Page page)
     {
@@ -164,6 +201,57 @@ public class InterpretedHashGenerator
                 }
             }
             case ValueBlock valueBlock -> hashOperator.hashBatchedWithCombine(valueBlock, hashes, positionOffset, length);
+        }
+    }
+
+    private static void hashNonNullsFirstBlock(Block rawBlock, int[] positions, NullSafeHash hashOperator, long[] hashes)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                long hash = hashOperator.hash(rleBlock.getUnderlyingValueBlock(), 0);
+                Arrays.fill(hashes, hash);
+            }
+            case DictionaryBlock dictionaryBlock -> {
+                if (isDictionaryProcessingFaster(dictionaryBlock, positions.length)) {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    long[] dictionaryHashes = new long[dictionary.getPositionCount()];
+                    // Dictionary may contain nulls, only the input positions are guaranteed to be non-null
+                    hashOperator.hashBatched(dictionary, dictionaryHashes, 0, dictionary.getPositionCount());
+                    for (int position : positions) {
+                        hashes[position] = dictionaryHashes[dictionaryBlock.getId(position)];
+                    }
+                }
+                else {
+                    hashOperator.hashNonNullPositionsDictionary(dictionaryBlock, hashes, positions);
+                }
+            }
+            case ValueBlock valueBlock -> hashOperator.hashNonNullPositions(valueBlock, hashes, positions);
+        }
+    }
+
+    private static void hashNonNullsBlockWithCombine(Block rawBlock, int[] positions, NullSafeHash hashOperator, long[] hashes)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                long hash = hashOperator.hash(rleBlock.getUnderlyingValueBlock(), 0);
+                CombineHashFunction.combineAllHashesWithConstant(hashes, 0, hashes.length, hash);
+            }
+            case DictionaryBlock dictionaryBlock -> {
+                if (isDictionaryProcessingFaster(dictionaryBlock, positions.length)) {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    long[] dictionaryHashes = new long[dictionary.getPositionCount()];
+                    // Dictionary may contain nulls, only the input positions are guaranteed to be non-null
+                    hashOperator.hashBatched(dictionary, dictionaryHashes, 0, dictionary.getPositionCount());
+                    for (int position : positions) {
+                        long hash = dictionaryHashes[dictionaryBlock.getId(position)];
+                        hashes[position] = CombineHashFunction.getHash(hashes[position], hash);
+                    }
+                }
+                else {
+                    hashOperator.hashNonNullPositionsDictionaryWithCombine(dictionaryBlock, hashes, positions);
+                }
+            }
+            case ValueBlock valueBlock -> hashOperator.hashNonNullPositionsWithCombine(valueBlock, hashes, positions);
         }
     }
 

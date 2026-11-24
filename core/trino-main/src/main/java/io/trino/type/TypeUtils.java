@@ -13,9 +13,34 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
+
 public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils() {}
+
+    public static boolean isDirectLongComparisonValidForContinuousValues(Type type)
+    {
+        // Types for which we can safely use equality and comparison on the stored long value
+        // instead of going through type specific methods and where the next consecutive value
+        // can be obtained by incrementing the stored long value by 1
+        return type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                (type instanceof TimeType timeType && timeType.getPrecision() == 12) ||
+                type instanceof DateType ||
+                (type instanceof TimestampType timestampType && timestampType.getPrecision() == 6) ||
+                (type instanceof DecimalType decimalType && decimalType.isShort());
+    }
 }

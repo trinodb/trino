@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
-public class NullIfExpression
+public final class NullIfExpression
         extends Expression
 {
     private final Expression first;
@@ -44,12 +44,6 @@ public class NullIfExpression
     public Expression getSecond()
     {
         return second;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitNullIfExpression(this, context);
     }
 
     @Override

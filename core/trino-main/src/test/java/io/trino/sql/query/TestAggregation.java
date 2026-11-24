@@ -171,6 +171,34 @@ public class TestAggregation
     }
 
     @Test
+    void testStddevWithVariance()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT k, stddev_samp(v), var_samp(v), stddev_pop(v), var_pop(v), stddev(v) FILTER (WHERE v > 1), variance(v)
+                FROM (VALUES (1, 1e0), (1, 2e0), (1, 3e0), (1, 4e0), (1, NULL), (2, 5e0), (3, NULL)) t(k, v)
+                GROUP BY k
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, sqrt(5e0 / 3), 5e0 / 3, sqrt(5e0 / 4), 5e0 / 4, 1e0, 5e0 / 3),
+                            (2, NULL, NULL, 0e0, 0e0, NULL, NULL),
+                            (3, NULL, NULL, NULL, NULL, NULL, NULL)
+                        """);
+
+        assertThat(assertions.query(
+                """
+                SELECT stddev(v), variance(v), stddev_pop(v), var_pop(v)
+                FROM (VALUES BIGINT '1', 2, 3, 4) t(v)
+                """))
+                .matches("VALUES (sqrt(5e0 / 3), 5e0 / 3, sqrt(5e0 / 4), 5e0 / 4)");
+
+        assertThat(assertions.query("SELECT stddev(v), variance(v), stddev_pop(v), var_pop(v) FROM (VALUES 1e0) t(v) WHERE v > 1"))
+                .matches("VALUES (CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double))");
+    }
+
+    @Test
     void testCountDistinctOverConstant()
     {
         assertThat(assertions.query("SELECT count(DISTINCT 'x'), count(*) FROM (VALUES 1, 2, 3)"))

@@ -15,12 +15,12 @@ package io.trino.plugin.base.logging;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
@@ -39,7 +39,7 @@ public class FormatInterpolator<Context>
     @SafeVarargs
     public FormatInterpolator(String format, InterpolatedValue<Context>... values)
     {
-        this(format, Arrays.stream(values).toList());
+        this(format, ImmutableList.copyOf(values));
     }
 
     public String interpolate(Context context)
@@ -55,12 +55,12 @@ public class FormatInterpolator<Context>
 
     public static boolean hasValidPlaceholders(String format, InterpolatedValue<?>... values)
     {
-        return hasValidPlaceholders(format, Arrays.stream(values).toList());
+        return hasValidPlaceholders(format, ImmutableList.copyOf(values));
     }
 
     public static boolean hasValidPlaceholders(String format, List<InterpolatedValue<?>> values)
     {
-        List<String> matches = values.stream().map(InterpolatedValue::getMatchCase).toList();
+        List<String> matches = values.stream().map(InterpolatedValue::getMatchCase).collect(toImmutableList());
         Pattern pattern = Pattern.compile("[\\w ,_\\-=]|" + String.join("|", matches));
 
         Matcher matcher = pattern.matcher(format);

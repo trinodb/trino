@@ -627,7 +627,7 @@ public class TestPinotConnectorSmokeTest
             segmentGeneratorConfig.setSequenceId(sequenceId);
             SegmentCreationDataSource dataSource = new RecordReaderSegmentCreationDataSource(recordReader);
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema), null);
+            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema));
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));

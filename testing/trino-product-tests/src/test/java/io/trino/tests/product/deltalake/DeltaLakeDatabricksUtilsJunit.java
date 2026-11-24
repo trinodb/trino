@@ -34,7 +34,7 @@ public final class DeltaLakeDatabricksUtilsJunit
 {
     private static final Logger log = Logger.get(DeltaLakeDatabricksUtilsJunit.class);
 
-    public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391";
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391, https://github.com/trinodb/trino/issues/27642";
     @Language("RegExp")
     public static final String DATABRICKS_COMMUNICATION_FAILURE_MATCH =
             "\\Q[Databricks][\\E(DatabricksJDBCDriver|JDBCDriver)\\Q](500593) Communication link failure. Failed to connect to server. Reason: \\E" +
@@ -47,7 +47,9 @@ public final class DeltaLakeDatabricksUtilsJunit
                     "|HTTP request failed by code: 50[02]" +
                     "|HTTP response code: 503" +
                     "|The cluster is temporarily unavailable" +
-                    "|The current cluster state is Terminated";
+                    "|The current cluster state is Terminated" +
+                    // Databricks' Glue client intermittently fails registering a table in the catalog: https://github.com/trinodb/trino/issues/27642
+                    "|\\Qjava.lang.NullPointerException\\E\\s+at \\Qcom.amazonaws.glue.catalog.metastore.AWSCatalogMetastoreClient.isCompatibleWith(\\E";
 
     private static final RetryPolicy<QueryResult> DATABRICKS_COMMUNICATION_FAILURE_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof SQLException)

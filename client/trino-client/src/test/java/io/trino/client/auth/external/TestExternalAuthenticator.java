@@ -37,9 +37,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -51,6 +54,7 @@ import static io.trino.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIEL
 import static io.trino.client.auth.external.ExternalAuthenticator.toAuthentication;
 import static io.trino.client.auth.external.MockTokenPoller.onPoll;
 import static io.trino.client.auth.external.TokenPollResult.successful;
+import static java.lang.Thread.State.WAITING;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.net.URI.create;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -293,18 +297,31 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofMinutes(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
+        CountDownLatch redirectStarted = new CountDownLatch(1);
+        RedirectHandler signalingRedirectHandler = uri -> {
+            redirectStarted.countDown();
+            redirectHandler.redirectTo(uri);
+        };
+
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(signalingRedirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
         Future<Request> interruptedAuthentication = interruptableThreadPool.submit(
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")));
-        Thread.sleep(100); // It's here to make sure that authentication will start before the other threads.
+        redirectStarted.await();
+
+        List<Thread> requestThreads = new CopyOnWriteArrayList<>();
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
-                        .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
+                () -> {
+                    requestThreads.add(Thread.currentThread());
+                    return new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
+                            .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\""));
+                })
                 .map(executor::submit)
                 .collect(toImmutableList());
 
-        Thread.sleep(100);
+        while (requestThreads.size() < 2 || !requestThreads.stream().allMatch(TestExternalAuthenticator::isParked)) {
+            Thread.sleep(10);
+        }
         interruptableThreadPool.shutdownNow();
 
         ConcurrentRequestAssertion assertion = new ConcurrentRequestAssertion(ImmutableList.<Future<Request>>builder()
@@ -315,6 +332,11 @@ public class TestExternalAuthenticator
         assertion.firstException().hasRootCauseInstanceOf(InterruptedException.class);
 
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
+    }
+
+    private static boolean isParked(Thread thread)
+    {
+        return thread.getState() == WAITING && LockSupport.getBlocker(thread) != null;
     }
 
     private static Stream<Callable<Request>> times(int times, Callable<Request> request)

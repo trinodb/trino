@@ -32,6 +32,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -40,6 +42,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -57,6 +60,7 @@ final class ShortTimestampType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
+    private final long step;
 
     ShortTimestampType(int precision)
     {
@@ -74,6 +78,7 @@ final class ShortTimestampType
             long max = rescale(rescale(Long.MAX_VALUE, MAX_SHORT_PRECISION, getPrecision()), getPrecision(), MAX_SHORT_PRECISION);
             range = new Range(-max, max);
         }
+        step = rescale(MICROSECONDS_PER_SECOND, getPrecision(), 0);
     }
 
     @Override
@@ -150,7 +155,7 @@ final class ShortTimestampType
         if ((long) range.getMin() == (long) value) {
             return Optional.empty();
         }
-        return Optional.of((long) value - rescale(1_000_000, getPrecision(), 0));
+        return Optional.of((long) value - step);
     }
 
     @Override
@@ -159,7 +164,20 @@ final class ShortTimestampType
         if ((long) range.getMax() == (long) value) {
             return Optional.empty();
         }
-        return Optional.of((long) value + rescale(1_000_000, getPrecision(), 0));
+        return Optional.of((long) value + step);
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        long min = (long) range.getMin();
+        long max = (long) range.getMax();
+        if (min % step != 0 || max % step != 0) {
+            return Optional.empty();
+        }
+        return Optional.of(LongStream.rangeClosed(min / step, max / step)
+                .map(value -> value * step)
+                .boxed());
     }
 
     @ScalarOperator(READ_VALUE)

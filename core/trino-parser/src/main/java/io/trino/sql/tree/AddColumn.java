@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class AddColumn
+public final class AddColumn
         extends Statement
 {
     private final QualifiedName name;
@@ -64,12 +64,6 @@ public class AddColumn
     public boolean isColumnNotExists()
     {
         return columnNotExists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAddColumn(this, context);
     }
 
     @Override

@@ -71,18 +71,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <scope>test</scope>
@@ -131,6 +119,12 @@
         </dependency>
 
         <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
             <scope>test</scope>
@@ -169,6 +163,18 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -236,6 +242,19 @@
                                     <new>method io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(io.trino.spi.predicate.ValueSet)</new>
                                     <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, ===boolean[]===, io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, ===byte[]===, io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</new>
+                                    <justification>JSON-only creator marked @DoNotCall; inclusive markers are serialized as a bit set.</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.predicate.SortedRangeSet::getInclusive()</old>
+                                    <new>method boolean[] io.trino.spi.predicate.SortedRangeSet::getInclusive()</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <justification>Inclusive markers are serialized as a bit set through getPackedInclusive.</justification>
+                                </item>
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
@@ -273,6 +292,10 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.type.TrinoNumber::&lt;init&gt;(io.airlift.slice.Slice)</old>
+                                </item>
+                                <item>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet)</old>
                                     <new>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(io.trino.spi.connector.RecordSet, io.trino.spi.connector.MemoryContext)</new>
@@ -282,6 +305,18 @@
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.connector.RecordCursor)</old>
                                     <new>method void io.trino.spi.connector.RecordPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.connector.RecordCursor, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.Page&gt;)</old>
+                                    <new>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.List&lt;io.trino.spi.Page&gt;, io.trino.spi.connector.MemoryContext)</new>
+                                    <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.Iterator&lt;io.trino.spi.Page&gt;, long)</old>
+                                    <new>method void io.trino.spi.connector.FixedPageSource::&lt;init&gt;(java.util.Iterator&lt;io.trino.spi.Page&gt;, long, io.trino.spi.connector.MemoryContext)</new>
                                     <justification>Require a MemoryContext to replace polling through ConnectorPageSource.getMemoryUsage</justification>
                                 </item>
                                 <item>

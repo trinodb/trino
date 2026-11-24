@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Query
+public final class Query
         extends Statement
 {
     private final List<SessionProperty> sessionProperties;
@@ -122,12 +122,6 @@ public class Query
     public Optional<Node> getLimit()
     {
         return limit;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQuery(this, context);
     }
 
     @Override

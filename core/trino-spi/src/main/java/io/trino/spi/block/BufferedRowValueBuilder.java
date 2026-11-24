@@ -18,17 +18,21 @@ import io.trino.spi.type.RowType;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.min;
 
 public class BufferedRowValueBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(BufferedRowValueBuilder.class);
 
-    private final int bufferSize;
+    private static final int INITIAL_BUFFER_SIZE = 1;
+    private static final int MAX_BUFFER_SIZE = 1024;
+
+    private int bufferSize;
     private List<BlockBuilder> fieldBuilders;
 
     public static BufferedRowValueBuilder createBuffered(RowType rowType)
     {
-        return new BufferedRowValueBuilder(rowType, 1024);
+        return new BufferedRowValueBuilder(rowType, INITIAL_BUFFER_SIZE);
     }
 
     BufferedRowValueBuilder(RowType rowType, int bufferSize)
@@ -55,9 +59,7 @@ public class BufferedRowValueBuilder
 
         // grow or reset builders if necessary
         if (fieldBuilders.get(0).getPositionCount() + 1 > bufferSize) {
-            fieldBuilders = fieldBuilders.stream()
-                    .map(field -> field.newBlockBuilderLike(bufferSize, null))
-                    .toList();
+            resetBuilders();
         }
 
         int startSize = fieldBuilders.get(0).getPositionCount();
@@ -83,6 +85,14 @@ public class BufferedRowValueBuilder
                 .map(field -> field.build().getRegion(startSize, 1))
                 .toList();
         return new SqlRow(0, blocks.toArray(new Block[0]));
+    }
+
+    private void resetBuilders()
+    {
+        bufferSize = min(bufferSize * 2, MAX_BUFFER_SIZE);
+        fieldBuilders = fieldBuilders.stream()
+                .map(field -> field.newBlockBuilderLike(bufferSize, null))
+                .toList();
     }
 
     private boolean equalizeBlockBuilders()

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class ArithmeticBinaryExpression
+public final class ArithmeticBinaryExpression
         extends Expression
 {
     public enum Operator
@@ -77,12 +77,6 @@ public class ArithmeticBinaryExpression
     public Expression getRight()
     {
         return right;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitArithmeticBinary(this, context);
     }
 
     @Override

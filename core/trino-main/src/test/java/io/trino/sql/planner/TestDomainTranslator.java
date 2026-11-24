@@ -531,6 +531,35 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testOrUnionWithCommonResidual()
+    {
+        Expression residual = unprocessableExpression1(C_BIGINT);
+        Expression correlated = or(
+                and(equal(C_BIGINT, bigintLiteral(1L)), equal(C_BIGINT_1, bigintLiteral(10L)), residual),
+                and(equal(C_BIGINT, bigintLiteral(2L)), equal(C_BIGINT_1, bigintLiteral(20L)), residual));
+        Expression contained = or(
+                and(equal(C_BIGINT, bigintLiteral(1L)), equal(C_BIGINT_1, bigintLiteral(10L)), residual),
+                and(greaterThan(C_BIGINT, bigintLiteral(0L)), greaterThan(C_BIGINT_1, bigintLiteral(0L)), residual));
+        for (Session session : List.of(TEST_SESSION, LEGACY_PREIMAGES_SESSION)) {
+            ExtractionResult result = fromPredicate(session, correlated);
+            assertThat(result.remainingExpression()).isEqualTo(correlated);
+            assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                    C_BIGINT,
+                    Domain.multipleValues(BIGINT, List.of(1L, 2L)),
+                    C_BIGINT_1,
+                    Domain.multipleValues(BIGINT, List.of(10L, 20L))));
+
+            result = fromPredicate(session, contained);
+            assertThat(result.remainingExpression()).isEqualTo(residual);
+            assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                    C_BIGINT,
+                    Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false),
+                    C_BIGINT_1,
+                    Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
+        }
+    }
+
+    @Test
     public void testFromOrPredicate()
     {
         Expression originalPredicate = or(

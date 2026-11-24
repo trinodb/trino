@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DropTable
+public final class DropTable
         extends Statement
 {
     private final QualifiedName tableName;
@@ -41,12 +41,6 @@ public class DropTable
     public boolean isExists()
     {
         return exists;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitDropTable(this, context);
     }
 
     @Override

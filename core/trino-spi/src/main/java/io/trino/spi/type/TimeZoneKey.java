@@ -81,7 +81,9 @@ public final class TimeZoneKey
             "Greenwich",
             "Universal",
             "Etc/Universal",
-            "Etc/UCT");
+            "Etc/UCT",
+            "Etc/Greenwich",
+            "Etc/Zulu");
 
     private static final List<String> UTC_OFFSET_PREFIXES = List.of(
             "Etc/GMT",
@@ -268,7 +270,7 @@ public final class TimeZoneKey
         for (String prefix : UTC_OFFSET_PREFIXES) {
             if (zoneId.startsWith(prefix)) {
                 int offset = prefix.length();
-                if (offset == zoneId.length() || zoneId.charAt(offset) != '+' && zoneId.charAt(offset) != '-') {
+                if (offset == zoneId.length() || (zoneId.charAt(offset) != '+' && zoneId.charAt(offset) != '-')) {
                     // It must be something like GMT7, or Etc/UTC4, which are invalid. Unsupported timezones are handled by the caller.
                     return zoneId;
                 }
@@ -299,11 +301,12 @@ public final class TimeZoneKey
                     return "UTC";
                 }
 
+                boolean positive = zoneId.charAt(offset) == '+';
                 if (prefix.equals("Etc/GMT")) {
-                    hour = -hour;
+                    positive = !positive;
                 }
 
-                return formatZoneOffset(hour >= 0, abs(hour), minute);
+                return formatZoneOffset(positive, abs(hour), minute);
             }
         }
 

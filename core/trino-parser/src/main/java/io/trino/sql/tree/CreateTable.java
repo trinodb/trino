@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CreateTable
+public final class CreateTable
         extends Statement
 {
     private final QualifiedName name;
@@ -64,12 +64,6 @@ public class CreateTable
     public Optional<String> getComment()
     {
         return comment;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCreateTable(this, context);
     }
 
     @Override

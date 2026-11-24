@@ -146,6 +146,35 @@ final class TestPrimitiveValueWriter
         }
     }
 
+    @Test
+    void testBinaryStatistics()
+    {
+        // 0x80 sorts above 0x7f only when bytes compare as unsigned, and a value sorts above its own prefix
+        Slice prefix = wrappedBuffer(new byte[] {0x7F});
+        Slice middle = wrappedBuffer(new byte[] {0x7F, 0});
+        Slice high = wrappedBuffer(new byte[] {(byte) 0x80});
+        TestCase testCase = testCase(VARBINARY, middle, high, prefix);
+        Block valueBlock = createBlock(VARBINARY, Arrays.asList(middle, null, high, middle, prefix, middle));
+        Block dictionaryBlock = DictionaryBlock.create(6, createBlock(VARBINARY, Arrays.asList(prefix, middle, high, null)), new int[] {1, 3, 2, 1, 0, 1});
+        for (Block block : ImmutableList.of(valueBlock, dictionaryBlock)) {
+            try (PrimitiveValueWriter writer = createValueWriter(testCase, 1048576)) {
+                writer.write(block);
+                writer.getBytes();
+                Statistics<?> statistics = writer.resetAndGetStatistics();
+                assertThat(statistics.getMinBytes()).isEqualTo(prefix.getBytes());
+                assertThat(statistics.getMaxBytes()).isEqualTo(high.getBytes());
+
+                // the statistics of a page do not carry over to the next one
+                writer.write(RunLengthEncodedBlock.create(createBlock(VARBINARY, ImmutableList.of(high)), 3));
+                writer.write(RunLengthEncodedBlock.create(createBlock(VARBINARY, ImmutableList.of(middle)), 3));
+                writer.getBytes();
+                statistics = writer.resetAndGetStatistics();
+                assertThat(statistics.getMinBytes()).isEqualTo(middle.getBytes());
+                assertThat(statistics.getMaxBytes()).isEqualTo(high.getBytes());
+            }
+        }
+    }
+
     private static void assertWritesMatch(TestCase testCase, int maxDictionaryPageSize, Block actualBlock, Block expectedBlock)
             throws IOException
     {
@@ -169,7 +198,7 @@ final class TestPrimitiveValueWriter
             writer.write(block);
             // the data page is taken before the dictionary page, matching PrimitiveColumnWriter
             byte[] pageBytes = writer.getBytes().toByteArray();
-            Statistics<?> statistics = writer.getStatistics();
+            Statistics<?> statistics = writer.resetAndGetStatistics();
             DictionaryPage dictionaryPage = writer.toDictPageAndClose();
             if (dictionaryPage == null) {
                 return new WriteResult(pageBytes, statistics, 0, new byte[0]);

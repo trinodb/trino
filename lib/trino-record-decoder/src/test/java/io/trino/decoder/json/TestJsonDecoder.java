@@ -110,6 +110,24 @@ public class TestJsonDecoder
     }
 
     @Test
+    public void testPaddedBooleanString()
+    {
+        byte[] json = "{\"padded_true\":\" true \",\"padded_false\":\" false \"}".getBytes(StandardCharsets.UTF_8);
+
+        DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", BOOLEAN, "padded_true", null, null, false, false, false);
+        DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", BOOLEAN, "padded_false", null, null, false, false, false);
+
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, ImmutableMap.of(), columns));
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
+                .orElseThrow(AssertionError::new);
+
+        checkValue(decodedRow, column1, true);
+        checkValue(decodedRow, column2, false);
+    }
+
+    @Test
     public void testStringNumber()
     {
         byte[] json = "{\"a_number\":481516,\"a_string\":\"2342\"}".getBytes(StandardCharsets.UTF_8);

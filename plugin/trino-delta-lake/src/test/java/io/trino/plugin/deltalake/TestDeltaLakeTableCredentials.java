@@ -18,6 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.deltalake.metastore.DeltaTableType.MANAGED_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeTableCredentials
@@ -28,7 +29,7 @@ public class TestDeltaLakeTableCredentials
     public void testRoundTrip()
     {
         DeltaLakeTableCredentials credentials = new DeltaLakeTableCredentials(
-                new VendedCredentialsHandle(true, true, "s3://bucket/table"),
+                new VendedCredentialsHandle(true, MANAGED_TABLE, "s3://bucket/table"),
                 ImmutableMap.of("access-key", "key", "secret-key", "secret"));
 
         assertThat(CODEC.fromJson(CODEC.toJson(credentials))).isEqualTo(credentials);

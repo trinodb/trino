@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.Maps;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.rest.ErrorHandlers;
 import org.apache.iceberg.rest.HTTPClient;
@@ -42,6 +43,7 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
         implements VendedCredentialsProvider<T>
 {
     static final long PREFETCH_MINUTES = 5;
+    private static final String PROXY_PROPERTY_PREFIX = "rest.client.proxy.";
 
     private final Map<String, String> properties;
     private final String catalogEndpoint;
@@ -60,7 +62,9 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
         requireNonNull(fileIoProperties, "fileIoProperties is null");
         // Follows the merge logic of catalog & table properties from org.apache.iceberg.rest.RESTSessionCatalog.tableFileIO
         // https://github.com/apache/iceberg/blob/b25cb522ccaddacc4e7be4dcf48fc80dd7b823dd/core/src/main/java/org/apache/iceberg/rest/RESTSessionCatalog.java#L1216
-        this.properties = RESTUtil.merge(catalogProperties, fileIoProperties);
+        // Proxy entries are merged last so server-provided config cannot redirect the proxy credentials
+        Map<String, String> proxyProperties = Maps.filterKeys(catalogProperties, key -> key.startsWith(PROXY_PROPERTY_PREFIX));
+        this.properties = RESTUtil.merge(RESTUtil.merge(catalogProperties, fileIoProperties), proxyProperties);
         this.catalogEndpoint = requireNonNull(properties.get(CatalogProperties.URI), "catalog endpoint is null");
         this.refreshCredentialsEnabled = refreshCredentialsEnabled;
         this.credentialsEndpoint = requireNonNull(credentialsEndpoint, "credentialsEndpoint is null");

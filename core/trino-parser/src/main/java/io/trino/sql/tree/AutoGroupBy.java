@@ -35,12 +35,6 @@ public final class AutoGroupBy
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAutoGroupBy(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of();

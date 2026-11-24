@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Join
+public final class Join
         extends Relation
 {
     public enum Type
@@ -82,12 +82,6 @@ public class Join
     public Optional<JoinCriteria> getCriteria()
     {
         return criteria;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJoin(this, context);
     }
 
     @Override

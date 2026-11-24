@@ -42,7 +42,7 @@ public class HivePageSinkMetadata
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.table = requireNonNull(table, "table is null");
         this.modifiedPartitions = requireNonNull(modifiedPartitions, "modifiedPartitions is null");
-        checkArgument(table.isPresent() && !table.get().getPartitionColumns().isEmpty() || modifiedPartitions.isEmpty());
+        checkArgument((table.isPresent() && !table.get().getPartitionColumns().isEmpty()) || modifiedPartitions.isEmpty());
     }
 
     @JsonCreator

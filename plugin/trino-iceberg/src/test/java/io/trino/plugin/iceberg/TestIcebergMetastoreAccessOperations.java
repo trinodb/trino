@@ -703,6 +703,23 @@ public class TestIcebergMetastoreAccessOperations
                         .build());
     }
 
+    @Test
+    public void testExpireSnapshots()
+    {
+        assertUpdate("CREATE TABLE test_expire_snapshots (id integer, val integer)");
+        assertUpdate("INSERT INTO test_expire_snapshots VALUES (1, 10), (2, 20)", 2);
+        assertMetastoreInvocations("ALTER TABLE test_expire_snapshots EXECUTE expire_snapshots(retention_threshold => '7d')",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 3)
+                        .build());
+
+        assertUpdate("UPDATE test_expire_snapshots SET val = 30 WHERE id = 1", 1);
+        assertMetastoreInvocations("ALTER TABLE test_expire_snapshots EXECUTE expire_snapshots(retention_threshold => '7d')",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .build());
+    }
+
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         assertMetastoreInvocations(getSession(), query, expectedInvocations);

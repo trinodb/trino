@@ -61,12 +61,6 @@ public final class GenericDataType
     }
 
     @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGenericDataType(this, context);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

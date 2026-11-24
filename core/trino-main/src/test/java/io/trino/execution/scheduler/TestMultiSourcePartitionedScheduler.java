@@ -147,9 +147,9 @@ public class TestMultiSourcePartitionedScheduler
     public TestMultiSourcePartitionedScheduler()
     {
         nodeManager.addNodes(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1-instance", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2-instance", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3-instance", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
     @BeforeAll
@@ -280,9 +280,9 @@ public class TestMultiSourcePartitionedScheduler
     {
         // use private node manager so we can add a node later
         TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1-instance", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2-instance", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3-instance", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
@@ -312,7 +312,7 @@ public class TestMultiSourcePartitionedScheduler
         }
 
         // Add new node
-        InternalNode additionalNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        InternalNode additionalNode = new InternalNode("other4", "other4-instance", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNodes(additionalNode);
 
         // Second source produced splits now
@@ -427,9 +427,9 @@ public class TestMultiSourcePartitionedScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
-                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
-                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+                new InternalNode("other1", "other1-instance", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", "other2-instance", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", "other3-instance", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         PlanFragment plan = createFragment();
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
@@ -452,7 +452,7 @@ public class TestMultiSourcePartitionedScheduler
         }
 
         // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
-        nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNodes(new InternalNode("other4", "other4-instance", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.of(SPLIT_QUEUES_FULL));
         assertThat(scheduleResult.getNewTasks()).isEmpty();
@@ -589,8 +589,7 @@ public class TestMultiSourcePartitionedScheduler
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount)
@@ -623,6 +622,7 @@ public class TestMultiSourcePartitionedScheduler
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
+                TestingInternalNodeManager.createDefault(),
                 queryExecutor,
                 noopTracer(),
                 Span.getInvalid(),
@@ -639,7 +639,7 @@ public class TestMultiSourcePartitionedScheduler
                 TaskLifecycleListener.NO_OP,
                 TestingInternalNodeManager.createDefault(),
                 queryExecutor,
-                Optional.of(new int[] {0}),
+                new int[] {0},
                 OptionalInt.empty(),
                 0);
     }

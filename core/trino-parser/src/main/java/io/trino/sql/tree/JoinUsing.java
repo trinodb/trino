@@ -22,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class JoinUsing
+public final class JoinUsing
         extends JoinCriteria
 {
     private final List<Identifier> columns;

@@ -118,8 +118,8 @@ public final class TypeUtils
                 type instanceof BigintType ||
                 type instanceof TimeType ||
                 type instanceof DateType ||
-                type instanceof TimestampType timestampType && timestampType.isShort() ||
-                type instanceof DecimalType decimalType && decimalType.isShort();
+                (type instanceof TimestampType timestampType && timestampType.isShort()) ||
+                (type instanceof DecimalType decimalType && decimalType.isShort());
     }
 
     public static boolean isFloatingPointNaN(Type type, Object value)

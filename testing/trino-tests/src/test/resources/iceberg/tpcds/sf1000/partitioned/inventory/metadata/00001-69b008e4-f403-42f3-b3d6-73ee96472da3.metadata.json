@@ -115,7 +115,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 5575001584338726042,
       "sequence-number" : 2,
-      "fields" : [ 1 ],
+      "fields" : [ 4 ],
       "properties" : {
         "ndv" : "261"
       }
@@ -123,7 +123,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 5575001584338726042,
       "sequence-number" : 2,
-      "fields" : [ 2 ],
+      "fields" : [ 1 ],
       "properties" : {
         "ndv" : "302044"
       }
@@ -131,7 +131,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 5575001584338726042,
       "sequence-number" : 2,
-      "fields" : [ 3 ],
+      "fields" : [ 2 ],
       "properties" : {
         "ndv" : "20"
       }
@@ -139,7 +139,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 5575001584338726042,
       "sequence-number" : 2,
-      "fields" : [ 4 ],
+      "fields" : [ 3 ],
       "properties" : {
         "ndv" : "1001"
       }

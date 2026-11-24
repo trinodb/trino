@@ -345,7 +345,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 1 ],
+      "fields" : [ 27 ],
       "properties" : {
         "ndv" : "2104"
       }
@@ -353,7 +353,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 2 ],
+      "fields" : [ 1 ],
       "properties" : {
         "ndv" : "83615"
       }
@@ -361,7 +361,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 3 ],
+      "fields" : [ 2 ],
       "properties" : {
         "ndv" : "302044"
       }
@@ -369,7 +369,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 4 ],
+      "fields" : [ 3 ],
       "properties" : {
         "ndv" : "11963339"
       }
@@ -377,7 +377,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 5 ],
+      "fields" : [ 4 ],
       "properties" : {
         "ndv" : "1930039"
       }
@@ -385,7 +385,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 6 ],
+      "fields" : [ 5 ],
       "properties" : {
         "ndv" : "7173"
       }
@@ -393,7 +393,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 7 ],
+      "fields" : [ 6 ],
       "properties" : {
         "ndv" : "6043919"
       }
@@ -401,7 +401,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 8 ],
+      "fields" : [ 7 ],
       "properties" : {
         "ndv" : "11975335"
       }
@@ -409,7 +409,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 9 ],
+      "fields" : [ 8 ],
       "properties" : {
         "ndv" : "1930039"
       }
@@ -417,7 +417,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 10 ],
+      "fields" : [ 9 ],
       "properties" : {
         "ndv" : "7164"
       }
@@ -425,7 +425,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 11 ],
+      "fields" : [ 10 ],
       "properties" : {
         "ndv" : "6043919"
       }
@@ -433,7 +433,7 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 12 ],
+      "fields" : [ 11 ],
       "properties" : {
         "ndv" : "42"
       }
@@ -441,9 +441,17 @@
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 13 ],
+      "fields" : [ 12 ],
       "properties" : {
         "ndv" : "16585"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3711210276322022202,
+      "sequence-number" : 2,
+      "fields" : [ 13 ],
+      "properties" : {
+        "ndv" : "20"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -459,7 +467,7 @@
       "sequence-number" : 2,
       "fields" : [ 15 ],
       "properties" : {
-        "ndv" : "20"
+        "ndv" : "65"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -467,7 +475,7 @@
       "sequence-number" : 2,
       "fields" : [ 16 ],
       "properties" : {
-        "ndv" : "65"
+        "ndv" : "97435148"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -475,7 +483,7 @@
       "sequence-number" : 2,
       "fields" : [ 17 ],
       "properties" : {
-        "ndv" : "97435148"
+        "ndv" : "100"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -483,7 +491,7 @@
       "sequence-number" : 2,
       "fields" : [ 18 ],
       "properties" : {
-        "ndv" : "100"
+        "ndv" : "921597"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -491,7 +499,7 @@
       "sequence-number" : 2,
       "fields" : [ 19 ],
       "properties" : {
-        "ndv" : "921597"
+        "ndv" : "153243"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -499,7 +507,7 @@
       "sequence-number" : 2,
       "fields" : [ 20 ],
       "properties" : {
-        "ndv" : "153243"
+        "ndv" : "1525129"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -507,7 +515,7 @@
       "sequence-number" : 2,
       "fields" : [ 21 ],
       "properties" : {
-        "ndv" : "1525129"
+        "ndv" : "9789"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -515,7 +523,7 @@
       "sequence-number" : 2,
       "fields" : [ 22 ],
       "properties" : {
-        "ndv" : "9789"
+        "ndv" : "494944"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -523,7 +531,7 @@
       "sequence-number" : 2,
       "fields" : [ 23 ],
       "properties" : {
-        "ndv" : "494944"
+        "ndv" : "1133511"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -531,7 +539,7 @@
       "sequence-number" : 2,
       "fields" : [ 24 ],
       "properties" : {
-        "ndv" : "1133511"
+        "ndv" : "842668"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
@@ -539,21 +547,13 @@
       "sequence-number" : 2,
       "fields" : [ 25 ],
       "properties" : {
-        "ndv" : "842668"
-      }
-    }, {
-      "type" : "apache-datasketches-theta-v1",
-      "snapshot-id" : 3711210276322022202,
-      "sequence-number" : 2,
-      "fields" : [ 26 ],
-      "properties" : {
         "ndv" : "826521"
       }
     }, {
       "type" : "apache-datasketches-theta-v1",
       "snapshot-id" : 3711210276322022202,
       "sequence-number" : 2,
-      "fields" : [ 27 ],
+      "fields" : [ 26 ],
       "properties" : {
         "ndv" : "936868"
       }

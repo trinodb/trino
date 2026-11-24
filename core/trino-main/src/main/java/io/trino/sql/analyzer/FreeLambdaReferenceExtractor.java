@@ -15,18 +15,19 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.sql.tree.AstTraversal.forEachChild;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,18 +44,17 @@ public final class FreeLambdaReferenceExtractor
 
     public static List<Expression> getFreeReferencesToLambdaArgument(Node node, Analysis analysis)
     {
-        Visitor visitor = new Visitor(analysis);
-        visitor.process(node, ImmutableSet.of());
-        return visitor.getFreeReferencesToLambdaArgument();
+        Extractor extractor = new Extractor(analysis);
+        extractor.process(node, ImmutableSet.of());
+        return extractor.getFreeReferencesToLambdaArgument();
     }
 
-    private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Set<String>>
+    private static class Extractor
     {
         private final Analysis analysis;
         private final ImmutableList.Builder<Expression> freeReferencesToLambdaArgument = ImmutableList.builder();
 
-        private Visitor(Analysis analysis)
+        private Extractor(Analysis analysis)
         {
             this.analysis = requireNonNull(analysis, "analysis is null");
         }
@@ -64,25 +64,26 @@ public final class FreeLambdaReferenceExtractor
             return freeReferencesToLambdaArgument.build();
         }
 
-        @Override
-        protected Void visitIdentifier(Identifier node, Set<String> lambdaArgumentNames)
+        void process(Node node, Set<String> lambdaArgumentNames)
         {
-            if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node)) && !lambdaArgumentNames.contains(node.getValue())) {
-                freeReferencesToLambdaArgument.add(node);
+            switch (node) {
+                case SubqueryExpression _ -> {
+                    // Don't traverse into subqueries within an expression
+                }
+                case Identifier identifier -> {
+                    if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(identifier)) && !lambdaArgumentNames.contains(identifier.getValue())) {
+                        freeReferencesToLambdaArgument.add(identifier);
+                    }
+                }
+                case LambdaExpression lambda -> process(lambda.getBody(), ImmutableSet.<String>builder()
+                        .addAll(lambdaArgumentNames)
+                        .addAll(lambda.getArguments().stream()
+                                .map(LambdaArgumentDeclaration::getName)
+                                .map(Identifier::getValue)
+                                .collect(toImmutableSet()))
+                        .build());
+                default -> forEachChild(node, child -> process(child, lambdaArgumentNames));
             }
-            return null;
-        }
-
-        @Override
-        protected Void visitLambdaExpression(LambdaExpression node, Set<String> lambdaArgumentNames)
-        {
-            return process(node.getBody(), ImmutableSet.<String>builder()
-                    .addAll(lambdaArgumentNames)
-                    .addAll(node.getArguments().stream()
-                            .map(LambdaArgumentDeclaration::getName)
-                            .map(Identifier::getValue)
-                            .collect(toImmutableSet()))
-                    .build());
         }
     }
 }

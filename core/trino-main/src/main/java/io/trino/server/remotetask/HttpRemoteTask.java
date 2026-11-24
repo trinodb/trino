@@ -106,6 +106,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.PRECONDITION_FAILED;
 import static io.airlift.http.client.HttpStatus.SERVICE_UNAVAILABLE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -122,10 +123,13 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskStatus.failWith;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
@@ -144,6 +148,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final Span stageSpan;
     private final String nodeId;
+    private final String nodeInstanceId;
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
     private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
@@ -268,8 +273,10 @@ public final class HttpRemoteTask
             this.session = session;
             this.stageSpan = stageSpan;
             this.nodeId = node.getNodeIdentifier();
+            this.nodeInstanceId = node.getInstanceId();
             this.speculative = new AtomicBoolean(speculative);
-            this.planFragment = planFragment;
+            // workers don't read the stats and costs
+            this.planFragment = planFragment.withoutStatsAndCosts();
             this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
@@ -335,6 +342,7 @@ public final class HttpRemoteTask
                     this::fatalUnacknowledgedFailure,
                     taskId,
                     location,
+                    nodeInstanceId,
                     taskStatusRefreshMaxWait,
                     dynamicFilterDomainsCodec,
                     executor,
@@ -348,6 +356,7 @@ public final class HttpRemoteTask
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
                     initialTask.taskStatus(),
+                    nodeInstanceId,
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
                     dynamicFiltersFetcher,
@@ -363,6 +372,7 @@ public final class HttpRemoteTask
                     this::fatalUnacknowledgedFailure,
                     taskStatusFetcher,
                     initialTask,
+                    nodeInstanceId,
                     httpClient,
                     () -> createSpanBuilder("task-info", span),
                     taskInfoUpdateInterval,
@@ -416,6 +426,12 @@ public final class HttpRemoteTask
     public String getNodeId()
     {
         return nodeId;
+    }
+
+    @Override
+    public String getNodeInstanceId()
+    {
+        return nodeInstanceId;
     }
 
     @Override
@@ -646,7 +662,8 @@ public final class HttpRemoteTask
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<SplitAssignment> splitAssignments)
     {
-        updateTaskInfo(newValue);
+        taskStatusFetcher.updateTaskStatus(newValue.taskStatus());
+        taskInfoFetcher.updateTaskInfoFromTaskUpdate(newValue);
 
         // remove acknowledged splits, which frees memory
         for (SplitAssignment assignment : splitAssignments) {
@@ -776,8 +793,7 @@ public final class HttpRemoteTask
         List<SplitAssignment> splitAssignments = getSplitAssignments(currentSplitBatchSize);
         VersionedDynamicFilterDomains dynamicFilterDomains = outboundDynamicFiltersCollector.acknowledgeAndGetNewDomains(sentDynamicFiltersVersion.get());
 
-        // Workers don't need the embedded JSON representation when the fragment is sent
-        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
+        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
@@ -808,6 +824,7 @@ public final class HttpRemoteTask
         Request request = preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
                 .setSpanBuilder(createSpanBuilder("task-update", span))
                 .build();
@@ -979,6 +996,7 @@ public final class HttpRemoteTask
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
         return prepareDelete()
                 .setUri(uriBuilder.build())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(createSpanBuilder("task-delete", span))
                 .build();
     }
@@ -990,6 +1008,7 @@ public final class HttpRemoteTask
         return preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setBodyGenerator(createStaticBodyGenerator(failTaskRequestCodec.toJsonBytes(failTaskRequest)))
                 .setSpanBuilder(createSpanBuilder("task-fail", span))
                 .build();
@@ -1002,6 +1021,11 @@ public final class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
+                if (result.getStatusCode() == PRECONDITION_FAILED.code()) {
+                    // The worker has been restarted, so the task is gone and there is nothing to clean up
+                    fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(request.getUri()))));
+                    return;
+                }
                 if (result.getStatusCode() != OK.code()) {
                     onFailure(exceptionForErrorCode(result, request.getUri()));
                     return;

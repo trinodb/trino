@@ -19,8 +19,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -69,6 +69,11 @@ public class EquatableValueSet
             @JsonProperty("inclusive") boolean inclusive,
             @JsonProperty("entries") Set<ValueEntry> entries)
     {
+        this(type, inclusive, entries, true);
+    }
+
+    private EquatableValueSet(Type type, boolean inclusive, Set<ValueEntry> entries, boolean copyEntries)
+    {
         requireNonNull(type, "type is null");
         requireNonNull(entries, "entries is null");
 
@@ -80,34 +85,34 @@ public class EquatableValueSet
         }
         this.type = type;
         this.inclusive = inclusive;
-        this.entries = unmodifiableSet(new LinkedHashSet<>(entries));
+        this.entries = unmodifiableSet(copyEntries ? new LinkedHashSet<>(entries) : entries);
     }
 
     static EquatableValueSet none(Type type)
     {
-        return new EquatableValueSet(type, true, Set.of());
+        return new EquatableValueSet(type, true, Set.of(), false);
     }
 
     static EquatableValueSet all(Type type)
     {
-        return new EquatableValueSet(type, false, Set.of());
+        return new EquatableValueSet(type, false, Set.of(), false);
     }
 
     static EquatableValueSet of(Type type, Object first, Object... rest)
     {
-        HashSet<ValueEntry> set = new LinkedHashSet<>(rest.length + 1);
+        Set<ValueEntry> set = new LinkedHashSet<>();
         set.add(ValueEntry.create(type, first));
         for (Object value : rest) {
             set.add(ValueEntry.create(type, value));
         }
-        return new EquatableValueSet(type, true, set);
+        return new EquatableValueSet(type, true, set, false);
     }
 
     static EquatableValueSet copyOf(Type type, Collection<?> values)
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
-                .collect(toLinkedSet()));
+                .collect(toLinkedSet()), false);
     }
 
     @JsonProperty
@@ -239,17 +244,23 @@ public class EquatableValueSet
     public EquatableValueSet intersect(ValueSet other)
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
+        if (this == otherValueSet || isNone() || otherValueSet.isAll()) {
+            return this;
+        }
+        if (isAll() || otherValueSet.isNone()) {
+            return otherValueSet;
+        }
 
         if (inclusive && otherValueSet.inclusive()) {
-            return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries));
+            return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries), false);
         }
         if (inclusive) {
-            return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries));
+            return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries), false);
         }
         if (otherValueSet.inclusive()) {
-            return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries));
+            return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries), false);
         }
-        return new EquatableValueSet(type, false, union(otherValueSet.entries, entries));
+        return new EquatableValueSet(type, false, union(otherValueSet.entries, entries), false);
     }
 
     @Override
@@ -273,17 +284,101 @@ public class EquatableValueSet
     public EquatableValueSet union(ValueSet other)
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
+        if (this == otherValueSet || isAll() || otherValueSet.isNone()) {
+            return this;
+        }
+        if (isNone() || otherValueSet.isAll()) {
+            return otherValueSet;
+        }
 
         if (inclusive && otherValueSet.inclusive()) {
-            return new EquatableValueSet(type, true, union(entries, otherValueSet.entries));
+            return new EquatableValueSet(type, true, union(entries, otherValueSet.entries), false);
         }
         if (inclusive) {
-            return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries));
+            return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries), false);
         }
         if (otherValueSet.inclusive()) {
-            return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries));
+            return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries), false);
         }
-        return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries));
+        return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries), false);
+    }
+
+    @Override
+    public ValueSet union(Collection<ValueSet> others)
+    {
+        // Validate every input before returning early. Empty sets and repeated references to this do not change the union.
+        List<EquatableValueSet> inputs = new ArrayList<>(others.size() + 1);
+        if (!isNone()) {
+            inputs.add(this);
+        }
+        EquatableValueSet all = isAll() ? this : null;
+        for (ValueSet other : others) {
+            EquatableValueSet input = checkCompatibility(other);
+            if (input == this || input.isNone()) {
+                continue;
+            }
+            if (all == null && input.isAll()) {
+                all = input;
+            }
+            inputs.add(input);
+        }
+        if (all != null) {
+            return all;
+        }
+        if (inputs.isEmpty()) {
+            return this;
+        }
+        if (inputs.size() == 1) {
+            return inputs.getFirst();
+        }
+
+        EquatableValueSet smallestExcluded = null;
+        for (EquatableValueSet input : inputs) {
+            if (!input.inclusive && (smallestExcluded == null || input.entries.size() < smallestExcluded.entries.size())) {
+                smallestExcluded = input;
+            }
+        }
+
+        // A union containing exclusions excludes the intersection of those entries,
+        // minus every explicitly included value. Copy only the smallest exclusion set, then narrow it by the other inputs.
+        if (smallestExcluded != null) {
+            Set<ValueEntry> result = new LinkedHashSet<>(smallestExcluded.entries);
+            for (EquatableValueSet input : inputs) {
+                if (input == smallestExcluded) {
+                    continue;
+                }
+                if (input.inclusive) {
+                    result.removeAll(input.entries);
+                }
+                else {
+                    result.retainAll(input.entries);
+                }
+                if (result.isEmpty()) {
+                    break;
+                }
+            }
+            if (result.size() == smallestExcluded.entries.size()) {
+                return smallestExcluded;
+            }
+            if (result.isEmpty()) {
+                return all(type);
+            }
+            // Removing entries does not shrink the backing hash table.
+            if (result.size() < smallestExcluded.entries.size() / 2) {
+                result = new LinkedHashSet<>(result);
+            }
+            return new EquatableValueSet(type, false, result, false);
+        }
+
+        EquatableValueSet first = inputs.getFirst();
+        Set<ValueEntry> result = new LinkedHashSet<>(first.entries);
+        for (int index = 1; index < inputs.size(); index++) {
+            result.addAll(inputs.get(index).entries);
+        }
+        if (result.size() == first.entries.size()) {
+            return first;
+        }
+        return new EquatableValueSet(type, true, result, false);
     }
 
     @Override
@@ -312,7 +407,7 @@ public class EquatableValueSet
     @Override
     public EquatableValueSet complement()
     {
-        return new EquatableValueSet(type, !inclusive, entries);
+        return new EquatableValueSet(type, !inclusive, entries, false);
     }
 
     @Override
@@ -451,6 +546,7 @@ public class EquatableValueSet
 
         public static ValueEntry create(Type type, Object value)
         {
+            requireNonNull(value, "value is null");
             return new ValueEntry(type, writeNativeValue(type, value));
         }
 

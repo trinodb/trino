@@ -13,24 +13,33 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -39,11 +48,22 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeType.TIME_PICOS;
+import static io.trino.spi.type.TimeType.TIME_SECONDS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -773,6 +793,198 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testUnionManyInterleavedDiscreteSets()
+    {
+        for (int setCount : List.of(2, 3, 5, 8, 20)) {
+            List<ValueSet> sets = new ArrayList<>();
+            for (int setIndex = 0; setIndex < setCount; setIndex++) {
+                int offset = setIndex;
+                sets.add(SortedRangeSet.of(BIGINT, LongStream.range(0, 50).map(index -> index * setCount + offset).boxed().toList()));
+            }
+            ValueSet result = sets.get(0).union(sets.subList(1, sets.size()));
+            assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, LongStream.range(0, 50L * setCount).boxed().toList()));
+            assertThat(result.isDiscreteSet()).isTrue();
+        }
+    }
+
+    @Test
+    public void testUnionManyOverlappingDiscreteSets()
+    {
+        ValueSet result = SortedRangeSet.of(BIGINT, 1L, 5L, 9L)
+                .union(List.of(
+                        SortedRangeSet.of(BIGINT, 5L, 7L),
+                        SortedRangeSet.of(BIGINT, 5L, 9L, 11L),
+                        SortedRangeSet.of(BIGINT, 1L)));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 5L, 7L, 9L, 11L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, LongStream.rangeClosed(1, 10).boxed().toList())
+                .union(List.of(
+                        SortedRangeSet.of(BIGINT, LongStream.rangeClosed(11, 20).boxed().toList()),
+                        SortedRangeSet.of(BIGINT, LongStream.rangeClosed(5, 15).boxed().toList()),
+                        SortedRangeSet.of(BIGINT, LongStream.rangeClosed(30, 40).boxed().toList())));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, LongStream.concat(LongStream.rangeClosed(1, 20), LongStream.rangeClosed(30, 40)).boxed().toList()));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyIdenticalDiscreteSets()
+    {
+        SortedRangeSet set = SortedRangeSet.of(BIGINT, 1L, 2L, 3L);
+        ValueSet result = set.union(List.of(set, set, set));
+        assertThat(result).isEqualTo(set);
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyDiscreteSetsRandomized()
+    {
+        Random random = new Random(42);
+        for (int iteration = 0; iteration < 200; iteration++) {
+            int setCount = 2 + random.nextInt(10);
+            List<ValueSet> sets = new ArrayList<>();
+            SortedSet<Long> expected = new TreeSet<>();
+            for (int setIndex = 0; setIndex < setCount; setIndex++) {
+                SortedSet<Long> values = new TreeSet<>();
+                int valueCount = 1 + random.nextInt(50);
+                for (int valueIndex = 0; valueIndex < valueCount; valueIndex++) {
+                    values.add((long) random.nextInt(100));
+                }
+                expected.addAll(values);
+                sets.add(SortedRangeSet.of(BIGINT, List.copyOf(values)));
+            }
+            ValueSet result = sets.get(0).union(sets.subList(1, sets.size()));
+            assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, List.copyOf(expected)));
+            assertThat(result.isDiscreteSet()).isTrue();
+        }
+    }
+
+    @Test
+    public void testUnionManyDiscreteSetsWithPreviousUnion()
+    {
+        ValueSet previousUnion = SortedRangeSet.of(BIGINT, 2L, 6L).union(List.of(SortedRangeSet.of(BIGINT, 4L)));
+        ValueSet result = previousUnion.union(List.of(SortedRangeSet.of(BIGINT, 1L, 3L, 4L), previousUnion, SortedRangeSet.of(BIGINT, 7L)));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 4L, 6L, 7L));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyDictionaryBackedDiscreteSets()
+    {
+        SortedRangeSet first = SortedRangeSet.of(VARCHAR, utf8Slice("a"), utf8Slice("c"));
+        assertThat(first.getSortedRanges()).isInstanceOf(DictionaryBlock.class);
+        ValueSet result = first.union(List.of(SortedRangeSet.of(VARCHAR, utf8Slice("b")), SortedRangeSet.of(VARCHAR, utf8Slice("c"), utf8Slice("d"))));
+        assertThat(result).isEqualTo(SortedRangeSet.of(VARCHAR, utf8Slice("a"), utf8Slice("b"), utf8Slice("c"), utf8Slice("d")));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyRunLengthEncodedDiscreteSets()
+            throws Exception
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(BIGINT, 7L));
+        json.set("sortedRanges", mapper.valueToTree(RunLengthEncodedBlock.create(BIGINT, 7L, 2)));
+        SortedRangeSet runLengthEncoded = mapper.treeToValue(json, SortedRangeSet.class);
+        assertThat(runLengthEncoded.getSortedRanges()).isInstanceOf(RunLengthEncodedBlock.class);
+
+        ValueSet result = runLengthEncoded.union(List.of(SortedRangeSet.of(BIGINT, 5L, 9L), runLengthEncoded));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 5L, 7L, 9L));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyDoubleDiscreteSets()
+    {
+        ValueSet result = ValueSet.of(DOUBLE, 1.0, Double.NaN)
+                .union(List.of(ValueSet.of(DOUBLE, -0.0, 2.0), ValueSet.of(DOUBLE, 0.0)));
+        assertThat(result).isEqualTo(ValueSet.of(DOUBLE, 0.0, 1.0, 2.0, Double.NaN));
+        assertThat(result.containsValue(-0.0)).isTrue();
+        assertThat(result.containsValue(Double.NaN)).isTrue();
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    @Test
+    public void testUnionManyArrayDiscreteSets()
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ValueSet result = SortedRangeSet.of(arrayType, bigintArray(1, 2), bigintArray(3))
+                .union(List.of(SortedRangeSet.of(arrayType, bigintArray(1), bigintArray(3)), SortedRangeSet.of(arrayType, bigintArray(1, 2), bigintArray(2))));
+        assertThat(result).isEqualTo(SortedRangeSet.of(arrayType, bigintArray(1), bigintArray(1, 2), bigintArray(2), bigintArray(3)));
+        assertThat(result.isDiscreteSet()).isTrue();
+    }
+
+    private static Block bigintArray(long... values)
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, values.length);
+        for (long value : values) {
+            BIGINT.writeLong(blockBuilder, value);
+        }
+        return blockBuilder.build();
+    }
+
+    @Test
+    public void testUnionManyWithEmptyAndAllSets()
+    {
+        ValueSet result = SortedRangeSet.none(BIGINT)
+                .union(List.of(SortedRangeSet.none(BIGINT), SortedRangeSet.of(BIGINT, 2L), SortedRangeSet.none(BIGINT), SortedRangeSet.of(BIGINT, 1L, 3L)));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 3L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.none(VARCHAR)
+                .union(List.of(
+                        SortedRangeSet.of(VARCHAR, utf8Slice("b"), utf8Slice("d")),
+                        SortedRangeSet.none(VARCHAR),
+                        SortedRangeSet.of(VARCHAR, utf8Slice("a"), utf8Slice("b"), utf8Slice("c"))));
+        assertThat(result).isEqualTo(SortedRangeSet.of(VARCHAR, utf8Slice("a"), utf8Slice("b"), utf8Slice("c"), utf8Slice("d")));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        assertThat(SortedRangeSet.none(BIGINT).union(List.of(SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT))).isNone()).isTrue();
+
+        SortedRangeSet single = SortedRangeSet.of(BIGINT, 1L, 2L);
+        assertThat(SortedRangeSet.none(BIGINT).union(List.of(SortedRangeSet.none(BIGINT), single))).isSameAs(single);
+        assertThat(single.union(List.of(SortedRangeSet.none(BIGINT)))).isSameAs(single);
+
+        assertThat(SortedRangeSet.of(BIGINT, 1L).union(List.of(SortedRangeSet.of(BIGINT, 2L), SortedRangeSet.all(BIGINT)))).isEqualTo(SortedRangeSet.all(BIGINT));
+    }
+
+    @Test
+    public void testUnionManyMixedSets()
+    {
+        ValueSet result = SortedRangeSet.of(BIGINT, 1L, 5L)
+                .union(List.of(
+                        SortedRangeSet.of(Range.range(BIGINT, 2L, true, 3L, true)),
+                        SortedRangeSet.of(BIGINT, 4L, 6L),
+                        SortedRangeSet.of(Range.greaterThan(BIGINT, 10L))));
+        assertThat(result).isEqualTo(SortedRangeSet.of(
+                Range.equal(BIGINT, 1L),
+                Range.range(BIGINT, 2L, true, 3L, true),
+                Range.equal(BIGINT, 4L),
+                Range.equal(BIGINT, 5L),
+                Range.equal(BIGINT, 6L),
+                Range.greaterThan(BIGINT, 10L)));
+        assertThat(result.isDiscreteSet()).isFalse();
+    }
+
+    @Test
+    public void testUnionManyWithNonDiscreteFirstSet()
+    {
+        ValueSet result = SortedRangeSet.of(Range.range(BIGINT, 1L, true, 3L, true))
+                .union(List.of(SortedRangeSet.of(BIGINT, 5L), SortedRangeSet.of(BIGINT, 2L, 7L)));
+        assertThat(result).isEqualTo(SortedRangeSet.of(Range.range(BIGINT, 1L, true, 3L, true), Range.equal(BIGINT, 5L), Range.equal(BIGINT, 7L)));
+        assertThat(result.isDiscreteSet()).isFalse();
+    }
+
+    @Test
+    public void testUnionManyWithUnboundedSet()
+    {
+        ValueSet result = SortedRangeSet.of(BIGINT, 1L, 5L)
+                .union(List.of(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)), SortedRangeSet.of(BIGINT, 3L)));
+        assertThat(result).isEqualTo(SortedRangeSet.of(Range.lessThan(BIGINT, 0L), Range.equal(BIGINT, 1L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 5L)));
+        assertThat(result.isDiscreteSet()).isFalse();
+    }
+
+    @Test
     public void testSubtract()
     {
         assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
@@ -808,33 +1020,142 @@ public class TestSortedRangeSet
 
     @Test
     public void testJsonSerialization()
+    {
+        assertJsonRoundTrip(SortedRangeSet.all(BIGINT));
+        assertJsonRoundTrip(SortedRangeSet.none(DOUBLE));
+        assertJsonRoundTrip(SortedRangeSet.of(VARCHAR, utf8Slice("abc")));
+        assertJsonRoundTrip(SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false)));
+        assertJsonRoundTrip(SortedRangeSet.of(Range.lessThan(BIGINT, 0L), Range.greaterThanOrEqual(BIGINT, 10L)));
+    }
+
+    @Test
+    public void testJsonSerializationOfMixedInclusiveMarkers()
             throws Exception
     {
-        JsonMapper mapper = new JsonMapperProvider()
+        List<Range> mixedBounds = new ArrayList<>();
+        for (long low = 0; low < 100; low += 4) {
+            mixedBounds.add(Range.range(BIGINT, low, low % 8 == 0, low + 2, low % 3 == 0));
+        }
+        assertJsonRoundTrip(SortedRangeSet.of(mixedBounds.get(0), mixedBounds.subList(1, mixedBounds.size()).toArray(new Range[0])));
+
+        // bound counts that fill the packed bytes exactly
+        for (int rangeCount : List.of(4, 8)) {
+            SortedRangeSet set = SortedRangeSet.of(mixedBounds.get(0), mixedBounds.subList(1, rangeCount).toArray(new Range[0]));
+            assertThat(set.getRangeCount()).isEqualTo(rangeCount);
+            assertJsonRoundTrip(set);
+        }
+    }
+
+    @Test
+    public void testJsonRejectsMissingInclusiveMarkers()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.putNull("inclusive");
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("inclusive is null");
+    }
+
+    @Test
+    public void testJsonRejectsMissingSortedRanges()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.putNull("sortedRanges");
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(NullPointerException.class)
+                .hasRootCauseMessage("sortedRanges is null");
+    }
+
+    @Test
+    public void testJsonRejectsMissizedInclusiveMarkers()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode shortJson = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        shortJson.set("inclusive", mapper.valueToTree(new byte[] {}));
+        assertThatThrownBy(() -> mapper.treeToValue(shortJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Size mismatch between inclusive markers and sortedRanges block: 0 bytes, expected 1 bytes for 4 positions");
+
+        ObjectNode longJson = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        longJson.set("inclusive", mapper.valueToTree(new byte[] {0b1111, 0}));
+        assertThatThrownBy(() -> mapper.treeToValue(longJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Size mismatch between inclusive markers and sortedRanges block: 2 bytes, expected 1 bytes for 4 positions");
+    }
+
+    @Test
+    public void testJsonRejectsInclusiveMarkersBeyondLastPosition()
+    {
+        JsonMapper mapper = createJsonMapper();
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        json.set("inclusive", mapper.valueToTree(new byte[] {0b11111}));
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid inclusive marker beyond position 3");
+    }
+
+    @Test
+    public void testJsonRejectsNullValueInDiscreteSet()
+    {
+        JsonMapper mapper = createJsonMapper();
+        BlockBuilder nullThenValue = BIGINT.createBlockBuilder(null, 2);
+        nullThenValue.appendNull();
+        BIGINT.writeLong(nullThenValue, 1);
+        ObjectNode json = mapper.valueToTree(SortedRangeSet.of(BIGINT, 1L));
+        json.set("sortedRanges", mapper.valueToTree(nullThenValue.build()));
+        json.set("inclusive", mapper.valueToTree(new byte[] {0b10}));
+        assertThatThrownBy(() -> mapper.treeToValue(json, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid null value at position 0 of a discrete set");
+    }
+
+    private static void assertJsonRoundTrip(SortedRangeSet set)
+    {
+        JsonMapper mapper = createJsonMapper();
+        assertThat(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class)).isEqualTo(set);
+    }
+
+    private static JsonMapper createJsonMapper()
+    {
+        return new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
                 .withJsonSerializers(Map.of(
                         Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
                 .get();
+    }
 
-        SortedRangeSet set = SortedRangeSet.all(BIGINT);
-        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+    @Test
+    public void testJsonRejectsMalformedNullBounds()
+    {
+        JsonMapper mapper = createJsonMapper();
 
-        set = SortedRangeSet.none(DOUBLE);
-        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        BlockBuilder interiorNull = BIGINT.createBlockBuilder(null, 4);
+        BIGINT.writeLong(interiorNull, 1);
+        interiorNull.appendNull();
+        BIGINT.writeLong(interiorNull, 3);
+        BIGINT.writeLong(interiorNull, 4);
+        ObjectNode interiorNullJson = mapper.valueToTree(SortedRangeSet.of(Range.range(BIGINT, 1L, true, 2L, true), Range.range(BIGINT, 3L, true, 4L, true)));
+        interiorNullJson.set("sortedRanges", mapper.valueToTree(interiorNull.build()));
+        interiorNullJson.set("inclusive", mapper.valueToTree(new byte[] {0b1101}));
+        assertThatThrownBy(() -> mapper.treeToValue(interiorNullJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid null value at position 1 of 4");
 
-        set = SortedRangeSet.of(VARCHAR, utf8Slice("abc"));
-        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
-
-        set = SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false));
-        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        ObjectNode inclusiveNullJson = mapper.valueToTree(SortedRangeSet.all(BIGINT));
+        inclusiveNullJson.set("inclusive", mapper.valueToTree(new byte[] {0b01}));
+        assertThatThrownBy(() -> mapper.treeToValue(inclusiveNullJson, SortedRangeSet.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("Invalid inclusive marker for null value at position 0");
     }
 
     @Test
     public void testExpandRangesForDenseType()
     {
-        for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2))) {
+        for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2), DATE, TIMESTAMP_MICROS)) {
             assertThat(ValueSet.ofRanges(Range.equal(type, 1L))
                     .tryExpandRanges(0))
                     .isEqualTo(Optional.empty());
@@ -941,6 +1262,78 @@ public class TestSortedRangeSet
                     .tryExpandRanges(3))
                     .isEqualTo(Optional.empty());
         }
+    }
+
+    @Test
+    public void testExpandRangesForTypesWithPrecisionStep()
+    {
+        assertExpandRangesWithStep(TIMESTAMP_SECONDS, MICROSECONDS_PER_SECOND, -9_223_372_036_854_000_000L, 9_223_372_036_854_000_000L);
+        assertExpandRangesWithStep(TIMESTAMP_MILLIS, MICROSECONDS_PER_MILLISECOND, -9_223_372_036_854_775_000L, 9_223_372_036_854_775_000L);
+        assertExpandRangesWithStep(TIME_SECONDS, PICOSECONDS_PER_SECOND, 0, 86_399_000_000_000_000L);
+        assertExpandRangesWithStep(TIME_MILLIS, PICOSECONDS_PER_MILLISECOND, 0, 86_399_999_000_000_000L);
+        assertExpandRangesWithStep(TIME_PICOS, 1, 0, 86_399_999_999_999_999L);
+    }
+
+    private static void assertExpandRangesWithStep(Type type, long step, long min, long max)
+    {
+        assertThat(ValueSet.ofRanges(Range.range(type, step, true, 4 * step, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(step, 2 * step, 3 * step, 4 * step)));
+        assertThat(ValueSet.ofRanges(Range.range(type, step, false, 4 * step, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(2 * step, 3 * step)));
+        assertThat(ValueSet.ofRanges(Range.range(type, step, true, 4 * step, true))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.lessThan(type, min + 3 * step))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(min, min + step, min + 2 * step)));
+        assertThat(ValueSet.ofRanges(Range.greaterThan(type, max - 3 * step))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(max - 2 * step, max - step, max)));
+    }
+
+    @Test
+    public void testExpandRangesAroundZero()
+    {
+        assertThat(ValueSet.ofRanges(Range.range(DATE, -4L, true, -1L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-4L, -3L, -2L, -1L)));
+        assertThat(ValueSet.ofRanges(Range.range(DATE, -2L, false, 2L, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-1L, 0L, 1L)));
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -4_000L, true, -1_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-4_000L, -3_000L, -2_000L, -1_000L)));
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -2_000L, false, 2_000L, false))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(-1_000L, 0L, 1_000L)));
+    }
+
+    @Test
+    public void testExpandRangesWithOffGridBounds()
+    {
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, 1_500L, true, 3_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.range(TIMESTAMP_MILLIS, -3_000L, true, -1_500L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
+        assertThat(ValueSet.ofRanges(Range.range(TIME_MILLIS, 1_000_000_000L, true, 2_500_000_000L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.empty());
+    }
+
+    @Test
+    public void testExpandRangesBeyondLimit()
+    {
+        ValueSet twoRanges = ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 3L, true), Range.range(BIGINT, 10L, false, 13L, false));
+        assertThat(twoRanges.tryExpandRanges(5)).hasValue(List.of(1L, 2L, 3L, 11L, 12L));
+        assertThat(twoRanges.tryExpandRanges(4)).isEmpty();
+
+        assertThat(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 1L << 40, true)).tryExpandRanges(Integer.MAX_VALUE)).isEmpty();
+        assertThat(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, Long.MAX_VALUE, true)).tryExpandRanges(10)).isEmpty();
+        assertThat(ValueSet.all(BIGINT).tryExpandRanges(10)).isEmpty();
     }
 
     @Test

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class GroupBy
+public final class GroupBy
         extends Node
 {
     private final boolean isDistinct;
@@ -56,12 +56,6 @@ public class GroupBy
     public List<GroupingElement> getGroupingElements()
     {
         return groupingElements;
-    }
-
-    @Override
-    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitGroupBy(this, context);
     }
 
     @Override

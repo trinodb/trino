@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class AnchorPattern
+public final class AnchorPattern
         extends RowPattern
 {
     public enum Type
@@ -41,12 +41,6 @@ public class AnchorPattern
     public Type getType()
     {
         return type;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAnchorPattern(this, context);
     }
 
     @Override

@@ -94,12 +94,6 @@ public final class FunctionSpecification
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFunctionSpecification(this, context);
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         return (obj instanceof FunctionSpecification other) &&

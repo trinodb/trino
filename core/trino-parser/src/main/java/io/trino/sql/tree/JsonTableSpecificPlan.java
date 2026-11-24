@@ -13,8 +13,11 @@
  */
 package io.trino.sql.tree;
 
-public abstract class JsonTableSpecificPlan
+public abstract sealed class JsonTableSpecificPlan
         extends JsonTablePlan
+        permits PlanLeaf,
+                PlanParentChild,
+                PlanSiblings
 {
     protected JsonTableSpecificPlan(NodeLocation location)
     {

@@ -309,7 +309,7 @@ public class ExchangeS3Config
     @AssertTrue(message = "Property value of exchange.s3.sse.kms-key-id needs to be provided only when exchange.s3.sse.type=KMS")
     public boolean isSseConfigValid()
     {
-        return sseType == KMS && getSseKmsKeyId().isPresent() ||
-                sseType != KMS && getSseKmsKeyId().isEmpty();
+        return (sseType == KMS && getSseKmsKeyId().isPresent()) ||
+                (sseType != KMS && getSseKmsKeyId().isEmpty());
     }
 }

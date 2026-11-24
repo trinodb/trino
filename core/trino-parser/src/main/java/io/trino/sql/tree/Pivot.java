@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class Pivot
+public final class Pivot
         extends Relation
 {
     private final Relation input;
@@ -74,12 +74,6 @@ public class Pivot
     public Optional<GroupBy> getGroupBy()
     {
         return groupBy;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitPivot(this, context);
     }
 
     @Override

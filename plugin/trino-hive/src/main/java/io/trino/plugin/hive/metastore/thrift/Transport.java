@@ -19,6 +19,8 @@ import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocket;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -76,10 +78,13 @@ public final class Transport
             socket.setSoTimeout(readTimeoutMillis);
 
             if (sslContext.isPresent()) {
-                // SSL will connect to the SOCKS address when present
-                HostAndPort sslConnectAddress = socksProxy.orElse(address);
-
-                socket = sslContext.get().getSocketFactory().createSocket(socket, sslConnectAddress.getHost(), sslConnectAddress.getPort(), true);
+                // Verify the certificate against the metastore host
+                SSLSocket sslSocket = (SSLSocket) sslContext.get().getSocketFactory().createSocket(socket, address.getHost(), address.getPort(), true);
+                socket = sslSocket;
+                SSLParameters sslParameters = sslSocket.getSSLParameters();
+                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                sslSocket.setSSLParameters(sslParameters);
+                sslSocket.startHandshake();
             }
             return new TSocket(socket);
         }

@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
@@ -25,17 +26,27 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -165,6 +176,84 @@ public class TestJdbcPageSource
 
         pageSource.close();
         pageSource.close();
+    }
+
+    @Test
+    void testCloseWhileQueryIsExecuting()
+            throws Exception
+    {
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch connectionAborted = new CountDownLatch(1);
+        JdbcClient blockingClient = new ForwardingJdbcClient()
+        {
+            @Override
+            protected JdbcClient delegate()
+            {
+                return jdbcClient;
+            }
+
+            @Override
+            public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
+                    throws SQLException
+            {
+                Connection connection = super.getConnection(session, split, tableHandle);
+                return proxy(Connection.class, (method, args) -> {
+                    if (method.getName().equals("abort")) {
+                        connection.close();
+                        connectionAborted.countDown();
+                        return null;
+                    }
+                    Object result = method.invoke(connection, args);
+                    if (method.getName().equals("prepareStatement")) {
+                        PreparedStatement statement = (PreparedStatement) result;
+                        return proxy(PreparedStatement.class, (statementMethod, statementArgs) -> {
+                            // simulate a reader that holds the driver lock until the connection is aborted
+                            if (statementMethod.getName().equals("executeQuery")) {
+                                queryStarted.countDown();
+                                connectionAborted.await();
+                                throw new SQLException("Connection aborted");
+                            }
+                            if (statementMethod.getName().equals("close")) {
+                                connectionAborted.await();
+                            }
+                            return statementMethod.invoke(statement, statementArgs);
+                        });
+                    }
+                    return result;
+                });
+            }
+        };
+
+        ExecutorService queryExecutor = Executors.newCachedThreadPool();
+        try (JdbcPageSource pageSource = new JdbcPageSource(blockingClient, queryExecutor, SESSION, split, table, ImmutableList.of(columnHandles.get("text")), MemoryContext.NO_LIMIT)) {
+            assertThat(pageSource.getNextSourcePage()).isNull();
+            assertThat(queryStarted.await(10, SECONDS)).isTrue();
+
+            assertThat(CompletableFuture.runAsync(pageSource::close, queryExecutor)).succeedsWithin(10, SECONDS);
+            assertThat(connectionAborted.getCount()).isZero();
+        }
+        finally {
+            queryExecutor.shutdownNow();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T proxy(Class<T> type, Invocation invocation)
+    {
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (_, method, args) -> {
+            try {
+                return invocation.invoke(method, args);
+            }
+            catch (InvocationTargetException e) {
+                throw e.getCause();
+            }
+        });
+    }
+
+    private interface Invocation
+    {
+        Object invoke(Method method, Object[] args)
+                throws Exception;
     }
 
     @Test

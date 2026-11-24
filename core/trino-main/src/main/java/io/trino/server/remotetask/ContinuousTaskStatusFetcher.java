@@ -32,7 +32,7 @@ import io.trino.spi.TrinoException;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -44,6 +44,7 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
@@ -54,8 +55,10 @@ class ContinuousTaskStatusFetcher
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
     private final TaskId taskId;
+    private final String nodeInstanceId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
+    private final AtomicLong expectedTaskInstanceId = new AtomicLong();
     private final JsonCodec<TaskStatus> taskStatusCodec;
     private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
@@ -75,6 +78,7 @@ class ContinuousTaskStatusFetcher
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskStatus initialTaskStatus,
+            String nodeInstanceId,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
             DynamicFiltersFetcher dynamicFiltersFetcher,
@@ -88,8 +92,10 @@ class ContinuousTaskStatusFetcher
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         this.taskId = initialTaskStatus.taskId();
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
+        this.expectedTaskInstanceId.set(initialTaskStatus.taskInstanceId());
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
@@ -149,6 +155,7 @@ class ContinuousTaskStatusFetcher
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION_HEADER, Long.toString(taskStatus.version()))
                 .setHeader(TRINO_MAX_WAIT_HEADER, refreshMaxWait.toString())
+                .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
@@ -160,6 +167,31 @@ class ContinuousTaskStatusFetcher
     TaskStatus getTaskStatus()
     {
         return taskStatus.get();
+    }
+
+    long getExpectedTaskInstanceId()
+    {
+        return expectedTaskInstanceId.get();
+    }
+
+    /**
+     * Checks whether a response was produced by a different task instance than the one this
+     * task is tracking. A restarted worker rejects the requests based on the node instance id,
+     * so this happens only when the worker no longer remembers the task, for example because
+     * it was removed after it had completed, and creates a new task on demand
+     * ({@code SqlTaskManager#getTask}) with a different {@code taskInstanceId}.
+     *
+     * <p>Both the task status and the task info responses are checked here. The first non-zero
+     * instance id seen in either is latched as the expected value, so the mismatch is detected
+     * even when only one of them reached the coordinator before the task was replaced.
+     */
+    boolean isTaskInstanceMismatch(long remoteInstanceId)
+    {
+        if (remoteInstanceId == 0) {
+            return false;
+        }
+        expectedTaskInstanceId.compareAndSet(0, remoteInstanceId);
+        return expectedTaskInstanceId.get() != remoteInstanceId;
     }
 
     private class TaskStatusResponseCallback
@@ -228,24 +260,20 @@ class ContinuousTaskStatusFetcher
 
     void updateTaskStatus(TaskStatus newValue)
     {
-        // change to new value if old value is not changed and new value has a newer version
-        AtomicBoolean taskMismatch = new AtomicBoolean();
-        taskStatus.setIf(newValue, oldValue -> {
-            // did the task instance id change
-            if (oldValue.taskInstanceId() != 0 && oldValue.taskInstanceId() != newValue.taskInstanceId()) {
-                taskMismatch.set(true);
-                return false;
-            }
+        boolean taskMismatch = isTaskInstanceMismatch(newValue.taskInstanceId());
+        if (!taskMismatch) {
+            // change to new value if old value is not changed and new value has a newer version
+            taskStatus.setIf(newValue, oldValue -> {
+                if (oldValue.state().isDone()) {
+                    // never update if the task has reached a terminal state
+                    return false;
+                }
+                // don't update to an older version (same version is ok)
+                return newValue.version() >= oldValue.version();
+            });
+        }
 
-            if (oldValue.state().isDone()) {
-                // never update if the task has reached a terminal state
-                return false;
-            }
-            // don't update to an older version (same version is ok)
-            return newValue.version() >= oldValue.version();
-        });
-
-        if (taskMismatch.get()) {
+        if (taskMismatch) {
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.

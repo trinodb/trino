@@ -143,8 +143,7 @@ public class TestRemoteSourceStatsRule
                 OptionalInt.empty(),
                 statsAndCosts,
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private StatsAndCosts createStatsAndCosts(double nullFraction)

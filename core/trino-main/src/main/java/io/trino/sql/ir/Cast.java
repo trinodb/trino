@@ -15,9 +15,9 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 
@@ -62,12 +62,6 @@ public record Cast(Expression expression, Type type, Kind kind)
     public Type type()
     {
         return type;
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCast(this, context);
     }
 
     @Override

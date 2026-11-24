@@ -13,9 +13,6 @@
  */
 package io.trino.hive.formats.line.json;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.io.SerializedString;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.HiveFormatUtils;
 import io.trino.hive.formats.HiveFormatsErrorCode;
@@ -37,9 +34,12 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.io.SerializedString;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
 
@@ -57,6 +57,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.JsonEncoding.UTF8;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe.
@@ -89,7 +90,7 @@ public class JsonSerializer
     public void write(Page page, int position, SliceOutput sliceOutput)
             throws IOException
     {
-        try (JsonGenerator generator = jsonFactory.createGenerator((OutputStream) sliceOutput)) {
+        try (JsonGenerator generator = jsonFactory.createGenerator(ObjectWriteContext.empty(), sliceOutput, UTF8)) {
             generator.writeStartObject();
             for (int field = 0; field < fieldWriters.length; field++) {
                 fieldWriters[field].writeField(generator, page.getBlock(field), position);
@@ -240,7 +241,7 @@ public class JsonSerializer
         public void writeField(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
-            generator.writeFieldName(fieldName);
+            generator.writeName(fieldName);
             valueWriter.writeValue(generator, block, position);
         }
     }
@@ -302,7 +303,7 @@ public class JsonSerializer
             generator.writeStartObject();
             for (int i = 0; i < sqlMap.getSize(); i++) {
                 checkArgument(!rawKeyBlock.isNull(rawOffset + i), "map key is null");
-                generator.writeFieldName(toMapKey.apply(rawKeyBlock, rawOffset + i));
+                generator.writeName(toMapKey.apply(rawKeyBlock, rawOffset + i));
                 valueWriter.writeValue(generator, rawValueBlock, rawOffset + i);
             }
             generator.writeEndObject();

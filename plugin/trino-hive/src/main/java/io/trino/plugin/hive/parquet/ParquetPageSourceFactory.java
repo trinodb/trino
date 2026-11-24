@@ -202,15 +202,7 @@ public class ParquetPageSourceFactory
                 isUseParquetColumnNames(session),
                 timeZone,
                 stats,
-                ParquetReaderOptions.builder(options)
-                        .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                        .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session))
-                        .withBloomFilter(useParquetBloomFilter(session))
-                        .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
-                        .build(),
+                withSessionParquetReaderOptions(options, session),
                 Optional.empty(),
                 fileDecryptionProperties,
                 domainCompactionThreshold,
@@ -618,5 +610,18 @@ public class ParquetPageSourceFactory
 
             return prefixes.build();
         }
+    }
+
+    private static ParquetReaderOptions withSessionParquetReaderOptions(ParquetReaderOptions configuredOptions, ConnectorSession session)
+    {
+        return ParquetReaderOptions.builder(configuredOptions)
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withBloomFilter(useParquetBloomFilter(session))
+                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                .build();
     }
 }

@@ -7,17 +7,17 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [w_warehouse_name, i_item_id])
                             intermediate aggregation over (w_warehouse_name, i_item_id)
                                 join (INNER, REPLICATED):
-                                    join (INNER, REPLICATED):
-                                        partial aggregation over (inv_warehouse_sk, inv_item_sk)
+                                    partial aggregation over (i_item_id, inv_warehouse_sk)
+                                        join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (inv_warehouse_sk::EQUAL, inv_item_sk::EQUAL, inv_date_sk::EQUAL)
+                                                dynamic filter (inv_warehouse_sk::EQUAL, inv_date_sk::EQUAL, inv_item_sk::EQUAL)
                                                     scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan item
+                                                        scan item
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan warehouse

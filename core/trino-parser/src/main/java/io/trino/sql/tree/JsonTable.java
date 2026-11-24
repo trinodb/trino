@@ -68,12 +68,6 @@ public final class JsonTable
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonTable(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> children = ImmutableList.builder();

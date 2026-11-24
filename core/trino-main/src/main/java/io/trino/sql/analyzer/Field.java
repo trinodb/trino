@@ -162,7 +162,7 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return prefix.isEmpty() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        return prefix.isEmpty() || (relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get()));
     }
 
     /*

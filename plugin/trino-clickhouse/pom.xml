@@ -15,7 +15,7 @@
     <description>Trino - ClickHouse connector</description>
 
     <properties>
-        <dep.clickhouse.version>0.11.0</dep.clickhouse.version>
+        <dep.clickhouse.version>0.11.2</dep.clickhouse.version>
     </properties>
 
     <dependencies>
@@ -186,6 +186,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- Pulled in by clickhouse client with the "cloud" classifier in compile scope -->
+                    <groupId>com.github.luben</groupId>
+                    <artifactId>zstd-jni</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

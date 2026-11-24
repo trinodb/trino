@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-public class AllRows
+public final class AllRows
         extends Expression
 {
     @Deprecated
@@ -30,12 +30,6 @@ public class AllRows
     public AllRows(NodeLocation location)
     {
         super(location);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAllRows(this, context);
     }
 
     @Override

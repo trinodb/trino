@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class QueryPeriod
+public final class QueryPeriod
         extends Node
 {
     private final Optional<Expression> start;
@@ -70,12 +70,6 @@ public class QueryPeriod
     public RangeType getRangeType()
     {
         return rangeType;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitQueryPeriod(this, context);
     }
 
     @Override

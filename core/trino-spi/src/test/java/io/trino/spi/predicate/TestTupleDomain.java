@@ -13,11 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -29,8 +24,14 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +79,56 @@ public class TestTupleDomain
         assertThat(TupleDomain.<ColumnHandle>all()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
                 A, Domain.all(BIGINT))));
         assertThat(TupleDomain.<ColumnHandle>all()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of()));
+    }
+
+    @Test
+    public void testNormalizationAndDefensiveCopy()
+    {
+        Domain point = Domain.singleValue(BIGINT, 1L);
+        Map<ColumnHandle, Domain> columns = new LinkedHashMap<>();
+        columns.put(B, point);
+        columns.put(C, Domain.all(BIGINT));
+        columns.put(A, point);
+        TupleDomain<ColumnHandle> domain = TupleDomain.withColumnDomains(columns);
+        columns.clear();
+        assertThat(domain.getDomains().orElseThrow().keySet()).containsExactly(B, A);
+        assertThat(domain.getDomains().orElseThrow()).containsEntry(A, point).containsEntry(B, point);
+        assertThatThrownBy(() -> domain.getDomains().orElseThrow().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(TupleDomain.withColumnDomains(Map.of(A, Domain.all(BIGINT)))).isSameAs(TupleDomain.all());
+        assertThat(TupleDomain.withColumnDomains(Map.of(A, Domain.none(BIGINT)))).isSameAs(TupleDomain.none());
+    }
+
+    @Test
+    public void testUnchangedTransformations()
+    {
+        TupleDomain<ColumnHandle> domain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                B, Domain.singleValue(BIGINT, 1L),
+                A, Domain.singleValue(BIGINT, 2L)));
+        assertThat(domain.simplify()).isSameAs(domain);
+        assertThat(domain.filter((_, _) -> true)).isSameAs(domain);
+        assertThat(domain.transformDomains((_, value) -> value)).isSameAs(domain);
+        assertThat(domain.filter((_, _) -> false)).isSameAs(TupleDomain.all());
+
+        TupleDomain<ColumnHandle> changed = domain.transformDomains((key, value) -> key.equals(B) ? Domain.all(BIGINT) : value);
+        assertThat(changed.getDomains().orElseThrow().keySet()).containsExactly(A);
+        assertThat(domain.getDomains().orElseThrow().keySet()).containsExactly(B, A);
+        assertThatThrownBy(() -> changed.getDomains().orElseThrow().clear()).isInstanceOf(UnsupportedOperationException.class);
+
+        List<ColumnHandle> visited = new ArrayList<>();
+        assertThat(domain.transformDomains((key, _) -> {
+            visited.add(key);
+            return Domain.none(BIGINT);
+        })).isSameAs(TupleDomain.none());
+        assertThat(visited).containsExactly(B, A);
+    }
+
+    @Test
+    public void testStrictUnionReusesSuperset()
+    {
+        TupleDomain<ColumnHandle> narrow = TupleDomain.withColumnDomains(Map.of(A, Domain.singleValue(BIGINT, 1L)));
+        TupleDomain<ColumnHandle> wide = TupleDomain.withColumnDomains(Map.of(A, Domain.notNull(BIGINT)));
+        assertThat(strictUnion(List.of(narrow, wide)).orElseThrow()).isSameAs(wide);
+        assertThat(strictUnion(List.of(wide, narrow)).orElseThrow()).isSameAs(wide);
     }
 
     @Test
@@ -671,11 +722,10 @@ public class TestTupleDomain
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde()),
-                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        ColumnHandle.class, new ValueDeserializer<ColumnHandle>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
-                                    throws IOException
                             {
                                 return context.readValue(parser, TestingColumnHandle.class);
                             }

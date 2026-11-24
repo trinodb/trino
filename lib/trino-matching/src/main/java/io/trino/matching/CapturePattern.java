@@ -13,8 +13,6 @@
  */
 package io.trino.matching;
 
-import java.util.stream.Stream;
-
 import static java.util.Objects.requireNonNull;
 
 public final class CapturePattern<T>
@@ -31,12 +29,5 @@ public final class CapturePattern<T>
     public Capture<T> capture()
     {
         return capture;
-    }
-
-    @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
-    {
-        Captures newCaptures = captures.addAll(Captures.ofNullable(capture, (T) object));
-        return Stream.of(Match.of(newCaptures));
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import org.intellij.lang.annotations.Language;
@@ -28,14 +29,16 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -43,14 +46,13 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Predicate.not;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
@@ -74,8 +76,10 @@ public class TestingPostgreSqlServer
     private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); // In PgSQL cursor queries and non-cursor queries are logged differently
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
+    private static final Duration MARKER_TIMEOUT = Duration.ofSeconds(30);
+
     private final PostgreSQLContainer dockerContainer;
-    private final Set<RemoteLogTracingEvent> tracingEvents = ConcurrentHashMap.newKeySet();
+    private final Set<Consumer<RemoteDatabaseEvent>> eventListeners = ConcurrentHashMap.newKeySet();
 
     private final Closeable cleanup;
 
@@ -118,7 +122,7 @@ public class TestingPostgreSqlServer
         public void accept(OutputFrame outputFrame)
         {
             logParser.parse(outputFrame.getUtf8StringWithoutLineEnding())
-                    .ifPresent(remoteDatabaseEvent -> tracingEvents.forEach(tracingEvent -> tracingEvent.accept(remoteDatabaseEvent)));
+                    .ifPresent(remoteDatabaseEvent -> eventListeners.forEach(listener -> listener.accept(remoteDatabaseEvent)));
         }
     }
 
@@ -159,12 +163,12 @@ public class TestingPostgreSqlServer
 
     protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
     {
-        tracingEvents.add(event);
+        eventListeners.add(event);
     }
 
     protected void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
     {
-        tracingEvents.remove(event);
+        eventListeners.remove(event);
     }
 
     public void execute(@Language("SQL") String sql)
@@ -186,7 +190,13 @@ public class TestingPostgreSqlServer
     DatabaseEventsRecorder recordEventsForOperations(Runnable operation)
     {
         DatabaseEventsRecorder events = DatabaseEventsRecorder.startRecording(this);
-        operation.run();
+        try {
+            operation.run();
+        }
+        catch (RuntimeException | Error e) {
+            events.stopListening();
+            throw e;
+        }
         return events;
     }
 
@@ -241,44 +251,45 @@ public class TestingPostgreSqlServer
         }
     }
 
-    // Statements are logged asynchronously, so a marker statement executed after the recorded operation
-    // is the only reliable signal that all the operation's statements have been logged
-    private String logMarker()
-    {
-        String marker = "SELECT 'events recorder marker %s'".formatted(randomUUID());
-        execute(marker);
-        assertEventually(() -> assertThat(getRemoteDatabaseEvents()).contains(new RemoteDatabaseEvent(marker, RUNNING)));
-        return marker;
-    }
-
     public static class DatabaseEventsRecorder
+            implements Consumer<RemoteDatabaseEvent>
     {
         private final TestingPostgreSqlServer server;
-        private final Supplier<Stream<String>> loggedQueriesSource;
+        private final RemoteDatabaseEvent startMarker = newMarker();
+        private final RemoteDatabaseEvent stopMarker = newMarker();
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final CountDownLatch stopped = new CountDownLatch(1);
+        @GuardedBy("this")
+        private final List<String> queries = new ArrayList<>();
 
-        private DatabaseEventsRecorder(TestingPostgreSqlServer server, Supplier<Stream<String>> loggedQueriesSource)
+        private DatabaseEventsRecorder(TestingPostgreSqlServer server)
         {
             this.server = requireNonNull(server, "server is null");
-            this.loggedQueriesSource = requireNonNull(loggedQueriesSource, "loggedQueriesSource is null");
         }
 
         static DatabaseEventsRecorder startRecording(TestingPostgreSqlServer server)
         {
-            String startMarker = server.logMarker();
-            return new DatabaseEventsRecorder(server, () ->
-                    server.getRemoteDatabaseEvents().stream()
-                            .map(RemoteDatabaseEvent::getQuery)
-                            .dropWhile(query -> !query.equals(startMarker))
-                            .skip(1));
+            DatabaseEventsRecorder recorder = new DatabaseEventsRecorder(server);
+            server.eventListeners.add(recorder);
+            try {
+                recorder.logMarker(recorder.startMarker, recorder.started);
+            }
+            catch (RuntimeException | Error e) {
+                recorder.stopListening();
+                throw e;
+            }
+            return recorder;
         }
 
         public DatabaseEventsRecorder stopEventsRecording()
         {
-            String stopMarker = server.logMarker();
-            List<String> queries = loggedQueriesSource.get()
-                    .takeWhile(query -> !query.equals(stopMarker))
-                    .collect(toImmutableList());
-            return new DatabaseEventsRecorder(server, queries::stream);
+            try {
+                logMarker(stopMarker, stopped);
+            }
+            finally {
+                stopListening();
+            }
+            return this;
         }
 
         public Stream<String> streamQueriesContaining(String queryPart, String... alternativeQueryParts)
@@ -287,8 +298,59 @@ public class TestingPostgreSqlServer
                     .add(queryPart)
                     .addAll(ImmutableList.copyOf(alternativeQueryParts))
                     .build();
-            return loggedQueriesSource.get()
+            return recordedQueries().stream()
                     .filter(query -> queryParts.stream().anyMatch(query::contains));
+        }
+
+        // The log consumer delivers events in log order. Statements are logged asynchronously, so a marker
+        // statement executed after the recorded operation is the only reliable signal that all the operation's
+        // statements have been logged.
+        @Override
+        public synchronized void accept(RemoteDatabaseEvent event)
+        {
+            if (started.getCount() > 0) {
+                if (event.equals(startMarker)) {
+                    started.countDown();
+                }
+                return;
+            }
+            if (stopped.getCount() == 0) {
+                return;
+            }
+            if (event.equals(stopMarker)) {
+                stopped.countDown();
+                return;
+            }
+            queries.add(event.getQuery());
+        }
+
+        private synchronized List<String> recordedQueries()
+        {
+            return ImmutableList.copyOf(queries);
+        }
+
+        private void logMarker(RemoteDatabaseEvent marker, CountDownLatch logged)
+        {
+            server.execute(marker.getQuery());
+            try {
+                if (!logged.await(MARKER_TIMEOUT.toMillis(), MILLISECONDS)) {
+                    throw new AssertionError("Marker statement was not logged within %s: %s".formatted(MARKER_TIMEOUT, marker.getQuery()));
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        private void stopListening()
+        {
+            server.eventListeners.remove(this);
+        }
+
+        private static RemoteDatabaseEvent newMarker()
+        {
+            return new RemoteDatabaseEvent("SELECT 'events recorder marker %s'".formatted(randomUUID()), RUNNING);
         }
     }
 }

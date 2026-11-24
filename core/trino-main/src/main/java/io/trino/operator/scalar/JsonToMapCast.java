@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.Json;
@@ -32,6 +30,8 @@ import io.trino.spi.type.MapType;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
 import io.trino.util.JsonUtil.StreamingBlockBuilderAppender;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -126,7 +126,7 @@ public class JsonToMapCast
             throws IOException
     {
         if (parser.nextToken() != null) {
-            throw new JsonCastException(format("Unexpected trailing token: %s", parser.getText()));
+            throw new JsonCastException(format("Unexpected trailing token: %s", parser.getString()));
         }
     }
 }

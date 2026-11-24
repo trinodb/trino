@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class JsonTableDefaultPlan
+public final class JsonTableDefaultPlan
         extends JsonTablePlan
 {
     private final ParentChildPlanType parentChild;
@@ -42,12 +42,6 @@ public class JsonTableDefaultPlan
     public SiblingsPlanType getSiblings()
     {
         return siblings;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonTableDefaultPlan(this, context);
     }
 
     @Override

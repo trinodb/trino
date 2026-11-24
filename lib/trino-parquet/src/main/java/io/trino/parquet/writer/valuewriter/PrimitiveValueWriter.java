@@ -54,7 +54,7 @@ public abstract class PrimitiveValueWriter
         return valuesWriter;
     }
 
-    public Statistics<?> getStatistics()
+    Statistics<?> getStatistics()
     {
         return statistics;
     }
@@ -89,10 +89,13 @@ public abstract class PrimitiveValueWriter
         return valuesWriter.getEncoding();
     }
 
-    public void reset()
+    /// Resets the writer for the next page and returns the statistics of the values written to the page that was reset
+    public Statistics<?> resetAndGetStatistics()
     {
         valuesWriter.reset();
-        this.statistics = Statistics.createStats(statisticsType);
+        Statistics<?> finished = statistics;
+        statistics = Statistics.createStats(statisticsType);
+        return finished;
     }
 
     @Override

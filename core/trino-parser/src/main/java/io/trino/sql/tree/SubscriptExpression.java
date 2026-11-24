@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SubscriptExpression
+public final class SubscriptExpression
         extends Expression
 {
     private final Expression base;
@@ -40,12 +40,6 @@ public class SubscriptExpression
         super(location);
         this.base = requireNonNull(base, "base is null");
         this.index = requireNonNull(index, "index is null");
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSubscriptExpression(this, context);
     }
 
     @Override

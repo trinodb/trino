@@ -23,7 +23,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static java.util.Objects.requireNonNull;
 
-public class JsonValue
+public final class JsonValue
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;
@@ -97,12 +97,6 @@ public class JsonValue
     public Optional<Expression> getErrorDefault()
     {
         return errorDefault;
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitJsonValue(this, context);
     }
 
     @Override
