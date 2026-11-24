@@ -18,7 +18,7 @@
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.graalvm.version>25.5.5.0.3</dep.graalvm.version>
         <dep.ranger.version>2.9.0</dep.ranger.version>
-        <dep.solr.version>8.11.3</dep.solr.version>
+        <dep.solr.version>10.0.0</dep.solr.version>
     </properties>
 
     <dependencyManagement>
