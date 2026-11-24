@@ -47,6 +47,7 @@
 - { modules: plugin/trino-google-sheets }
 - { modules: plugin/trino-google-sheets, profile: cloud-tests }
 - { modules: plugin/trino-hive, timeout-minutes: 45 }
+- { modules: plugin/trino-hive, profile: cloud-tests, timeout-minutes: 45 }
 - { modules: plugin/trino-hive, profile: fte-tests }
 - { modules: plugin/trino-hive, profile: test-parquet, timeout-minutes: 45 }
 - { modules: plugin/trino-hudi }

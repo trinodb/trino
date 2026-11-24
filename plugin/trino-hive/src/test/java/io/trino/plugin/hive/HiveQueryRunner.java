@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -37,7 +38,9 @@ import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +57,7 @@ import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -466,6 +470,42 @@ public final class HiveQueryRunner
                     .build();
 
             Logger log = Logger.get(HiveGlueFlociQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class HiveLakehouseQueryRunnerMain
+    {
+        private HiveLakehouseQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            byte[] jsonKeyBytes = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
+            Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
+            gcpCredentialsFile.toFile().deleteOnExit();
+            Files.write(gcpCredentialsFile, jsonKeyBytes);
+            String projectId = new JsonMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asString();
+
+            //noinspection resource
+            DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
+                            .setCatalog("hive")
+                            .setSchema("tpch")
+                            .build())
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addHiveProperty("hive.metastore", "lakehouse")
+                    .addHiveProperty("hive.metastore.lakehouse.project-id", projectId)
+                    .addHiveProperty("hive.metastore.lakehouse.catalog-id", requireEnv("GCP_LAKEHOUSE_CATALOG_ID"))
+                    .addHiveProperty("hive.metastore.lakehouse.google-json-key-file-path", gcpCredentialsFile.toString())
+                    .addHiveProperty("hive.security", "allow-all")
+                    .addHiveProperty("fs.gcs.enabled", "true")
+                    .addHiveProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
+                    .setSkipTimezoneSetup(true)
+                    .setCreateTpchSchemas(false)
+                    .build();
+
+            Logger log = Logger.get(HiveLakehouseQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
