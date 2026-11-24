@@ -37,6 +37,7 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -2475,8 +2476,39 @@ public class TestDomainTranslator
                 equal(year, new Constant(BIGINT, 2013L)),
                 tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, LocalDate.of(2012, 12, 31).toEpochDay(), LocalDate.of(2014, 1, 2).toEpochDay())));
 
+        // the range passes through at_timezone for a zone that varies by row too
+        Expression columnZone = cast(atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), C_VARCHAR.toSymbolReference()), DATE);
+        assertPredicateDerives(equal(columnZone, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        assertPredicateDerives(between(columnZone, dateLiteral, nextWeekLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 9)));
+        assertPredicateDerives(
+                in(columnZone, DATE, ImmutableList.of(date, date + 1)),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 3)));
+        assertPredicateDerives(
+                not(greaterThanOrEqual(columnZone, dateLiteral)),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 1))), false)));
+        Expression coalescedZone = cast(
+                atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), new Coalesce(C_VARCHAR.toSymbolReference(), new Constant(VARCHAR, utf8Slice("GMT")))),
+                DATE);
+        assertPredicateDerives(equal(coalescedZone, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        Expression nestedZones = cast(
+                atTimeZone(atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), C_VARCHAR.toSymbolReference()), stringLiteral("UTC")),
+                DATE);
+        assertPredicateDerives(equal(nestedZones, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        Expression monthOfColumnZone = new Call(
+                functionResolution.resolveFunction("date_trunc", fromTypes(createVarcharType(5), DATE)),
+                ImmutableList.of(new Constant(createVarcharType(5), utf8Slice("month")), columnZone));
+        assertPredicateDerives(
+                equal(monthOfColumnZone, new Constant(DATE, LocalDate.of(2013, 3, 1).toEpochDay())),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, LocalDate.of(2013, 2, 28).toEpochDay(), LocalDate.of(2013, 4, 2).toEpochDay())));
+
+        // With a zone that varies by row, at_timezone is null for a non-null timestamp and a null zone.
+        // A predicate that selects rows where the date is null also selects that row, and a domain on the column alone would prune it.
+        assertUnsupportedPredicate(comparison(IDENTICAL, columnZone, nullLiteral(DATE)));
+        assertUnsupportedPredicate(not(comparison(IDENTICAL, columnZone, dateLiteral)));
+
         // the legacy implementation derives nothing from this cast
         assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(castColumn, dateLiteral));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(columnZone, dateLiteral));
     }
 
     private static Domain instantRange(TimestampWithTimeZoneType type, long firstEpochDay, long endEpochDay)

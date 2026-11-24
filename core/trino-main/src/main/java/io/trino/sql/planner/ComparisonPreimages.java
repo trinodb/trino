@@ -61,6 +61,7 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.isAtTimeZone;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -407,6 +408,17 @@ public final class ComparisonPreimages
                     exactness = CONSERVATIVE;
                 }
                 Expression operand = bound.input();
+                // at_timezone keeps the instant, and a timestamp with time zone domain selects values by instant alone,
+                // so the domain of the call is also a domain of its first argument. When the zone is not a constant,
+                // no provider can be bound. The call can then also be null or fail for a non-null first argument,
+                // so the domain passes through only when it excludes null, and only as a superset.
+                while (operand instanceof Call call && isAtTimeZone(call) && !(call.arguments().get(1) instanceof Constant)) {
+                    if (domain.isNullAllowed()) {
+                        return Optional.empty();
+                    }
+                    operand = call.arguments().getFirst();
+                    exactness = CONSERVATIVE;
+                }
                 if (operand instanceof Reference reference) {
                     return Optional.of(new ProjectedDomain(reference, domain, exactness));
                 }

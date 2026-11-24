@@ -256,6 +256,12 @@ the zone each value carries, and a domain selects such values by instant alone. 
 zone is a full day away from UTC, so the provider returns the UTC days of the
 requested dates, widened by one day on each side.
 
+Domain extraction also passes a domain through `at_timezone` when the zone is not a
+constant, a call for which no provider can be bound. The call keeps the instant for
+every zone, so a domain of the call is a domain of its timestamp argument. The call
+can be null or fail for a non-null timestamp, so this step requires a domain that
+excludes null, and it makes the result conservative.
+
 ## Runtime domains and cast preimages
 
 A dynamic filter collected in a join comparison type is translated to the probe
