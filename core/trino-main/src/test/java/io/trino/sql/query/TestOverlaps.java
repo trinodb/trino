@@ -53,6 +53,18 @@ public class TestOverlaps
     }
 
     @Test
+    public void testOverlapsAcrossJoin()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT ROW(a, b) OVERLAPS ROW(c, d)
+                FROM (VALUES (DATE '2020-01-01', DATE '2020-06-01')) left_period(a, b)
+                CROSS JOIN (VALUES (DATE '2020-05-01', DATE '2020-12-01')) right_period(c, d)
+                """))
+                .matches("VALUES true");
+    }
+
+    @Test
     public void testDateRangesDisjoint()
     {
         assertThat(assertions.expression("(DATE '2020-01-01', DATE '2020-03-01') OVERLAPS (DATE '2020-05-01', DATE '2020-07-01')"))
