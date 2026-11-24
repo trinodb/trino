@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.reader;
 
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
@@ -21,7 +22,9 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTransactionLogParallelReadEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemTransactionLogReader
@@ -30,12 +33,20 @@ public class FileSystemTransactionLogReader
     private final String tableLocation;
     private final Optional<DeltaLakeTableCredentials> tableCredentials;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
+    private final Optional<Executor> parallelReadExecutor;
 
     public FileSystemTransactionLogReader(String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials, DeltaLakeFileSystemFactory fileSystemFactory)
+    {
+        this(tableLocation, tableCredentials, fileSystemFactory, Optional.empty());
+    }
+
+    // With an executor, the session property transaction_log_parallel_read_enabled selects listing and parallel reads
+    public FileSystemTransactionLogReader(String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials, DeltaLakeFileSystemFactory fileSystemFactory, Optional<Executor> parallelReadExecutor)
     {
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.parallelReadExecutor = requireNonNull(parallelReadExecutor, "parallelReadExecutor is null");
     }
 
     @Override
@@ -46,6 +57,10 @@ public class FileSystemTransactionLogReader
             DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
-        return TransactionLogTail.loadNewTail(fileSystemFactory.create(session, tableCredentials), tableLocation, startVersion, endVersion, transactionLogMaxCachedFileSize);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
+        if (parallelReadExecutor.isPresent() && isTransactionLogParallelReadEnabled(session)) {
+            return TransactionLogTail.loadNewTailWithListing(fileSystem, tableLocation, startVersion, endVersion, transactionLogMaxCachedFileSize, parallelReadExecutor.get());
+        }
+        return TransactionLogTail.loadNewTail(fileSystem, tableLocation, startVersion, endVersion, transactionLogMaxCachedFileSize);
     }
 }

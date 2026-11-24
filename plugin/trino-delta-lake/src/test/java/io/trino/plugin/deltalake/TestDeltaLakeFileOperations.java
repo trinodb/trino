@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,6 +62,7 @@ import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DAT
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DELETION_VECTOR;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.STARBURST_EXTENDED_STATS_JSON;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRINO_EXTENDED_STATS_JSON;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
@@ -1754,10 +1756,15 @@ public class TestDeltaLakeFileOperations
         assertMultisetsEqual(getOperations(spanData), expectedAccesses);
     }
 
-    private Multiset<FileOperation> getOperations(List<SpanData> spanData)
+    private static Multiset<FileOperation> getOperations(List<SpanData> spanData)
+    {
+        return getOperations(spanData, _ -> false);
+    }
+
+    static Multiset<FileOperation> getOperations(List<SpanData> spanData, Predicate<String> extraOperation)
     {
         return spanData.stream()
-                .filter(span -> span.getName().startsWith("InputFile.") || span.getName().startsWith("OutputFile."))
+                .filter(span -> span.getName().startsWith("InputFile.") || span.getName().startsWith("OutputFile.") || extraOperation.test(span.getName()))
                 .filter(span -> {
                     String path = requireNonNull(span.getAttributes().get(FILE_LOCATION), "FILE_LOCATION attribute is empty");
                     return !path.endsWith(".trinoSchema") && !path.contains(".trinoPermissions");
@@ -1766,11 +1773,14 @@ public class TestDeltaLakeFileOperations
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record FileOperation(FileType fileType, String fileId, String operationType)
+    record FileOperation(FileType fileType, String fileId, String operationType)
     {
         public static FileOperation create(String path, String operationType)
         {
             String fileName = path.replaceFirst(".*/", "");
+            if (path.matches(".*/_delta_log/?")) {
+                return new FileOperation(TRANSACTION_LOG_DIRECTORY, "_delta_log", operationType);
+            }
             if (path.matches(".*/_delta_log/_last_checkpoint")) {
                 return new FileOperation(LAST_CHECKPOINT, fileName, operationType);
             }
@@ -1818,6 +1828,7 @@ public class TestDeltaLakeFileOperations
 
     enum FileType
     {
+        TRANSACTION_LOG_DIRECTORY,
         LAST_CHECKPOINT,
         CHECKPOINT,
         TRANSACTION_LOG_JSON,
