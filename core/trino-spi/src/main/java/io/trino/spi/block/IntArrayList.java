@@ -68,9 +68,4 @@ class IntArrayList
     {
         return size;
     }
-
-    public boolean isEmpty()
-    {
-        return size == 0;
-    }
 }

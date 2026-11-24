@@ -382,11 +382,6 @@ public class NodeStateManager
                 return state;
             }
 
-            public long version()
-            {
-                return version;
-            }
-
             @Override
             public boolean equals(Object o)
             {

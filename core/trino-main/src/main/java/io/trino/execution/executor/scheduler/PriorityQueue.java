@@ -129,11 +129,6 @@ final class PriorityQueue<T>
         return queue.first();
     }
 
-    public int size()
-    {
-        return queue.size();
-    }
-
     @Override
     public String toString()
     {

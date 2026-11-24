@@ -13,7 +13,6 @@
  */
 package io.trino.testing.tpch;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,11 +26,6 @@ class MaterializedTuple
     public MaterializedTuple(List<Object> values)
     {
         this.values = requireNonNull(values, "values is null");
-    }
-
-    public static MaterializedTuple from(Object... values)
-    {
-        return new MaterializedTuple(Arrays.asList(values));
     }
 
     public List<Object> getValues()

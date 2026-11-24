@@ -103,13 +103,6 @@ class PreferredProperties
                 .build();
     }
 
-    public static PreferredProperties local(List<? extends LocalProperty<Symbol>> localProperties)
-    {
-        return builder()
-                .local(localProperties)
-                .build();
-    }
-
     public Optional<Global> getGlobalProperties()
     {
         return globalProperties;
@@ -173,21 +166,9 @@ class PreferredProperties
             return this;
         }
 
-        public Builder global(PreferredProperties other)
-        {
-            this.globalProperties = other.globalProperties;
-            return this;
-        }
-
         public Builder local(List<? extends LocalProperty<Symbol>> localProperties)
         {
             this.localProperties = ImmutableList.copyOf(localProperties);
-            return this;
-        }
-
-        public Builder local(PreferredProperties other)
-        {
-            this.localProperties = ImmutableList.copyOf(other.localProperties);
             return this;
         }
 

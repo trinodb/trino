@@ -65,11 +65,6 @@ public final class ExpressionTreeRewriter<C>
 
     private class RewritingVisitor
     {
-        public Expression process(Node node)
-        {
-            return process(node, null);
-        }
-
         public Expression process(Node root, ExpressionTreeRewriter.Context<C> context)
         {
             return switch (root) {
