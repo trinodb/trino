@@ -165,7 +165,7 @@ public abstract class AbstractColumnReaderRowRangesTest
         return valueDecoders::getIntDecoder;
     }
 
-    public Object[][] testRowRangesProvider()
+    protected Object[][] testRowRangesProvider()
     {
         Object[][] columnReaders = Stream.of(getColumnReaderProviders())
                 .flatMap(reader -> Arrays.stream(getColumnReaderInputs(reader)))

@@ -46,7 +46,7 @@ class TestSpoolingPagePartitioner
         testPartitionPages(81_000, 1);
     }
 
-    void testPartitionPages(int maxPartitionSize, int expectedPartitions)
+    private void testPartitionPages(int maxPartitionSize, int expectedPartitions)
     {
         List<Type> types = ImmutableList.of(BIGINT, BIGINT, BIGINT);
         List<Page> pages = ImmutableList.<Page>builder()

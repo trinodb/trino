@@ -39,7 +39,7 @@ class TestTimeToLiveClock
         testTimeToLiveClock(ZoneId.of("Asia/Tokyo"));
     }
 
-    void testTimeToLiveClock(ZoneId zoneId)
+    private void testTimeToLiveClock(ZoneId zoneId)
     {
         Duration ttl = Duration.of(1, HOURS);
         Instant now = Instant.now();

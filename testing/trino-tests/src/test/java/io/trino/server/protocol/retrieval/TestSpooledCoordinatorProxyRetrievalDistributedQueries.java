@@ -21,7 +21,7 @@ public class TestSpooledCoordinatorProxyRetrievalDistributedQueries
         extends AbstractSpooledQueryDataRetrievalDistributedQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    protected SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
         return COORDINATOR_PROXY;
     }

@@ -437,7 +437,7 @@ public class TestSpatialJoinOperator
         testDuplicateProbeFactory(false);
     }
 
-    public void testDuplicateProbeFactory(boolean createSecondaryOperators)
+    private void testDuplicateProbeFactory(boolean createSecondaryOperators)
             throws Exception
     {
         TaskContext taskContext = createTaskContext();

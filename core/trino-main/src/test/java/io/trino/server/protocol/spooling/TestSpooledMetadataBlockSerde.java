@@ -40,13 +40,13 @@ class TestSpooledMetadataBlockSerde
         verifySerialization(utf8Slice("identifier"), Optional.empty(), ImmutableMap.of("X-Header", ImmutableList.of("value1", "value2")));
     }
 
-    public void verifySerialization(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
+    private void verifySerialization(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
         verifySerializationRoundTrip(identifier, directUri, headers);
         verifySerializationRoundTripWithNonEmptyPage(identifier, directUri, headers);
     }
 
-    public void verifySerializationRoundTrip(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
+    private void verifySerializationRoundTrip(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
         SpooledMetadataBlock metadata = new SpooledMetadataBlock.Spooled(createDataAttributes(10, 1200), identifier, directUri, headers);
         assertThat(List.of(metadata)).isEqualTo(deserialize(serialize(metadata)));

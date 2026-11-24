@@ -222,7 +222,7 @@ public class BenchmarkSortedRangeSet
         return benchmarkIntersectionSingle(data.largeDiscreteSortedRangeSet, SortedRangeSet::binarySearchIntersect);
     }
 
-    public List<ValueSet> benchmarkIntersectionSingle(SortedRangeSet target, BiFunction<SortedRangeSet, SortedRangeSet, SortedRangeSet> intersection)
+    private List<ValueSet> benchmarkIntersectionSingle(SortedRangeSet target, BiFunction<SortedRangeSet, SortedRangeSet, SortedRangeSet> intersection)
     {
         List<ValueSet> result = new ArrayList<>(10);
         for (int i = 0; i < 10; i++) {

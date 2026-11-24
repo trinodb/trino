@@ -6431,7 +6431,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
-    public void testAnalyzeStaleMaterializedViewWithWhenStaleInline(WhenStaleBehavior whenStaleBehavior)
+    private void testAnalyzeStaleMaterializedViewWithWhenStaleInline(WhenStaleBehavior whenStaleBehavior)
     {
         String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
 

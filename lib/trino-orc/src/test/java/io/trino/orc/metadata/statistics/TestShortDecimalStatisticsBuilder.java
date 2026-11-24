@@ -71,7 +71,7 @@ public class TestShortDecimalStatisticsBuilder
     }
 
     @Override
-    void assertRangeStatistics(RangeStatistics<?> rangeStatistics, Long expectedMin, Long expectedMax)
+    protected void assertRangeStatistics(RangeStatistics<?> rangeStatistics, Long expectedMin, Long expectedMax)
     {
         assertThat(rangeStatistics).isNotNull();
         assertThat(rangeStatistics.getMin()).isEqualTo(new BigDecimal(BigInteger.valueOf(expectedMin), SCALE));

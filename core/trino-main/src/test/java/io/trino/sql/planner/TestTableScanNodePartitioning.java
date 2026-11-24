@@ -140,7 +140,7 @@ public class TestTableScanNodePartitioning
         assertTableScanPlannedWithoutPartitioning(ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING, SINGLE_BUCKET_TABLE);
     }
 
-    void assertTableScanPlannedWithPartitioning(Session session, String table, ConnectorPartitioningHandle expectedPartitioning)
+    private void assertTableScanPlannedWithPartitioning(Session session, String table, ConnectorPartitioningHandle expectedPartitioning)
     {
         String query = "SELECT count(column_b) FROM " + table + " GROUP BY column_a";
         assertDistributedPlan(query, session,
@@ -155,7 +155,7 @@ public class TestTableScanNodePartitioning
         assertThat(subPlan.getAllFragments().get(0).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
     }
 
-    void assertTableScanPlannedWithoutPartitioning(Session session, String table)
+    private void assertTableScanPlannedWithoutPartitioning(Session session, String table)
     {
         String query = "SELECT count(column_b) FROM " + table + " GROUP BY column_a";
         assertDistributedPlan("SELECT count(column_b) FROM " + table + " GROUP BY column_a", session,

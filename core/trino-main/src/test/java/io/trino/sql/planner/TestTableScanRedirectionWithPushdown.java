@@ -486,7 +486,7 @@ public class TestTableScanRedirectionWithPushdown
         };
     }
 
-    void assertPlan(PlanTester planTester, @Language("SQL") String sql, PlanMatchPattern pattern)
+    private void assertPlan(PlanTester planTester, @Language("SQL") String sql, PlanMatchPattern pattern)
     {
         planTester.inTransaction(transactionSession -> {
             Plan actualPlan = planTester.createPlan(transactionSession, sql);

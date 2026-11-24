@@ -210,7 +210,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         testInformationSchemaColumns(false);
     }
 
-    public void testInformationSchemaColumns(boolean storeTableMetadata)
+    private void testInformationSchemaColumns(boolean storeTableMetadata)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
@@ -274,7 +274,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         testSystemMetadataTableComments(false);
     }
 
-    public void testSystemMetadataTableComments(boolean storeTableMetadata)
+    private void testSystemMetadataTableComments(boolean storeTableMetadata)
     {
         String schemaName = "test_s_m_table_comments" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);

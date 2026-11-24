@@ -307,7 +307,7 @@ public class TestIcebergFileOperations
         assertUpdate("DROP TABLE test_select_with_limit");
     }
 
-    public Object[][] testSelectWithLimitDataProvider()
+    private Object[][] testSelectWithLimitDataProvider()
     {
         return new Object[][] {
                 {10},
@@ -1001,7 +1001,7 @@ public class TestIcebergFileOperations
         }
     }
 
-    public Object[][] metadataQueriesTestTableCountDataProvider()
+    private Object[][] metadataQueriesTestTableCountDataProvider()
     {
         return new Object[][] {
                 {3},

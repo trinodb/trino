@@ -3741,7 +3741,7 @@ public abstract class BaseConnectorTest
         }
     }
 
-    public List<SetColumnTypeSetup> setFieldTypesDataProvider()
+    protected List<SetColumnTypeSetup> setFieldTypesDataProvider()
     {
         return setColumnTypeSetupData().stream()
                 .map(this::filterSetFieldTypesDataProvider)
@@ -6496,7 +6496,7 @@ public abstract class BaseConnectorTest
         return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
     }
 
-    public List<String> testColumnNameDataProvider()
+    protected List<String> testColumnNameDataProvider()
     {
         return testColumnNameTestData().stream()
                 .map(this::filterColumnNameTestData)
@@ -6753,7 +6753,7 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    public final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider()
+    protected final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider()
     {
         return testDataMappingSmokeTestData().stream()
                 .map(this::filterDataMappingSmokeTestData)

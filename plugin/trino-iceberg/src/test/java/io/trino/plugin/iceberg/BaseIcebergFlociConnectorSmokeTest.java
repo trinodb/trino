@@ -107,7 +107,7 @@ public abstract class BaseIcebergFlociConnectorSmokeTest
         return builder.build();
     }
 
-    public Map<String, String> getAdditionalIcebergProperties()
+    protected Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
     }

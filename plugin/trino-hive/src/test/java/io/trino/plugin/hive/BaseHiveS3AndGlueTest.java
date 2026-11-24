@@ -224,7 +224,7 @@ public abstract class BaseHiveS3AndGlueTest
     }
 
     @Override
-    public void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         // Row-level modifications are not supported for Hive tables
     }
