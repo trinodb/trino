@@ -22,7 +22,10 @@ import com.google.cloud.biglake.hive.v1.ListHiveDatabasesRequest;
 import com.google.cloud.biglake.hive.v1.ListHiveDatabasesResponse;
 import com.google.cloud.biglake.hive.v1.ListHiveTablesRequest;
 import com.google.cloud.biglake.hive.v1.ListHiveTablesResponse;
+import com.google.cloud.biglake.hive.v1.ListPartitionsRequest;
+import com.google.cloud.biglake.hive.v1.ListPartitionsResponse;
 import com.google.cloud.biglake.hive.v1.NamespaceName;
+import com.google.cloud.biglake.hive.v1.Partition;
 import com.google.cloud.biglake.hive.v1.TableName;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -39,17 +42,21 @@ import static java.lang.Math.min;
  *
  * <p>It answers like the real service where the client depends on it: a missing project, database
  * or table is {@code NOT_FOUND}, a missing catalog, and a database that is missing from a request
- * for its tables, is {@code FAILED_PRECONDITION}, and a listing is split into pages.
+ * for its tables or partitions, is {@code FAILED_PRECONDITION}, a listing is split into pages, and
+ * the partitions of a table arrive as a stream of responses.
  */
 public final class TestingHiveMetastoreService
         extends HiveMetastoreServiceGrpc.HiveMetastoreServiceImplBase
 {
     private final List<HiveDatabase> databases = new ArrayList<>();
     private final Map<String, List<HiveTable>> tablesByDatabase = new LinkedHashMap<>();
+    private final Map<String, List<Partition>> partitionsByTable = new LinkedHashMap<>();
     private final List<String> requests = new ArrayList<>();
+    private final List<String> partitionFilters = new ArrayList<>();
     private boolean projectExists = true;
     private boolean catalogExists = true;
     private int pageSize = Integer.MAX_VALUE;
+    private int partitionsPerResponse = Integer.MAX_VALUE;
     private Status failure;
 
     public TestingHiveMetastoreService add(HiveDatabase database)
@@ -63,6 +70,13 @@ public final class TestingHiveMetastoreService
     {
         add(database);
         tablesByDatabase.get(database.getName()).add(table);
+        partitionsByTable.putIfAbsent(table.getName(), new ArrayList<>());
+        return this;
+    }
+
+    public TestingHiveMetastoreService add(HiveTable table, Partition partition)
+    {
+        partitionsByTable.computeIfAbsent(table.getName(), _ -> new ArrayList<>()).add(partition);
         return this;
     }
 
@@ -84,6 +98,12 @@ public final class TestingHiveMetastoreService
         return this;
     }
 
+    public TestingHiveMetastoreService withPartitionsPerResponse(int partitionsPerResponse)
+    {
+        this.partitionsPerResponse = partitionsPerResponse;
+        return this;
+    }
+
     public TestingHiveMetastoreService failWith(Status failure)
     {
         this.failure = failure;
@@ -93,6 +113,11 @@ public final class TestingHiveMetastoreService
     public List<String> requests()
     {
         return List.copyOf(requests);
+    }
+
+    public List<String> partitionFilters()
+    {
+        return List.copyOf(partitionFilters);
     }
 
     @Override
@@ -175,6 +200,32 @@ public final class TestingHiveMetastoreService
                             observer.onCompleted();
                         },
                         () -> notFound(observer));
+    }
+
+    @Override
+    public void listPartitions(ListPartitionsRequest request, StreamObserver<ListPartitionsResponse> observer)
+    {
+        requests.add("listPartitions " + request.getParent());
+        partitionFilters.add(request.getFilter());
+        if (failed(observer) || parentMissing(observer)) {
+            return;
+        }
+        if (!tablesByDatabase.containsKey(databaseOf(request.getParent()))) {
+            databaseMissing(observer, databaseOf(request.getParent()));
+            return;
+        }
+        List<Partition> partitions = partitionsByTable.get(request.getParent());
+        if (partitions == null) {
+            notFound(observer);
+            return;
+        }
+        for (int start = 0; start < partitions.size(); start += partitionsPerResponse) {
+            int end = min(partitions.size(), start + partitionsPerResponse);
+            observer.onNext(ListPartitionsResponse.newBuilder()
+                    .addAllPartitions(partitions.subList(start, end))
+                    .build());
+        }
+        observer.onCompleted();
     }
 
     private boolean failed(StreamObserver<?> observer)
