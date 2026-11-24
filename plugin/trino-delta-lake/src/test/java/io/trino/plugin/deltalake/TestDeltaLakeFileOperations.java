@@ -36,6 +36,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
@@ -1317,6 +1318,127 @@ public class TestDeltaLakeFileOperations
         assertUpdate(session, "DROP TABLE " + tableName);
     }
 
+    // Writes a commit without file actions, so the table content stays the same as in the version 1 checksum file
+    private static void writeNoOpCommit(Path transactionLogDirectory, int version, long timestamp)
+            throws IOException
+    {
+        String versionName = "%020d".formatted(version);
+        Files.writeString(
+                transactionLogDirectory.resolve(versionName + ".json"),
+                """
+                {"commitInfo":{"timestamp":%d,"operation":"MANUAL UPDATE","operationParameters":{},"readVersion":%d,"isolationLevel":"Serializable","isBlindAppend":false,"operationMetrics":{}}}
+                """.formatted(timestamp, version - 1));
+        Files.copy(transactionLogDirectory.resolve("00000000000000000001.crc"), transactionLogDirectory.resolve(versionName + ".crc"));
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileReusesCachedSnapshot()
+            throws Exception
+    {
+        testReadReusesCachedSnapshot(true);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testLoadMetadataWithFromChecksumFileDisabledReusesCachedSnapshot()
+            throws Exception
+    {
+        testReadReusesCachedSnapshot(false);
+    }
+
+    private void testReadReusesCachedSnapshot(boolean loadMetadataFromChecksumFile)
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", Boolean.toString(loadMetadataFromChecksumFile))
+                .build();
+
+        String tableName = "test_read_reuses_cached_snapshot_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+        // Add a commit after the checkpoint, together with its checksum file
+        Path transactionLogDirectory = tableLocation.resolve("_delta_log");
+        writeNoOpCommit(transactionLogDirectory, 2, 1771884422000L);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertUpdate("CALL system.flush_metadata_cache()");
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1");
+
+        ImmutableMultiset.Builder<FileOperation> repeatedQueryAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"));
+        if (loadMetadataFromChecksumFile) {
+            // The snapshot at the read version bypasses the table snapshot cache and reads the transaction log entries again
+            repeatedQueryAccesses
+                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"));
+        }
+        else {
+            // The first query cached the table snapshot, so a repeated query does not read the transaction log entries again
+            repeatedQueryAccesses.add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"));
+        }
+        assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName, repeatedQueryAccesses.build());
+
+        // Time travel reads the requested version, not the cached latest snapshot
+        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
+        // Reading version 1 needs no transaction log entry after the checkpoint and does not look for newer commits
+        ImmutableMultiset.Builder<FileOperation> timeTravelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.exists"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"));
+        if (loadMetadataFromChecksumFile) {
+            timeTravelAccesses
+                    .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                    .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                    .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"));
+        }
+        else {
+            timeTravelAccesses
+                    .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"), 2)
+                    .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"), 2);
+        }
+        assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 1", timeTravelAccesses.build());
+
+        writeNoOpCommit(transactionLogDirectory, 3, 1771884423000L);
+        ImmutableMultiset.Builder<FileOperation> newCommitAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"));
+        if (loadMetadataFromChecksumFile) {
+            // A new commit with a checksum file rebuilds the snapshot from all transaction log entries after the checkpoint
+            newCommitAccesses
+                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                    .add(new FileOperation(CHECKSUM, "00000000000000000003.crc", "InputFile.newStream"))
+                    .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                    .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"));
+        }
+        else {
+            // A new commit updates the cached snapshot by reading only the new transaction log entry
+            newCommitAccesses
+                    .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
+                    .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"), 2)
+                    .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"), 2);
+        }
+        assertFileSystemAccessesWithoutFlush(session, "SELECT * FROM " + tableName, newCommitAccesses.build());
+
+        // A commit written by Trino is visible to the next query
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2", 1);
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2");
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     /**
      * @see deltalake.checksum_missing_latest
      */
@@ -1748,7 +1870,11 @@ public class TestDeltaLakeFileOperations
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
     {
         assertUpdate("CALL system.flush_metadata_cache()");
+        assertFileSystemAccessesWithoutFlush(session, query, expectedAccesses);
+    }
 
+    private void assertFileSystemAccessesWithoutFlush(Session session, @Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
+    {
         getDistributedQueryRunner().executeWithPlan(session, query);
         List<SpanData> spanData = getDistributedQueryRunner().getSpans();
         assertMultisetsEqual(getOperations(spanData), expectedAccesses);
