@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -33,6 +34,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
+import static java.lang.Math.max;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -420,9 +422,10 @@ final class TestVariableWidthBlockBuilder
     {
         Random random = new Random(8473);
         // lengths around the sizes of the chunks that values are copied in
-        for (int maxLength : new int[] {0, 12, 16, 17, 32, 33, 64, 65, 300}) {
-            for (boolean longValues : new boolean[] {false, true}) {
-                VariableWidthBlock block = randomBlock(random, 500, maxLength, longValues);
+        for (int maxLength : new int[] {0, 12, 16, 17, 32, 33, 64, 65, 128, 129, 192, 193, 256, 257, 300}) {
+            // values of any length up to the longest, the same with a few that are ten times longer, and values close to the longest
+            for (int minLength : new int[] {0, -1, max(0, maxLength - 30)}) {
+                VariableWidthBlock block = randomBlock(random, 500, max(0, minLength), maxLength, minLength < 0);
                 // a block whose values are in the middle of an array, and a block that does not start at the first offset
                 Slice padded = Slices.allocate(block.getRawSlice().length() + 200);
                 padded.setBytes(13, block.getRawSlice());
@@ -434,6 +437,8 @@ final class TestVariableWidthBlockBuilder
                     assertAppendPositions(source, positions);
                     // the last positions, whose values are at the end of the array
                     assertAppendPositions(source, new int[] {source.getPositionCount() - 1, source.getPositionCount() - 2, source.getPositionCount() - 1});
+                    // positions that follow each other, whose values are copied as one range when they are long
+                    assertAppendPositions(source, IntStream.range(1, source.getPositionCount()).toArray());
                 }
             }
         }
@@ -477,7 +482,7 @@ final class TestVariableWidthBlockBuilder
         assertThat(copiedInChunks).isEqualTo(copiedBytes);
     }
 
-    private static VariableWidthBlock randomBlock(Random random, int positionCount, int maxLength, boolean longValues)
+    private static VariableWidthBlock randomBlock(Random random, int positionCount, int minLength, int maxLength, boolean longValues)
     {
         VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionCount, 0);
         for (int i = 0; i < positionCount; i++) {
@@ -485,7 +490,7 @@ final class TestVariableWidthBlockBuilder
                 builder.appendNull();
                 continue;
             }
-            int length = random.nextInt(maxLength + 1);
+            int length = minLength + random.nextInt(maxLength - minLength + 1);
             if (longValues && random.nextInt(20) == 0) {
                 length *= 10;
             }
