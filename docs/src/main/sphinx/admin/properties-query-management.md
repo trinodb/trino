@@ -293,6 +293,30 @@ For example `https://example.com/query/${QUERY_ID}`.
 
 The `${QUERY_ID}` gets replaced with the actual query's id.
 
+## `query.enforced-filter-columns`
+
+- **Type:** string
+- **Default value:** none
+
+A comma-separated list of fully qualified columns in the form
+`catalog.schema.table.column`. Queries that scan a configured table must
+reference every configured column for that table in a `WHERE` clause.
+
+For example, with
+`query.enforced-filter-columns=mycatalog.myschema.mytable.column1,mycatalog.
+myschema.mytable.column2`, a query against `mycatalog.myschema.mytable` must
+filter on both `column1` and `column2`:
+
+```sql
+SELECT *
+FROM mycatalog.myschema.mytable
+WHERE column1 = 'value'
+  AND column2 = 'value'
+```
+
+This can be used to require filters on partition columns for connectors such as
+Hive and Iceberg.
+
 ## `retry-policy`
 
 - **Type:** {ref}`prop-type-string`
