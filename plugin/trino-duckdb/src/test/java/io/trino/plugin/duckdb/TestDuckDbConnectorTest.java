@@ -230,8 +230,17 @@ final class TestDuckDbConnectorTest
     {
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE " + TPCH_SCHEMA + ".numbers(n INTEGER)'))"))
-                .failure().hasMessageContaining("Parser Error: syntax error at or near \"CREATE\"");
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
+    }
+
+    @Test
+    @Override // Override because the expected error message is different
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
     }
 
     @Test
@@ -241,9 +250,30 @@ final class TestDuckDbConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
-                    .failure().hasMessageContaining("Parser Error: syntax error at or near \"INTO\"");
+                    .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
+    }
+
+    @Test
+    @Override // Override because the expected error message is different
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+    }
+
+    @Test
+    void testNativeQueryMultipleStatements()
+    {
+        String tableName = "test_native_query_multiple_statements" + randomNameSuffix();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s.%s AS SELECT 1 x; SELECT 1'))".formatted(TPCH_SCHEMA, tableName)))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT 1; SELECT 2'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => ''))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test

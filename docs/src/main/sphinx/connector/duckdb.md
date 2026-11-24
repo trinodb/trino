@@ -216,6 +216,9 @@ processed in DuckDB. This can be useful for accessing native features which
 are not available in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
+The query must be a single `SELECT` statement. Statements that DuckDB cannot
+serialize, such as `PIVOT` without an explicit `IN` list, are rejected.
+
 Find details about the SQL support of DuckDB that you can use in the query in
 the [DuckDB SQL Command
 Reference](https://duckdb.org/docs/sql/query_syntax/select) and

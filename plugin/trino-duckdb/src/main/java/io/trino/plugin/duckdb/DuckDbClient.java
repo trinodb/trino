@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -51,6 +52,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -85,6 +87,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
+import static java.util.Objects.requireNonNullElse;
 
 public final class DuckDbClient
         extends BaseJdbcClient
@@ -109,6 +112,42 @@ public final class DuckDbClient
     {
         // The method calls Connection.setReadOnly method, but DuckDB does not support changing read-only status on connection level
         return connectionFactory.openConnection(session);
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        // Preparing a statement in DuckDB executes all but the last statement in the text, so check the text before preparing it
+        // (https://github.com/duckdb/duckdb-java/issues/1004). Keep the check after a driver fix: it also rejects single statements that are not SELECT
+        verifySingleSelectStatement(session, preparedQuery.query());
+        return super.getTableHandle(session, preparedQuery);
+    }
+
+    private void verifySingleSelectStatement(ConnectorSession session, String query)
+    {
+        // json_serialize_sql only parses the text, and fails for any statement that is not a SELECT
+        String sql =
+                """
+                SELECT CAST(json->>'error' AS BOOLEAN),
+                       json_array_length(json->'statements')
+                FROM (SELECT json_serialize_sql(CAST(? AS VARCHAR)) AS json)
+                """;
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, query);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                boolean singleSelect = resultSet.next()
+                        && !resultSet.getBoolean(1)
+                        && !resultSet.wasNull()
+                        && resultSet.getLong(2) == 1;
+                if (!singleSelect) {
+                    throw new TrinoException(NOT_SUPPORTED, "Query not supported: only a single SELECT statement is allowed: " + query);
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to verify query. " + requireNonNullElse(e.getMessage(), e), e);
+        }
     }
 
     @Override
