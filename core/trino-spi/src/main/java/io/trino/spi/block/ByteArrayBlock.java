@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -240,11 +238,6 @@ public final class ByteArrayBlock
             return Optional.empty();
         }
         return Optional.of(new Bitmap(valueIsValid, arrayOffset, positionCount));
-    }
-
-    Slice getValuesSlice()
-    {
-        return Slices.wrappedBuffer(values, arrayOffset, positionCount);
     }
 
     /// Returns raw validity bitmap words using the [Bitmap] encoding, or null if all positions are valid.

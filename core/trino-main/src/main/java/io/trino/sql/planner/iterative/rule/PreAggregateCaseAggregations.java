@@ -420,7 +420,6 @@ public class PreAggregateCaseAggregations
                     aggregationSymbol,
                     resolvedFunction,
                     cumulativeFunction,
-                    name,
                     caseExpression.whenClauses().get(0).operand(),
                     caseExpression.whenClauses().get(0).result(),
                     cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), caseExpression.defaultValue(), aggregationType)));
@@ -447,8 +446,6 @@ public class PreAggregateCaseAggregations
         private final ResolvedFunction function;
         // cumulative aggregation function (e.g. aggregation of aggregations)
         private final ResolvedFunction cumulativeFunction;
-        // aggregation function name
-        private final CatalogSchemaFunctionName name;
         // CASE expression only operand expression
         private final Expression operand;
         // CASE expression only result expression
@@ -460,7 +457,6 @@ public class PreAggregateCaseAggregations
                 Symbol aggregationSymbol,
                 ResolvedFunction function,
                 ResolvedFunction cumulativeFunction,
-                CatalogSchemaFunctionName name,
                 Expression operand,
                 Expression result,
                 Expression cumulativeAggregationDefaultValue)
@@ -468,7 +464,6 @@ public class PreAggregateCaseAggregations
             this.aggregationSymbol = requireNonNull(aggregationSymbol, "aggregationSymbol is null");
             this.function = requireNonNull(function, "function is null");
             this.cumulativeFunction = requireNonNull(cumulativeFunction, "cumulativeFunction is null");
-            this.name = requireNonNull(name, "name is null");
             this.operand = requireNonNull(operand, "operand is null");
             this.result = requireNonNull(result, "result is null");
             this.cumulativeAggregationDefaultValue = requireNonNull(cumulativeAggregationDefaultValue, "cumulativeAggregationDefaultValue is null");
@@ -487,11 +482,6 @@ public class PreAggregateCaseAggregations
         public ResolvedFunction getCumulativeFunction()
         {
             return cumulativeFunction;
-        }
-
-        public CatalogSchemaFunctionName getName()
-        {
-            return name;
         }
 
         public Expression getOperand()

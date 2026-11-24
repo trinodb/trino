@@ -211,23 +211,6 @@ public class PlanNodeSearcher
         return node;
     }
 
-    private PlanNode replaceFirstRecursive(PlanNode node, PlanNode nodeToReplace)
-    {
-        node = lookup.resolve(node);
-
-        if (where.test(node)) {
-            return nodeToReplace;
-        }
-        List<PlanNode> sources = node.getSources();
-        if (sources.isEmpty()) {
-            return node;
-        }
-        if (sources.size() == 1) {
-            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, getOnlyElement(sources))));
-        }
-        throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
-    }
-
     public boolean matches()
     {
         return findFirst().isPresent();

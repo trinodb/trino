@@ -929,29 +929,6 @@ public class MariaDbClient
                     .orElse(null);
         }
 
-        Map<String, AnalyzeColumnStatistics> getColumnStatistics(JdbcTableHandle table)
-        {
-            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery(
-                            """
-                                SELECT
-                                    column_name,
-                                    -- TODO min_value, max_value,
-                                    nulls_ratio
-                                FROM mysql.column_stats
-                                WHERE db_name = :database AND TABLE_NAME = :table_name
-                                AND nulls_ratio IS NOT NULL
-                            """)
-                    .bind("database", remoteTableName.getCatalogName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, _) -> {
-                        String columnName = rs.getString("column_name");
-                        double nullsRatio = rs.getDouble("nulls_ratio");
-                        return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
-                    })
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-        }
-
         Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();

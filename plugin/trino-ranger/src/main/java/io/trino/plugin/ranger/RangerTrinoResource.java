@@ -32,7 +32,6 @@ class RangerTrinoResource
     public static final String KEY_SYSTEM_PROPERTY = "systemproperty";
     public static final String KEY_SESSION_PROPERTY = "sessionproperty";
     public static final String KEY_SCHEMA_FUNCTION = "schemafunction";
-    public static final String KEY_ROLE = "role";
     public static final String KEY_QUERY_ID = "queryid";
     public static final String KEY_SYSINFO = "sysinfo";
 

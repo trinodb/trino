@@ -40,7 +40,6 @@ import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.QueryExecution;
-import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
@@ -298,11 +297,6 @@ class Query
         queryManager.cancelStage(stageId);
     }
 
-    public void fail(Throwable throwable)
-    {
-        queryManager.failQuery(queryId, throwable);
-    }
-
     public synchronized void dispose()
     {
         exchangeDataSource.close();
@@ -318,11 +312,6 @@ class Query
     public boolean isSlugValid(String slug, long token)
     {
         return this.slug.isValid(EXECUTING_QUERY, slug, token);
-    }
-
-    public QueryInfo getQueryInfo()
-    {
-        return queryManager.getFullQueryInfo(queryId);
     }
 
     public ListenableFuture<QueryResultsResponse> waitForResults(long token, ExternalUriInfo externalUriInfo, Duration wait)

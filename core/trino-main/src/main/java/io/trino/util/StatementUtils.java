@@ -326,7 +326,6 @@ public final class StatementUtils
     {
         private final Class<T> statementType;
         private final QueryType queryType;
-        private final Optional<Class<? extends DataDefinitionTask<T>>> taskType;
 
         private StatementTypeInfo(
                 Class<T> statementType,
@@ -335,7 +334,7 @@ public final class StatementUtils
         {
             this.statementType = requireNonNull(statementType, "statementType is null");
             this.queryType = requireNonNull(queryType, "queryType is null");
-            this.taskType = requireNonNull(taskType, "taskType is null");
+            requireNonNull(taskType, "taskType is null");
             if (queryType == DATA_DEFINITION) {
                 checkArgument(taskType.isPresent(), "taskType is required for %s", DATA_DEFINITION);
             }
@@ -352,11 +351,6 @@ public final class StatementUtils
         public QueryType getQueryType()
         {
             return queryType;
-        }
-
-        public Class<? extends DataDefinitionTask<T>> getTaskType()
-        {
-            return taskType.orElseThrow(() -> new IllegalStateException(queryType + " does not have a task type"));
         }
     }
 }

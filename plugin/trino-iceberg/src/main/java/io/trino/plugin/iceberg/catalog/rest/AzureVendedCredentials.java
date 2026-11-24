@@ -47,12 +47,4 @@ record AzureVendedCredentials(Map<String, String> sasTokens, Optional<Instant> e
     {
         return expirationTime;
     }
-
-    /**
-     * Returns the SAS token for the given storage account, or {@code null} if none is present.
-     */
-    public String get(String storageAccount)
-    {
-        return sasTokens.get(storageAccount);
-    }
 }
