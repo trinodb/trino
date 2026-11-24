@@ -22,13 +22,13 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.chrono.ISOChronology;
 
-import java.util.concurrent.TimeUnit;
-
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static java.lang.Math.floorDiv;
 
 @ScalarOperator(CAST)
 @ScalarFunction("date")
@@ -60,6 +60,7 @@ public final class TimestampWithTimeZoneToDateCast
         // date is currently midnight in timezone of the original value
         // convert to UTC
         long millis = date + chronology.getZone().getOffset(date);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        // When midnight falls in a gap, the day starts later than midnight, so round down
+        return floorDiv(millis, MILLISECONDS_PER_DAY);
     }
 }
