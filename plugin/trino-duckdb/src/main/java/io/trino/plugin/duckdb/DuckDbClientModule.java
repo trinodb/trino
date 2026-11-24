@@ -29,6 +29,7 @@ import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.duckdb.DuckDBDriver;
 
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.duckdb.DuckDBDriver.DUCKDB_USER_AGENT_PROPERTY;
 
@@ -59,7 +61,13 @@ public final class DuckDbClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DuckDbClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(DuckDbJdbcConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DuckDbConfig.class);
+        if (buildConfigObject(DuckDbConfig.class).isQueryPassthroughEnabled()) {
+            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        }
+        else {
+            newOptionalBinder(binder, ConnectorAccessControl.class).setBinding().to(DuckDbAccessControl.class).in(Scopes.SINGLETON);
+        }
     }
 
     @Provides

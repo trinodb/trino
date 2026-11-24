@@ -51,6 +51,7 @@ final class TestDuckDbConnectorTest
     {
         duckDb = closeAfterClass(new TestingDuckDb());
         return DuckDbQueryRunner.builder(duckDb)
+                .addConnectorProperty("duckdb.query-passthrough.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

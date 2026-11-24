@@ -61,6 +61,22 @@ including `threads` and `memory_limit`. Setting any of these options, or
 `allowed_configs`, `allowed_directories`, `allowed_paths`, or
 `session_init_sql_file`, in `connection-url` is an error.
 
+(duckdb-query-passthrough)=
+### Query pass-through
+
+The [`system.execute` procedure](duckdb-procedures) and the [`query` table
+function](duckdb-query-function) pass SQL text directly to DuckDB. All users of
+a catalog share a single DuckDB instance, so this SQL is not isolated between
+users. Both are disabled by default. Set `duckdb.query-passthrough.enabled`
+to `true` in the catalog properties file to enable them:
+
+```none
+duckdb.query-passthrough.enabled=true
+```
+
+When this property is not set, the `query` table function is not registered
+and calls to `system.execute` are denied.
+
 ### Multiple DuckDB servers
 
 The DuckDB connector can only access a single database within
@@ -195,12 +211,16 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 
+(duckdb-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
 ```
 ```{include} procedures-execute.fragment
 ```
+
+The `execute` procedure is only available when [query
+pass-through](duckdb-query-passthrough) is enabled.
 
 ### Table functions
 
@@ -216,8 +236,10 @@ processed in DuckDB. This can be useful for accessing native features which
 are not available in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
-The query must be a single `SELECT` statement. Statements that DuckDB cannot
-serialize, such as `PIVOT` without an explicit `IN` list, are rejected.
+The `query` function is only available when [query
+pass-through](duckdb-query-passthrough) is enabled. The query must be a single
+`SELECT` statement. Statements that DuckDB cannot serialize, such as `PIVOT`
+without an explicit `IN` list, are rejected.
 
 Find details about the SQL support of DuckDB that you can use in the query in
 the [DuckDB SQL Command
