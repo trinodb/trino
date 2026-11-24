@@ -26,6 +26,7 @@ import io.trino.operator.aggregation.groupby.AggregationTestOutput;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -35,8 +36,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -169,6 +172,40 @@ public class TestMultimapAggAggregation
             }
             testMultimapAggWithGroupBy(aggFunction, groupedAggregator, group, BIGINT, keyBuilder.build(), BIGINT, valueBuilder.build());
         }
+    }
+
+    @Test
+    public void testEstimatedSizeIncludesValues()
+    {
+        GroupedAggregator groupedAggregator = getAggregationFunction(BIGINT, BIGINT)
+                .createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty())
+                .createGroupedAggregator(new AggregationMetrics());
+        int positions = 10_000;
+        Block block = new LongArrayBlock(positions, Optional.empty(), new long[positions]);
+        Page page = new Page(block, block);
+
+        groupedAggregator.processPage(1, new int[positions], page);
+        long sizeAfterFirstPage = groupedAggregator.getEstimatedSize();
+        groupedAggregator.processPage(1, new int[positions], page);
+
+        assertThat(groupedAggregator.getEstimatedSize()).isGreaterThanOrEqualTo(sizeAfterFirstPage + (long) positions * Long.BYTES);
+    }
+
+    @Test
+    public void testEstimatedSizeIncludesKeys()
+    {
+        GroupedAggregator groupedAggregator = getAggregationFunction(BIGINT, BIGINT)
+                .createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty())
+                .createGroupedAggregator(new AggregationMetrics());
+        int positions = 1536;
+        Block block = new LongArrayBlock(positions, Optional.empty(), LongStream.range(0, positions).map(position -> position % 1024).toArray());
+        groupedAggregator.processPage(1, new int[positions], new Page(block, block));
+        long sizeBefore = groupedAggregator.getEstimatedSize();
+
+        Block newKey = new LongArrayBlock(1, Optional.empty(), new long[] {1024});
+        groupedAggregator.processPage(1, new int[1], new Page(newKey, newKey));
+
+        assertThat(groupedAggregator.getEstimatedSize()).isGreaterThanOrEqualTo(sizeBefore + 2L * 1024 * Long.BYTES);
     }
 
     @Test
