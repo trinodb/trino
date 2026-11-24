@@ -2929,6 +2929,26 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSetSridDoesNotChangeInputGeometry()
+    {
+        assertThat(assertions.query(
+                """
+                WITH input(geometry) AS (VALUES ST_Point(1, 2))
+                SELECT ST_SRID(ST_SetSRID(geometry, 4326)), ST_SRID(geometry)
+                FROM input
+                """))
+                .matches("VALUES (4326, 0)");
+
+        assertThat(assertions.query(
+                """
+                WITH input(geometry) AS (VALUES ST_GeomFromEWKT('SRID=3857;POINT Z (1 2 3)'))
+                SELECT ST_SRID(ST_SetSRID(geometry, 4326)), ST_SRID(ST_SetSRID(geometry, 32618)), ST_SRID(geometry)
+                FROM input
+                """))
+                .matches("VALUES (4326, 32618, 3857)");
+    }
+
+    @Test
     public void testSridFunctions()
     {
         // ST_SRID - default SRID is 0
