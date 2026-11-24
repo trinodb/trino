@@ -15,7 +15,6 @@ package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
-import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
@@ -42,14 +41,18 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.filesystem.azure.AzureSasTokens.extractSasTokens;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class AzureFileSystemFactory
         implements TrinoFileSystemFactory
 {
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("azure-upload-%s"));
+    // Virtual threads, because a request from the synchronous SDK API blocks the thread that starts it until the response arrives
+    private final ExecutorService requestExecutor = newThreadPerTaskExecutor(virtualThreadsNamed("azure-http-request-%s"));
 
     private final AzureAuth auth;
     private final String endpoint;
@@ -63,7 +66,7 @@ public class AzureFileSystemFactory
     private final ConnectionProvider connectionProvider;
     private final EventLoopGroup eventLoopGroup;
     private final boolean multipart;
-    private final HttpPipelinePolicy concurrencyPolicy;
+    private final ConcurrencyLimitHttpPipelinePolicy concurrencyPolicy;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -144,28 +147,34 @@ public class AzureFileSystemFactory
         this.multipart = multipart;
         this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
                 maxHttpRequests,
-                httpRequestTimeout.toJavaTime());
+                httpRequestTimeout.toJavaTime(),
+                requestExecutor);
     }
 
     @PreDestroy
     public void destroy()
     {
-        uploadExecutor.shutdown();
-
-        if (connectionProvider != null) {
-            connectionProvider.dispose();
+        try {
+            concurrencyPolicy.close();
+            if (connectionProvider != null) {
+                connectionProvider.dispose();
+            }
+            if (eventLoopGroup != null) {
+                try {
+                    eventLoopGroup.shutdownGracefully().get();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+                catch (ExecutionException _) {
+                    // ignored
+                }
+            }
         }
-        if (eventLoopGroup != null) {
-            try {
-                eventLoopGroup.shutdownGracefully().get();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-            catch (ExecutionException _) {
-                // ignored
-            }
+        finally {
+            uploadExecutor.shutdownNow();
+            requestExecutor.shutdownNow();
         }
     }
 
