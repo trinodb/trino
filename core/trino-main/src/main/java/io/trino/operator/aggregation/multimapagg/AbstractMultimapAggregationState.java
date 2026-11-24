@@ -208,7 +208,10 @@ public abstract class AbstractMultimapAggregationState
                 sizeOf(control) +
                 (sizeOf(recordGroups[0]) * recordGroups.length) +
                 (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes()) +
-                sizeOf(groupRecordIndex);
+                sizeOf(groupRecordIndex) +
+                valueArrayBuilder.getEstimatedSize() +
+                sizeOf(keyHeadPositions) +
+                sizeOf(keyTailPositions);
     }
 
     public void setMaxGroupId(int maxGroupId)
