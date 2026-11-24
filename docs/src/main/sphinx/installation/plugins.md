@@ -204,6 +204,9 @@ included in the build and release process and the resulting the binary packages.
 * - ignite
   - [](/connector/ignite)
   - {download_gh}`ignite`
+* - inference
+  - [](/connector/inference)
+  - {download_gh}`inference`
 * - jmx
   - [](/connector/jmx)
   - {download_gh}`jmx`

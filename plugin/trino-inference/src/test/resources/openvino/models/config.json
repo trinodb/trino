@@ -1,0 +1,31 @@
+{
+  "model_config_list": [
+    {
+      "config": {
+        "name": "iris",
+        "base_path": "/models/iris"
+      }
+    },
+    {
+      "config": {
+        "name": "house-price",
+        "base_path": "/models/house-price",
+        "model_version_policy": {
+          "all": {}
+        }
+      }
+    },
+    {
+      "config": {
+        "name": "flags",
+        "base_path": "/models/flags"
+      }
+    },
+    {
+      "config": {
+        "name": "matrix",
+        "base_path": "/models/matrix"
+      }
+    }
+  ]
+}

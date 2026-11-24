@@ -63,6 +63,10 @@ ignite:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-ignite/**'
 
+inference:
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-inference/**'
+
 kafka:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-kafka/**'

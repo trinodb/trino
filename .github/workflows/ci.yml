@@ -460,6 +460,7 @@ jobs:
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
+            !:trino-inference,
             !:trino-jdbc,
             !:trino-kafka,
             !:trino-lakehouse,
