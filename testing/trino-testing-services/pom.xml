@@ -65,6 +65,13 @@
 
         <dependency>
             <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-commons</artifactId>
+            <!-- It's either used and on classpath anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-engine</artifactId>
             <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
             <optional>true</optional>
