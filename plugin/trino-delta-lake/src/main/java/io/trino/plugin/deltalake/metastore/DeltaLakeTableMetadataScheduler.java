@@ -157,7 +157,7 @@ public class DeltaLakeTableMetadataScheduler
                 });
             }
 
-            updateInfos.clear();
+            updateTables.forEach(updateInfos::remove);
         }
 
         try {
