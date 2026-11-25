@@ -276,8 +276,10 @@ may not be specified using both methods.
 * - `disableCompression`
   -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`
-  -  Whether client should reject redirects to localhost, link or site local
-     IP addresses. Defaults to `false`.
+  -  Deprecated, use `restrictHosts` instead. Whether client should reject
+     redirects to localhost, link or site local IP addresses. It does not check
+     the `nextUri` or segment URIs returned by the server. When set together
+     with `restrictHosts`, both checks apply. Defaults to `false`.
 * - `restrictHosts`
   - Set to `true` to connect only to the server and the hosts in
     `allowedHosts`. A redirect or a `nextUri` to any other host, or without TLS

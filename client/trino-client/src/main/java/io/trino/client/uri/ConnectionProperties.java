@@ -1102,6 +1102,10 @@ final class ConnectionProperties
         }
     }
 
+    /**
+     * @deprecated use {@link RestrictHosts}
+     */
+    @Deprecated
     private static class LocalRedirectDisallowed
             extends AbstractConnectionProperty<String, Boolean>
     {

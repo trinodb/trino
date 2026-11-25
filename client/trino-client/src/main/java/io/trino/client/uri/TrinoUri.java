@@ -462,6 +462,10 @@ public class TrinoUri
         return resolveWithDefault(DISABLE_COMPRESSION, false);
     }
 
+    /**
+     * @deprecated use {@link #isHostRestrictionEnabled()}
+     */
+    @Deprecated
     public boolean isLocalRedirectDisallowed()
     {
         return resolveWithDefault(DISALLOW_LOCAL_REDIRECT, false);
@@ -1138,6 +1142,10 @@ public class TrinoUri
             return setProperty(VALIDATE_CONNECTION, value);
         }
 
+        /**
+         * @deprecated use {@link #setRestrictHosts(boolean)}
+         */
+        @Deprecated
         public Builder setDisallowLocalRedirect(boolean value)
         {
             return setProperty(DISALLOW_LOCAL_REDIRECT, value);
