@@ -26,6 +26,7 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.util.DisjointSet;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +38,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -67,8 +69,12 @@ public class EqualityInference
     /**
      * One set of mutually equal expressions. {@code members} holds them all, {@code primary} holds
      * only the ones the inference was given, keeping the expressions derived by substitution apart.
+     * {@code symbols} holds the members in canonical order when every one of them is a plain symbol
+     * reference, and is null otherwise.
      */
-    private record EqualityClass(Expression canonical, List<Expression> members, List<Expression> primary) {}
+    private record EqualityClass(Expression canonical, List<Expression> members, List<Expression> primary, @Nullable List<SymbolMember> symbols) {}
+
+    private record SymbolMember(Reference reference, Symbol symbol) {}
 
     private record ExpressionInfo(List<Expression> subExpressions, int symbolCount, Set<Symbol> uniqueSymbols) {}
 
@@ -155,7 +161,7 @@ public class EqualityInference
             List<Expression> primary = members.stream()
                     .filter(expression -> !derivedExpressions.contains(expression))
                     .collect(toImmutableList());
-            EqualityClass equalityClass = new EqualityClass(canonical, members, primary);
+            EqualityClass equalityClass = new EqualityClass(canonical, members, primary, symbolMembers(members));
             equalityClasses.add(equalityClass);
             for (Expression member : members) {
                 classByExpression.put(member, equalityClass);
@@ -165,6 +171,27 @@ public class EqualityInference
         this.equalityClasses = equalityClasses.build();
         this.classByExpression = classByExpression.buildOrThrow();
         this.canonicalComparator = canonicalComparator;
+    }
+
+    /**
+     * The members in the order the canonical comparator gives them, if every member is a plain
+     * symbol reference; null otherwise. The comparator orders references by their string form.
+     */
+    @Nullable
+    private static List<SymbolMember> symbolMembers(List<Expression> members)
+    {
+        TreeMap<String, SymbolMember> sorted = new TreeMap<>();
+        for (Expression member : members) {
+            if (!(member instanceof Reference reference)) {
+                return null;
+            }
+            sorted.put(reference.toString(), new SymbolMember(reference, Symbol.from(reference)));
+        }
+        if (sorted.size() != members.size()) {
+            // references that print alike are not ordered by the comparator, so leave them to the general path
+            return null;
+        }
+        return ImmutableList.copyOf(sorted.values());
     }
 
     /**
@@ -220,8 +247,54 @@ public class EqualityInference
         ImmutableSet.Builder<Expression> scopeEqualities = ImmutableSet.builder();
         ImmutableSet.Builder<Expression> scopeComplementEqualities = ImmutableSet.builder();
         ImmutableSet.Builder<Expression> scopeStraddlingEqualities = ImmutableSet.builder();
+        partitionEqualities(scope, scopeEqualities, scopeComplementEqualities, scopeStraddlingEqualities);
+        return new EqualityPartition(scopeEqualities.build().asList(), scopeComplementEqualities.build().asList(), scopeStraddlingEqualities.build().asList());
+    }
 
+    /**
+     * The equalities that straddle the symbol scope: the third group of
+     * {@link #generateEqualitiesPartitionedBy}, without deriving the other two.
+     */
+    public List<Expression> generateScopeStraddlingEqualities(Set<Symbol> scope)
+    {
+        ImmutableSet.Builder<Expression> scopeStraddlingEqualities = ImmutableSet.builder();
+        partitionEqualities(scope, null, null, scopeStraddlingEqualities);
+        return scopeStraddlingEqualities.build().asList();
+    }
+
+    /**
+     * Adds the equalities of each group to its builder. The builders of the two groups that lie
+     * on one side of the scope may be null, which skips building those equalities.
+     */
+    private void partitionEqualities(
+            Set<Symbol> scope,
+            @Nullable ImmutableSet.Builder<Expression> scopeEqualities,
+            @Nullable ImmutableSet.Builder<Expression> scopeComplementEqualities,
+            ImmutableSet.Builder<Expression> scopeStraddlingEqualities)
+    {
         for (EqualityClass equalityClass : equalityClasses) {
+            if (scopeEqualities == null && scopeComplementEqualities == null && equalityClass.symbols() != null) {
+                // Every member is a symbol and so lies on exactly one side of the scope. The class
+                // straddles it with a single equality, between the canonical member of each side.
+                Reference matching = null;
+                Reference complement = null;
+                for (SymbolMember member : equalityClass.symbols()) {
+                    if (scope.contains(member.symbol())) {
+                        if (matching == null) {
+                            matching = member.reference();
+                        }
+                    }
+                    else if (complement == null) {
+                        complement = member.reference();
+                    }
+                    if (matching != null && complement != null) {
+                        scopeStraddlingEqualities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matching, complement));
+                        break;
+                    }
+                }
+                continue;
+            }
+
             Set<Expression> scopeExpressions = new LinkedHashSet<>();
             Set<Expression> scopeComplementExpressions = new LinkedHashSet<>();
             Set<Expression> scopeStraddlingExpressions = new LinkedHashSet<>();
@@ -242,14 +315,14 @@ public class EqualityInference
             }
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions);
-            if (scopeExpressions.size() >= 2) {
+            if (scopeEqualities != null && scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
                         .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions);
-            if (scopeComplementExpressions.size() >= 2) {
+            if (scopeComplementEqualities != null && scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
                         .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, complementCanonical, expression))
@@ -285,8 +358,6 @@ public class EqualityInference
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
-
-        return new EqualityPartition(scopeEqualities.build().asList(), scopeComplementEqualities.build().asList(), scopeStraddlingEqualities.build().asList());
     }
 
     /**
@@ -340,6 +411,11 @@ public class EqualityInference
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)
     {
+        if (!allowFullReplacement && expression instanceof Reference) {
+            // a reference has no part to substitute: it is in scope as it is, or cannot be rewritten
+            return isScoped(expression, symbolScope) ? expression : null;
+        }
+
         Map<Expression, Expression> expressionRemap = null;
         for (Expression subExpression : extractSubExpressions(expression)) {
             if (!allowFullReplacement && subExpression.equals(expression)) {
@@ -436,6 +512,10 @@ public class EqualityInference
 
     private boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
     {
+        if (expression instanceof Reference reference) {
+            // by far the most common expression, answered without looking up its symbols
+            return symbolScope.test(Symbol.from(reference));
+        }
         for (Symbol symbol : extractUniqueSymbols(expression)) {
             if (!symbolScope.test(symbol)) {
                 return false;
