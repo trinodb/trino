@@ -345,6 +345,11 @@ public @interface TestGroup
     @Tag("two_hives")
     @interface TwoHives {}
 
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
+    @Tag("hive_viewfs")
+    @interface HiveViewFs {}
+
     // Iceberg
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
