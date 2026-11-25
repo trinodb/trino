@@ -298,6 +298,34 @@ public class TestJoin
     }
 
     @Test
+    public void testJoinOverUnionWithNonComparableType()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a.id, cardinality(a.sketch)
+                FROM (
+                    SELECT 1 AS id, empty_approx_set() AS sketch
+                    UNION ALL
+                    SELECT 2 AS id, empty_approx_set() AS sketch
+                ) a
+                INNER JOIN (VALUES 1, 2) b(id) ON a.id = b.id
+                """))
+                .matches("VALUES (1, BIGINT '0'), (2, BIGINT '0')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a.id, cardinality(a.sketch), b.id
+                FROM (
+                    SELECT 1 AS id, empty_approx_set() AS sketch
+                    UNION ALL
+                    SELECT 2 AS id, empty_approx_set() AS sketch
+                ) a
+                CROSS JOIN (VALUES 3) b(id)
+                """))
+                .matches("VALUES (1, BIGINT '0', 3), (2, BIGINT '0', 3)");
+    }
+
+    @Test
     public void testSubqueryPredicateOperandReferencingBothSidesOfOuterJoin()
     {
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2) t(x) JOIN (VALUES 1, 3) u(x) ON t.x + u.x IN (VALUES 2, 5)"))
