@@ -18,7 +18,6 @@ import io.trino.RowPagesBuilder;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.table.TableFunctionDataProcessor;

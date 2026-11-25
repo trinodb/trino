@@ -383,8 +383,6 @@ public class RegularTableFunctionPartition
         return end;
     }
 
-    public record PassThroughColumnSpecification(boolean isPartitioningColumn, int inputChannel, int indexChannel) {}
-
     private PassThroughColumnProvider createColumnProvider(PassThroughColumnSpecification specification)
     {
         if (specification.isPartitioningColumn()) {
