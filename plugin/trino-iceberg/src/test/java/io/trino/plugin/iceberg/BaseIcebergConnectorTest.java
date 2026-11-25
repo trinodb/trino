@@ -3976,6 +3976,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTruncateVarcharStrictRange()
+    {
+        assertUpdate("CREATE TABLE test_truncate_varchar_strict_range (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 20)'])");
+        assertUpdate("INSERT INTO test_truncate_varchar_strict_range VALUES ('a', 1), ('ab', 2), ('aaaaaaaaaaaaaaaaaa', 3)", 3);
+
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d <= 'a'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d > 'aaaaaaaaaaaaaaaaaa'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test_truncate_varchar_strict_range");
+    }
+
+    @Test
     public void testTruncateTextTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");

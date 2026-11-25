@@ -741,6 +741,15 @@ public final class IcebergUtil
         if (!type.isOrderable()) {
             return false;
         }
+        if (transform.type() instanceof VarcharType || transform.type() instanceof VarbinaryType) {
+            // Iceberg prunes partitions by projecting the row filter onto the partition values, and the projection may keep extra partitions.
+            // `d > v` becomes `truncate(d) >= truncate(v)` and `d < v` becomes `truncate(d) <= truncate(v)`, regardless of the length of v,
+            // so the partition of v may still be read.
+            // Inclusive bounds are not affected, they are handled by the adjacent value check below.
+            if ((!range.isLowUnbounded() && !range.isLowInclusive()) || (!range.isHighUnbounded() && !range.isHighInclusive())) {
+                return false;
+            }
+        }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
             Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
