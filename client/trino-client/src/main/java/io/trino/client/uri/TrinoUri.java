@@ -65,6 +65,8 @@ import static io.trino.client.uri.ConnectionProperties.EXTRA_HEADERS;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
+import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY_PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY_USER;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CONSTRAINED_DELEGATION;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -272,6 +274,16 @@ public class TrinoUri
     public Optional<HostAndPort> getHttpProxy()
     {
         return resolveOptional(HTTP_PROXY);
+    }
+
+    public Optional<String> getHttpProxyPassword()
+    {
+        return resolveOptional(HTTP_PROXY_PASSWORD);
+    }
+
+    public Optional<String> getHttpProxyUser()
+    {
+        return resolveOptional(HTTP_PROXY_USER);
     }
 
     public boolean isUseSecureConnection()
@@ -844,6 +856,16 @@ public class TrinoUri
         public Builder setHttpProxy(HostAndPort httpProxy)
         {
             return setProperty(HTTP_PROXY, requireNonNull(httpProxy, "httpProxy is null"));
+        }
+
+        public Builder setHttpProxyPassword(String httpProxyPassword)
+        {
+            return setProperty(HTTP_PROXY_PASSWORD, requireNonNull(httpProxyPassword, "httpProxyPassword is null"));
+        }
+
+        public Builder setHttpProxyUser(String httpProxyUser)
+        {
+            return setProperty(HTTP_PROXY_USER, requireNonNull(httpProxyUser, "httpProxyUser is null"));
         }
 
         public Builder setApplicationNamePrefix(String applicationNamePrefix)

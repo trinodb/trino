@@ -186,6 +186,12 @@ mode:
     challenge.
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
+* - `--http-proxy-user`
+  - Username for authentication to the HTTP proxy. Requires `--http-proxy` and
+    `--http-proxy-password`.
+* - `--http-proxy-password`
+  - Password for authentication to the HTTP proxy. Requires `--http-proxy` and
+    `--http-proxy-user`. This is separate from the Trino password.
 * - `--history-file`
   - Path to the [history file](cli-history). Defaults to `~/.trino_history`.
 * - `--network-logging`

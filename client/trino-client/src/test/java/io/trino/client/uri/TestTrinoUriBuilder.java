@@ -32,6 +32,8 @@ import static io.trino.client.uri.ConnectionProperties.CATALOG;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
+import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY_PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY_USER;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
@@ -85,6 +87,8 @@ public class TestTrinoUriBuilder
         assertRoundTrip(SSL_TRUST_STORE_TYPE, "jks", "jks", "https://localhost:443?SSLTrustStorePath=/tmp/file&SSLVerification=CA&SSL=true");
         assertRoundTrip(SSL_TRUST_STORE_PASSWORD, "password", "password", "https://localhost:443?SSLTrustStorePath=/tmp/file&SSLVerification=CA&SSL=true");
         assertRoundTrip(SSL_TRUST_STORE_PATH, "/tmp/path", "/tmp/path", "https://localhost:443?SSLVerification=CA&SSL=true");
+        assertRoundTrip(HTTP_PROXY_USER, "proxyuser", "proxyuser", "https://localhost:443?httpProxy=localhost:8888&httpProxyPassword=proxypass");
+        assertRoundTrip(HTTP_PROXY_PASSWORD, "proxypass", "proxypass", "https://localhost:443?httpProxy=localhost:8888&httpProxyUser=proxyuser");
     }
 
     @Test

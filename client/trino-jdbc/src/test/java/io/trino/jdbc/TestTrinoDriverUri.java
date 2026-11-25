@@ -93,6 +93,10 @@ public class TestTrinoDriverUri
         // setting both socks and http proxy
         assertInvalid("jdbc:trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property socksProxy cannot be used when httpProxy is set");
         assertInvalid("jdbc:trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property socksProxy cannot be used when httpProxy is set");
+        assertInvalid("jdbc:trino://localhost:8080?httpProxyUser=proxyuser", "Connection property httpProxyUser requires httpProxy to be set");
+        assertInvalid("jdbc:trino://localhost:8080?httpProxyPassword=proxypass", "Connection property httpProxyPassword requires httpProxy to be set");
+        assertInvalid("jdbc:trino://localhost:8080?httpProxy=localhost:8888&httpProxyUser=proxyuser", "Connection property httpProxyUser requires httpProxyPassword to be set");
+        assertInvalid("jdbc:trino://localhost:8080?httpProxy=localhost:8888&httpProxyPassword=proxypass", "Connection property httpProxyPassword requires httpProxyUser to be set");
 
         // invalid ssl flag
         assertInvalid("jdbc:trino://localhost:8080?SSL=0", "Connection property SSL value is invalid: 0");

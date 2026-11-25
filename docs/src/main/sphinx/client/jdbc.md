@@ -137,6 +137,12 @@ may not be specified using both methods.
   - SOCKS proxy host and port. Example: `localhost:1080`
 * - `httpProxy`
   - HTTP proxy host and port. Example: `localhost:8888`
+* - `httpProxyUser`
+  - Username for authentication to the HTTP proxy. Requires `httpProxy` and
+    `httpProxyPassword`. This is separate from the Trino `user`.
+* - `httpProxyPassword`
+  - Password for authentication to the HTTP proxy. Requires `httpProxy` and
+    `httpProxyUser`. This is separate from the Trino `password`.
 * - `clientInfo`
   - Extra information about the client.
 * - `clientTags`
