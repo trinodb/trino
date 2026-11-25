@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.metadata.Metadata;
@@ -27,6 +26,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.type.CharVarcharCoercion;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.FULL;
@@ -90,17 +89,17 @@ public class JoinNode
             @JsonProperty("dynamicFilters") Map<DynamicFilterId, Symbol> dynamicFilters,
             @JsonProperty("reorderJoinStatsAndCost") Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
     {
-        this(id, type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost, true);
+        this(id, type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost, null);
     }
 
     /**
-     * Builds a join without checking that its output symbols line up with its sources. Nothing
-     * compares a join's output symbols against its sources except this constructor, so building a
-     * bad join otherwise fails only when the plan runs. The check therefore runs for every join a
-     * rule newly builds, but is skipped by the copy methods below, which only vary a node that has
-     * already passed it: during join enumeration those copies make up all but one of the join
-     * nodes each candidate builds, and ValidateDependenciesChecker re-checks the plan that is
-     * finally produced.
+     * Builds a join, as a variation of {@code validated} if that is not null. Nothing compares a
+     * join's output symbols against its sources except this constructor, so building a bad join
+     * otherwise fails only when the plan runs. The check therefore runs for every join a rule newly
+     * builds, but is skipped by the copy methods below, which only vary a node that has already
+     * passed it: during join enumeration those copies make up all but one of the join nodes each
+     * candidate builds, and ValidateDependenciesChecker re-checks the plan that is finally
+     * produced. A copy that keeps both lists of output symbols also shares their concatenation.
      */
     private JoinNode(
             PlanNodeId id,
@@ -116,7 +115,7 @@ public class JoinNode
             Optional<Boolean> spillable,
             Map<DynamicFilterId, Symbol> dynamicFilters,
             Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
-            boolean validateSymbols)
+            @Nullable JoinNode validated)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -141,12 +140,17 @@ public class JoinNode
         this.spillable = spillable;
         this.dynamicFilters = ImmutableMap.copyOf(requireNonNull(dynamicFilters, "dynamicFilters is null"));
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
-        this.outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(this.leftOutputSymbols)
-                .addAll(this.rightOutputSymbols)
-                .build();
+        if (validated != null && validated.leftOutputSymbols == this.leftOutputSymbols && validated.rightOutputSymbols == this.rightOutputSymbols) {
+            this.outputSymbols = validated.outputSymbols;
+        }
+        else {
+            this.outputSymbols = ImmutableList.<Symbol>builder()
+                    .addAll(this.leftOutputSymbols)
+                    .addAll(this.rightOutputSymbols)
+                    .build();
+        }
 
-        if (validateSymbols) {
+        if (validated == null) {
             validateSymbols(left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter);
         }
 
@@ -183,7 +187,7 @@ public class JoinNode
                 spillable,
                 ImmutableMap.of(), // dynamicFilters are invalid after flipping children
                 reorderJoinStatsAndCost,
-                false);
+                this);
     }
 
     private static void validateSymbols(
@@ -194,15 +198,16 @@ public class JoinNode
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter)
     {
-        Set<Symbol> leftSymbols = ImmutableSet.copyOf(left.getOutputSymbols());
-        Set<Symbol> rightSymbols = ImmutableSet.copyOf(right.getOutputSymbols());
+        List<Symbol> leftSymbols = left.getOutputSymbols();
+        List<Symbol> rightSymbols = right.getOutputSymbols();
 
-        checkArgument(leftSymbols.containsAll(leftOutputSymbols), "Left source inputs do not contain all left output symbols");
-        checkArgument(rightSymbols.containsAll(rightOutputSymbols), "Right source inputs do not contain all right output symbols");
+        checkArgument(containsAll(leftSymbols, leftOutputSymbols), "Left source inputs do not contain all left output symbols");
+        checkArgument(containsAll(rightSymbols, rightOutputSymbols), "Right source inputs do not contain all right output symbols");
 
         filter.ifPresent(expression -> {
+            Set<Symbol> inputs = ImmutableSet.<Symbol>builder().addAll(leftSymbols).addAll(rightSymbols).build();
             checkArgument(
-                    Sets.union(leftSymbols, rightSymbols).containsAll(SymbolsExtractor.extractAll(expression)),
+                    inputs.containsAll(SymbolsExtractor.extractAll(expression)),
                     "Some filter inputs missing from left/right: %s, left = %s, right = %s",
                     expression,
                     leftSymbols,
@@ -217,6 +222,26 @@ public class JoinNode
                         equiJoinClause));
     }
 
+    /**
+     * Whether {@code symbols} has every one of {@code required}. Output symbols are nearly always
+     * picked from the source's in order, which two cursors confirm without hashing either list.
+     */
+    private static boolean containsAll(List<Symbol> symbols, List<Symbol> required)
+    {
+        int position = 0;
+        for (Symbol symbol : required) {
+            while (position < symbols.size() && !symbols.get(position).equals(symbol)) {
+                position++;
+            }
+            if (position == symbols.size()) {
+                // not picked in order, so look each one up
+                return ImmutableSet.copyOf(symbols).containsAll(required);
+            }
+            position++;
+        }
+        return true;
+    }
+
     private static JoinType flipType(JoinType type)
     {
         return switch (type) {
@@ -229,9 +254,12 @@ public class JoinNode
 
     private static List<EquiJoinClause> flipJoinCriteria(List<EquiJoinClause> joinCriteria)
     {
-        return joinCriteria.stream()
-                .map(EquiJoinClause::flip)
-                .collect(toImmutableList());
+        // without a stream: the join enumerator flips every candidate join
+        ImmutableList.Builder<EquiJoinClause> flipped = ImmutableList.builderWithExpectedSize(joinCriteria.size());
+        for (EquiJoinClause clause : joinCriteria) {
+            flipped.add(clause.flip());
+        }
+        return flipped.build();
     }
 
     @JsonProperty("type")
@@ -333,7 +361,7 @@ public class JoinNode
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost, false);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost, this);
     }
 
     public JoinNode withSpillable(boolean spillable)
@@ -348,7 +376,7 @@ public class JoinNode
 
     public JoinNode withReorderJoinStatsAndCost(PlanNodeStatsAndCostSummary statsAndCost)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost), false);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost), this);
     }
 
     public JoinNode withoutDynamicFilters()
