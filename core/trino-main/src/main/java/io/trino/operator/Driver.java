@@ -34,10 +34,12 @@ import io.trino.spi.TrinoException;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -54,6 +56,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -380,6 +383,9 @@ public class Driver
 
         processNewSources();
 
+        // these operators could already finish, which the loops below check
+        Set<Operator> operatorsWithCompletedFinishedFuture = getOperatorsWithCompletedFinishedFuture();
+
         // One of the operators is already finished (and removed from activeOperators list). Finish bottommost operator.
         // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
         // TODO remove the second part of the if statement, when these operators are fixed
@@ -466,7 +472,9 @@ public class Driver
             if (!blockedFutures.isEmpty()) {
                 // allow for operators to unblock drivers when they become finished
                 for (Operator operator : activeOperators) {
-                    operator.getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
+                    if (!operatorsWithCompletedFinishedFuture.contains(operator)) {
+                        operator.getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
+                    }
                 }
 
                 // unblock when the first future is complete
@@ -491,6 +499,24 @@ public class Driver
         }
 
         return NOT_BLOCKED;
+    }
+
+    @GuardedBy("exclusiveLock")
+    private Set<Operator> getOperatorsWithCompletedFinishedFuture()
+    {
+        Set<Operator> operators = null;
+        for (Operator operator : activeOperators) {
+            if (operator.getOperatorContext().getFinishedFuture().map(Future::isDone).orElse(false)) {
+                if (operators == null) {
+                    operators = newSetFromMap(new IdentityHashMap<>());
+                }
+                operators.add(operator);
+            }
+        }
+        if (operators == null) {
+            return ImmutableSet.of();
+        }
+        return operators;
     }
 
     @GuardedBy("exclusiveLock")

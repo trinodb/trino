@@ -53,6 +53,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -297,6 +298,53 @@ public class TestDriver
 
         sink.setFinished();
         assertThat(blocked.isDone()).isTrue();
+    }
+
+    @Test
+    public void testCompletedFinishedFutureDoesNotUnblock()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new AlwaysBlockedTableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+                new PlanNodeId("source"),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
+                TEST_TABLE_HANDLE,
+                ImmutableList.of());
+
+        Operator sink = createSinkOperator(types, 1, "sink");
+        sink.getOperatorContext().setFinishedFuture(immediateVoidFuture());
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(100, TimeUnit.MILLISECONDS));
+        assertThat(blocked.isDone()).isFalse();
+    }
+
+    @Test
+    public void testFinishedFutureCompletedWhileProcessingUnblocks()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new AlwaysBlockedTableScanOperator(
+                driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
+                new PlanNodeId("source"),
+                (_, _, _, _, _, _, memoryContext) -> new FixedPageSource(
+                        rowPagesBuilder(types)
+                                .addSequencePage(10, 20, 30, 40)
+                                .build(),
+                        memoryContext),
+                TEST_TABLE_HANDLE,
+                ImmutableList.of());
+
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
+        FinishingWhenBlockCheckedSinkOperator sink = new FinishingWhenBlockCheckedSinkOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(100, TimeUnit.MILLISECONDS));
+        assertThat(sink.isFinished()).isTrue();
+        assertThat(blocked.isDone() || driver.isFinished()).isTrue();
     }
 
     @Test
@@ -585,6 +633,32 @@ public class TestDriver
             if (lockForClose) {
                 waitForUnlock();
             }
+        }
+    }
+
+    private static class FinishingWhenBlockCheckedSinkOperator
+            extends PageConsumerOperator
+    {
+        private final SettableFuture<Void> finished = SettableFuture.create();
+
+        public FinishingWhenBlockCheckedSinkOperator(OperatorContext operatorContext, Consumer<Page> pageConsumer)
+        {
+            super(operatorContext, pageConsumer, Function.identity());
+            operatorContext.setFinishedFuture(finished);
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            // finishes after the driver checked whether operators are finished, like an operator finished by another thread
+            finished.set(null);
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return finished.isDone();
         }
     }
 
