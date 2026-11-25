@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -271,12 +272,11 @@ public class ReorderJoins
 
         public JoinEnumerationResult choose(List<Symbol> outputSymbols)
         {
-            JoinEnumerationResult result = chooseJoinOrder(
-                    allNodes(sources.size()),
-                    ImmutableSet.<Symbol>builder()
-                            .addAll(outputSymbols)
-                            .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
-                            .build());
+            Set<Symbol> requiredOutputs = ImmutableSet.<Symbol>builder()
+                    .addAll(outputSymbols)
+                    .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
+                    .build();
+            JoinEnumerationResult result = chooseJoinOrder(allNodes(sources.size()), () -> requiredOutputs);
 
             if (result.getPlanNode().isPresent()) {
                 PlanNode plan = result.getPlanNode().get();
@@ -298,12 +298,18 @@ public class ReorderJoins
             return result;
         }
 
-        private JoinEnumerationResult chooseJoinOrder(long nodes, Set<Symbol> requiredOutputs)
+        /**
+         * The symbols the join of {@code nodes} has to produce are asked for only the first time a
+         * set of sources is planned. Most calls find the plan in the memo, and deriving the symbols
+         * for each of them took longer than the lookup.
+         */
+        private JoinEnumerationResult chooseJoinOrder(long nodes, Supplier<Set<Symbol>> requiredOutputsSupplier)
         {
             context.checkTimeoutNotExhausted();
 
             JoinEnumerationResult bestResult = memo.get(nodes);
             if (bestResult == null) {
+                Set<Symbol> requiredOutputs = requiredOutputsSupplier.get();
                 checkState(Long.bitCount(nodes) > 1, "sources size is less than or equal to one");
                 ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
                 for (long partition : generatePartitions(nodes, neighbors)) {
@@ -444,23 +450,7 @@ public class ReorderJoins
             }
             List<Expression> joinFilters = joinFiltersBuilder.build();
 
-            Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
-                    .addAll(requiredOutputs)
-                    .addAll(extractUnique(joinPredicates))
-                    .build();
-
-            ImmutableSet.Builder<Symbol> leftRequiredBuilder = ImmutableSet.builder();
-            ImmutableSet.Builder<Symbol> rightRequiredBuilder = ImmutableSet.builder();
-            for (Symbol symbol : requiredJoinSymbols) {
-                if (leftSymbols.contains(symbol)) {
-                    leftRequiredBuilder.add(symbol);
-                }
-                if (rightSymbols.contains(symbol)) {
-                    rightRequiredBuilder.add(symbol);
-                }
-            }
-
-            JoinEnumerationResult leftResult = getJoinSource(leftSources, leftRequiredBuilder.build());
+            JoinEnumerationResult leftResult = getJoinSource(leftSources, () -> requiredSourceSymbols(leftSymbols, requiredOutputs, joinPredicates));
             if (leftResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -470,7 +460,7 @@ public class ReorderJoins
 
             PlanNode left = leftResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            JoinEnumerationResult rightResult = getJoinSource(rightSources, rightRequiredBuilder.build());
+            JoinEnumerationResult rightResult = getJoinSource(rightSources, () -> requiredSourceSymbols(rightSymbols, requiredOutputs, joinPredicates));
             if (rightResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -499,6 +489,26 @@ public class ReorderJoins
                     Optional.empty()));
         }
 
+        /**
+         * The symbols one side of a join has to produce: the ones required above the join and the
+         * ones the join predicates use, as far as that side has them.
+         */
+        private static Set<Symbol> requiredSourceSymbols(Set<Symbol> sourceSymbols, Set<Symbol> requiredOutputs, List<Expression> joinPredicates)
+        {
+            ImmutableSet.Builder<Symbol> required = ImmutableSet.builder();
+            for (Symbol symbol : requiredOutputs) {
+                if (sourceSymbols.contains(symbol)) {
+                    required.add(symbol);
+                }
+            }
+            for (Symbol symbol : extractUnique(joinPredicates)) {
+                if (sourceSymbols.contains(symbol)) {
+                    required.add(symbol);
+                }
+            }
+            return required.build();
+        }
+
         private static List<Symbol> retainRequired(List<Symbol> symbols, Set<Symbol> requiredOutputs)
         {
             ImmutableList.Builder<Symbol> required = ImmutableList.builder();
@@ -512,8 +522,8 @@ public class ReorderJoins
 
         private List<Expression> getJoinPredicates(long nodes, Set<Symbol> leftSymbols)
         {
-            // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            return joinInference(nodes).generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities();
+            // TODO: make generateScopeStraddlingEqualities take left and right scope
+            return joinInference(nodes).generateScopeStraddlingEqualities(leftSymbols);
         }
 
         /**
@@ -538,11 +548,11 @@ public class ReorderJoins
             });
         }
 
-        private JoinEnumerationResult getJoinSource(long nodes, Set<Symbol> requiredOutputs)
+        private JoinEnumerationResult getJoinSource(long nodes, Supplier<Set<Symbol>> requiredOutputs)
         {
             if (Long.bitCount(nodes) == 1) {
                 PlanNode planNode = sources.get(Long.numberOfTrailingZeros(nodes));
-                Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
+                Set<Symbol> scope = requiredOutputs.get();
                 Expression filter = combineConjuncts(allFilterInference.generateScopeEqualities(scope));
                 if (!TRUE.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
@@ -571,10 +581,10 @@ public class ReorderJoins
         private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
         {
             if (isAtMostScalar(joinNode.getRight(), lookup)) {
-                return createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED));
+                return withStatsAndCostSummary(createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED)));
             }
             if (isAtMostScalar(joinNode.getLeft(), lookup)) {
-                return createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED));
+                return withStatsAndCostSummary(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED)));
             }
             List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
             verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
@@ -583,7 +593,7 @@ public class ReorderJoins
                     return UNKNOWN_COST_RESULT;
                 }
             }
-            return resultComparator.min(possibleJoinNodes);
+            return withStatsAndCostSummary(resultComparator.min(possibleJoinNodes));
         }
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinDistributionType distributionType)
@@ -624,7 +634,21 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)
         {
-            PlanCostEstimate costEstimate = costProvider.getCost(joinNode);
+            return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(joinNode), costProvider.getCost(joinNode));
+        }
+
+        /**
+         * Records on a join the stats and cost it was chosen by. Only the candidate that wins the
+         * comparison gets them: the other distributions and orientations of the same join are
+         * dropped right after their costs are compared.
+         */
+        private JoinEnumerationResult withStatsAndCostSummary(JoinEnumerationResult result)
+        {
+            if (result.planNode.isEmpty()) {
+                return result;
+            }
+            JoinNode joinNode = (JoinNode) result.planNode.get();
+            PlanCostEstimate costEstimate = result.cost;
             PlanNodeStatsEstimate statsEstimate = statsProvider.getStats(joinNode);
             return JoinEnumerationResult.createJoinEnumerationResult(
                     Optional.of(joinNode.withReorderJoinStatsAndCost(new PlanNodeStatsAndCostSummary(
