@@ -103,6 +103,15 @@ public class FilterStatsCalculator
 
     private Expression simplifyExpression(Session session, Expression predicate)
     {
+        // No rule rewrites a comparison of two symbols, and join stats ask about one for every equi-join clause
+        if (predicate instanceof Call call
+                && call.arguments().size() == 2
+                && call.arguments().get(0) instanceof Reference
+                && call.arguments().get(1) instanceof Reference
+                && matchComparison(call) != null) {
+            return predicate;
+        }
+
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
         Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, new SymbolAllocator(extractUnique(predicate)), ImmutableMap.of()).orElse(predicate);
 

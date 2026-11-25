@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
@@ -26,7 +27,6 @@ import io.trino.util.MoreMath;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -180,29 +180,41 @@ public class JoinStatsRule
         checkArgument(!clauses.isEmpty(), "clauses is empty");
         // Join equality clauses are usually correlated. Therefore, we shouldn't treat each join equality
         // clause separately because stats estimates would be way off.
-        List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
-                .map(clause -> {
-                    Expression predicate = comparison(metadata, getCharVarcharCoercion(session), EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
-                    return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session), clause);
-                })
-                .collect(toImmutableList());
+        // Plain loops here: this runs for every join the join enumerator considers
+        ImmutableList.Builder<PlanNodeStatsEstimateWithClause> knownEstimates = ImmutableList.builderWithExpectedSize(clauses.size());
+        ImmutableList.Builder<PlanNodeStatsEstimate> clauseEstimates = ImmutableList.builderWithExpectedSize(clauses.size());
+        for (EquiJoinClause clause : clauses) {
+            Expression predicate = comparison(metadata, getCharVarcharCoercion(session), EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+            // Only the row count of this estimate is used, and it depends on nothing but the
+            // two symbols compared, so the stats of every other symbol stay out of the filter
+            PlanNodeStatsEstimate clauseStats = PlanNodeStatsEstimate.builder()
+                    .setOutputRowCount(stats.getOutputRowCount())
+                    .addSymbolStatistics(clause.getLeft(), stats.getSymbolStatistics(clause.getLeft()))
+                    .addSymbolStatistics(clause.getRight(), stats.getSymbolStatistics(clause.getRight()))
+                    .build();
+            PlanNodeStatsEstimate clauseEstimate = filterStatsCalculator.filterStats(clauseStats, predicate, session);
+            knownEstimates.add(new PlanNodeStatsEstimateWithClause(clauseEstimate, clause));
+            clauseEstimates.add(clauseEstimate);
+        }
 
         double outputRowCount = estimateCorrelatedConjunctionRowCount(
                 stats,
-                knownEstimates.stream().map(PlanNodeStatsEstimateWithClause::getEstimate).collect(toImmutableList()),
+                clauseEstimates.build(),
                 getJoinMultiClauseIndependenceFactor(session));
         if (isNaN(outputRowCount)) {
             return PlanNodeStatsEstimate.unknown();
         }
-        return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedJoinClause(stats, knownEstimates)));
+        return normalizer.normalize(intersectCorrelatedJoinClause(stats, knownEstimates.build(), outputRowCount));
     }
 
-    private static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedJoinClause(
+    private static PlanNodeStatsEstimate intersectCorrelatedJoinClause(
             PlanNodeStatsEstimate stats,
-            List<PlanNodeStatsEstimateWithClause> equiJoinClauseEstimates)
+            List<PlanNodeStatsEstimateWithClause> equiJoinClauseEstimates,
+            double outputRowCount)
     {
         // Add initial statistics (including stats for columns which are not part of equi-join clauses)
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(outputRowCount)
                 .addSymbolStatistics(stats.getSymbolStatistics());
 
         for (PlanNodeStatsEstimateWithClause estimateWithClause : equiJoinClauseEstimates) {
@@ -235,7 +247,8 @@ public class JoinStatsRule
             result.addSymbolStatistics(clause.getLeft(), newLeftStats)
                     .addSymbolStatistics(clause.getRight(), newRightStats);
         }
-        return result.build().getSymbolStatistics();
+        // built directly, as passing the map to the constructor would copy it once more
+        return result.build();
     }
 
     /**

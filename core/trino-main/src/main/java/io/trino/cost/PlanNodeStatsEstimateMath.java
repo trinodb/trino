@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.util.MoreMath;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -208,13 +209,17 @@ public final class PlanNodeStatsEstimateMath
         if (input.isOutputRowCountUnknown() || input.getOutputRowCount() == 0) {
             return input.getOutputRowCount();
         }
-        List<PlanNodeStatsEstimate> knownSortedEstimates = estimates.stream()
-                .filter(estimateInfo -> !estimateInfo.isOutputRowCountUnknown())
-                .sorted(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .collect(toImmutableList());
+        // Plain loops and a stable sort, as the streams did: this runs for every join the join enumerator considers
+        List<PlanNodeStatsEstimate> knownSortedEstimates = new ArrayList<>(estimates.size());
+        for (PlanNodeStatsEstimate estimate : estimates) {
+            if (!estimate.isOutputRowCountUnknown()) {
+                knownSortedEstimates.add(estimate);
+            }
+        }
         if (knownSortedEstimates.isEmpty()) {
             return NaN;
         }
+        knownSortedEstimates.sort(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount));
 
         PlanNodeStatsEstimate combinedEstimate = knownSortedEstimates.get(0);
         double combinedSelectivity = combinedEstimate.getOutputRowCount() / input.getOutputRowCount();
@@ -230,7 +235,7 @@ public final class PlanNodeStatsEstimateMath
         }
         double outputRowCount = input.getOutputRowCount() * combinedSelectivity;
         // TODO use UNKNOWN_FILTER_COEFFICIENT only when default-filter-factor is enabled
-        boolean hasUnestimatedTerm = estimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown);
+        boolean hasUnestimatedTerm = knownSortedEstimates.size() < estimates.size();
         return hasUnestimatedTerm ? outputRowCount * UNKNOWN_FILTER_COEFFICIENT : outputRowCount;
     }
 

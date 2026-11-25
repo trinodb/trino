@@ -25,6 +25,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -59,13 +60,15 @@ public class StatsNormalizer
                 .map(set -> (Predicate<Symbol>) set::contains)
                 .orElse(_ -> true);
 
-        for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
+        // over the entries, to spare a lookup per symbol: join stats normalize every symbol three times
+        for (Map.Entry<Symbol, SymbolStatsEstimate> entry : stats.getSymbolStatistics().entrySet()) {
+            Symbol symbol = entry.getKey();
             if (!symbolFilter.test(symbol)) {
                 normalized.removeSymbolStatistics(symbol);
                 continue;
             }
 
-            SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate symbolStats = entry.getValue();
             SymbolStatsEstimate normalizedSymbolStats = stats.isOutputRowCountUnknown()
                     ? normalizeSymbolStatsWithoutRowCount(symbol, symbolStats)
                     : normalizeSymbolStats(symbol, symbolStats, stats);
@@ -101,6 +104,11 @@ public class StatsNormalizer
 
         if (distinctValuesCount == 0.0) {
             return SymbolStatsEstimate.zero();
+        }
+
+        if (Double.compare(distinctValuesCount, symbolStats.getDistinctValuesCount()) == 0) {
+            // nothing to normalize, which is the usual case: rebuilding would only produce an equal estimate
+            return symbolStats;
         }
 
         return SymbolStatsEstimate.buildFrom(symbolStats)
@@ -149,6 +157,12 @@ public class StatsNormalizer
             return SymbolStatsEstimate.zero();
         }
 
+        if (Double.compare(distinctValuesCount, symbolStats.getDistinctValuesCount()) == 0
+                && Double.compare(nullsFraction, symbolStats.getNullsFraction()) == 0) {
+            // nothing to normalize, which is the usual case: rebuilding would only produce an equal estimate
+            return symbolStats;
+        }
+
         return SymbolStatsEstimate.buildFrom(symbolStats)
                 .setDistinctValuesCount(distinctValuesCount)
                 .setNullsFraction(nullsFraction)
@@ -157,7 +171,8 @@ public class StatsNormalizer
 
     private double maxDistinctValuesByLowHigh(SymbolStatsEstimate symbolStats, Type type)
     {
-        if (symbolStats.statisticRange().length() == 0.0) {
+        double length = symbolStats.getHighValue() - symbolStats.getLowValue();
+        if (length == 0.0) {
             return 1;
         }
 
@@ -165,7 +180,6 @@ public class StatsNormalizer
             return NaN;
         }
 
-        double length = symbolStats.getHighValue() - symbolStats.getLowValue();
         if (isNaN(length)) {
             return NaN;
         }
