@@ -187,6 +187,11 @@ public class TestIcebergMaterializedView
         }
     }
 
+    public Object[][] testConcurrentIncrementalRefreshDataProvider()
+    {
+        return cartesianProduct(trueFalse(), trueFalse());
+    }
+
     @Test
     public void testMaterializedViewFilesSystemTableUsesStorageTableHandle()
     {
@@ -215,11 +220,6 @@ public class TestIcebergMaterializedView
         finally {
             assertUpdate("DROP MATERIALIZED VIEW " + qualifiedMaterializedViewName);
         }
-    }
-
-    public Object[][] testConcurrentIncrementalRefreshDataProvider()
-    {
-        return cartesianProduct(trueFalse(), trueFalse());
     }
 
     @Test
