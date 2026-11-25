@@ -213,7 +213,7 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                <groupId>io.airlift</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
                 <executions>
                     <execution>
