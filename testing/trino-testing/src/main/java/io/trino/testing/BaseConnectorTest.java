@@ -8133,12 +8133,13 @@ public abstract class BaseConnectorTest
         requireNonNull(forSchema, "forSchema is null");
         requireNonNull(listing, "listing is null");
 
-        checkState(mockTableListings.putIfAbsent(forSchema, listing) == null, "Listing function already registered for [%s]", forSchema);
+        // Change the mock catalog only while no query runs, so that queries listing all catalogs see consistent state
+        executeExclusively(() -> checkState(mockTableListings.putIfAbsent(forSchema, listing) == null, "Listing function already registered for [%s]", forSchema));
         try {
             closure.run();
         }
         finally {
-            mockTableListings.remove(forSchema, listing);
+            executeExclusively(() -> mockTableListings.remove(forSchema, listing));
         }
     }
 
