@@ -84,9 +84,9 @@ extensions = [
     'backquote',
     'download',
     'issue',
-    'sphinx_copybutton',
     'redirects',
-    'sphinxcontrib.jquery'
+    'sphinx_immaterial',
+    'page_toc',
 ]
 
 redirects_file = 'redirects.txt'
@@ -127,13 +127,14 @@ myst_substitutions = {
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme = 'sphinx_material'
+html_theme = 'sphinx_immaterial'
 
 html_static_path = ['static']
 
 html_title = '%s %s Documentation' % (project, release)
 
 html_logo = 'images/trino.svg'
+html_favicon = 'images/trino.svg'
 html_baseurl = 'https://trino.io/docs/current/'
 
 html_permalinks = True
@@ -141,22 +142,28 @@ html_permalinks_icon = '#'
 html_show_copyright = False
 html_show_sphinx = False
 
-html_sidebars = {
-    "**": ['logo-text.html', 'globaltoc.html', 'localtoc.html', 'searchbox.html']
+# The theme searches from every page and opens the search for the q parameter,
+# so redirect links to the old search page there
+html_additional_pages = {
+    'search': 'search-redirect.html',
 }
 
 html_theme_options = {
-    'base_url': html_baseurl,
-    'globaltoc_depth': -1,
-    'theme_color': '2196f3',
-    'color_primary': '',  # set in CSS
-    'color_accent': '',   # set in CSS
+    'site_url': html_baseurl,
     'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
-    'version_json': '../versions.json',
-    'nav_previous_text': 'Previous',
-    'nav_next_text': 'Next',
-    'search_placeholder_text': 'Search'
+    'icon': {
+        'repo': 'fontawesome/brands/github',
+    },
+    # Bundled fonts are loaded from trino.css instead of being downloaded from Google Fonts
+    'font': False,
+    'globaltoc_collapse': True,
+    'toc_title': 'Contents',
+    'features': [
+        'content.code.copy',
+        'navigation.footer',
+        'toc.follow',
+    ],
 }
 
 html_css_files = [
@@ -165,4 +172,10 @@ html_css_files = [
 
 suppress_warnings = [
     'config.cache'
+]
+
+# The theme marks functions and their parameters in the navigation with icons
+# that were not part of the documentation look before
+object_description_options = [
+    ('.*', dict(toc_icon_class=None, toc_icon_text=None)),
 ]
