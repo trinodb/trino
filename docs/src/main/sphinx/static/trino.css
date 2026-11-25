@@ -31,25 +31,9 @@
     font-style: normal;
 }
 
-@font-face {
-    font-family: 'Material Icons';
-    src:
-        url("fonts/MaterialIcons-Regular.woff2") format("woff2"),
-        url("fonts/MaterialIcons-Regular.ttf")   format("truetype");
-    font-display: swap;
-    font-style: normal;
-    font-weight: 400;
-}
-
-body, input {
-    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
-}
-
-code, kbd, pre {
-    font-family: "Roboto Mono", "Courier New", Courier, monospace
-}
-
 :root {
+    --md-text-font: "Roboto";
+    --md-code-font: "Roboto Mono";
     --trino-black: #212121;
     --trino-dark-blue: #000033;
     --trino-cobalt-blue: #001c93;
@@ -63,11 +47,21 @@ html {
     scroll-behavior: smooth;
 }
 
-div.highlight {
-    background-color: #f5f5f5;
+:root, [data-md-color-scheme="default"] {
+    --md-code-bg-color: #f5f5f5;
+    --md-code-hl-keyword-color: #3b78e7;
+    --md-code-hl-operator-color: #3b78e7;
+    --md-code-hl-constant-color: #3b78e7;
+    --md-code-hl-string-color: #4070a0;
+    --md-code-hl-special-color: #4070a0;
+    --md-code-hl-number-color: #208050;
+    --md-code-hl-comment-color: #666666;
+    --md-code-hl-function-color: #06287e;
+    --md-code-hl-variable-color: #4070a0;
+    --md-code-hl-punctuation-color: var(--md-code-fg-color);
 }
 
-.md-header, .md-hero, .md-tabs {
+.md-header, .md-tabs {
     background-color: #0B1367;
 }
 
@@ -75,33 +69,21 @@ div.highlight {
     color: var(--trino-orange);
 }
 
-/* Fix vertical alignment for links to header from other documents */
-.md-typeset span[id]:target:before {
-    display:block;
-    margin-top:-40px;
-    padding-top:40px;
-    content:"";
+.md-header__topic:first-child {
+    font-weight: normal;
 }
 
-/* Fix vertical alignment for links to header from right hand nav */
-.md-typeset h1[id]:before,
-.md-typeset h2[id]:before,
-.md-typeset h3[id]:before,
-.md-typeset h4[id]:before,
-.md-typeset h5[id]:before,
-.md-typeset h6[id]:before,
-.md-typeset dl[id]:before {
-    margin-top:-3.45rem;
-    padding-top:3.45rem;
+.md-nav__title {
+    color: var(--md-default-fg-color);
 }
 
-.md-typeset dl[id]:target:before {
-    display:block;
-    content:"";
-}
-
-.md-nav__button img {
-    height: 48px;
+/* Scroll the site title with the navigation, so it doesn't cover the entries
+   the theme scrolls into view to show the current page */
+@media screen and (min-width: 76.25em) {
+    .md-nav--primary > .md-nav__title {
+        position: static;
+        box-shadow: none;
+    }
 }
 
 .md-typeset h1 {
@@ -110,6 +92,26 @@ div.highlight {
 
 .sig-name, .sig-paren {
     font-weight: bold;
+}
+
+/* Keep the text style of function signatures instead of the code style of the theme */
+.md-typeset dl.objdesc > dt.sig,
+.md-typeset dl.objdesc > dt.sig code {
+    background: none;
+    font-family: var(--md-text-font-family);
+    font-size: inherit;
+    padding: 0;
+}
+
+.md-typeset dl.objdesc > dt.sig .sig-param {
+    font-style: italic;
+}
+
+.md-typeset dl.objdesc > dt.sig .sig-name,
+.md-typeset dl.objdesc > dt.sig .sig-param .n,
+.md-typeset dl.objdesc > dt.sig a.reference:not(.desctype) > .n,
+.md-typeset dl.objdesc > dt.sig .desctype {
+    color: inherit;
 }
 
 .md-typeset code {
@@ -128,31 +130,37 @@ pre.literal-block {
     font-size: 0.8rem
 }
 
-.md-typeset table:not([class]) {
+.md-typeset table.data:not(.plain) {
     font-size: unset;
+}
+
+.md-typeset table.data:not(.plain) th {
+    background-color: var(--md-default-fg-color--light);
+    color: var(--md-default-bg-color);
+    font-weight: normal;
+}
+
+.md-typeset table.data:not(.plain) th,
+.md-typeset table.data:not(.plain) td {
+    padding: .6rem .8rem;
 }
 
 @media only screen and (min-width: 88.25em) {
     .md-grid {
         max-width: 75rem;
     }
-
-    .md-sidebar--secondary {
-        margin-left: 75rem;
-    }
-}
-
-.copybtn:hover {
-    cursor: copy;
-}
-
-button.copybtn {
-    opacity: 0.4;
-    font-size: 0.6rem;
 }
 
 .connector-logo {
     float: right;
     position: relative;
     top: -5.5rem;
+}
+
+.md-typeset .toctree-wrapper ul {
+    list-style-type: none;
+}
+
+.md-typeset .toctree-wrapper ul li {
+    margin: 0 0 .1rem .2rem;
 }

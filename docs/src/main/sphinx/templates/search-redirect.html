@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>{{ docstitle|e }}</title>
+    <noscript>
+      <meta http-equiv="refresh" content="0; url={{ pathto(master_doc)|e }}">
+    </noscript>
+    <script>window.location.replace({{ pathto(master_doc)|tojson }} + window.location.search + window.location.hash)</script>
+  </head>
+  <body></body>
+</html>
