@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,6 +64,8 @@ public class LazyOutputBuffer
 
     @GuardedBy("this")
     private final Set<OutputBufferId> destroyedBuffers = new HashSet<>();
+    // abandoned buffers already destroyed in the delegate
+    private final Set<OutputBufferId> abandonedBuffers = ConcurrentHashMap.newKeySet();
 
     @GuardedBy("this")
     private final List<PendingRead> pendingReads = new ArrayList<>();
@@ -200,6 +203,14 @@ public class LazyOutputBuffer
         }
 
         outputBuffer.setOutputBuffers(newOutputBuffers);
+        if (newOutputBuffers instanceof PipelinedOutputBuffers pipelinedOutputBuffers) {
+            // no consumer will read these buffers, so release their pages
+            for (OutputBufferId bufferId : pipelinedOutputBuffers.getAbandonedBufferIds()) {
+                if (abandonedBuffers.add(bufferId)) {
+                    outputBuffer.destroy(bufferId);
+                }
+            }
+        }
 
         // process pending aborts and reads outside of synchronized lock
         destroyedBuffers.forEach(outputBuffer::destroy);

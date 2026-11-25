@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.sql.planner.PartitioningHandle;
@@ -26,7 +27,8 @@ import static java.util.Objects.requireNonNull;
 public class PartitionedPipelinedOutputBufferManager
         implements PipelinedOutputBufferManager
 {
-    private final PipelinedOutputBuffers outputBuffers;
+    @GuardedBy("this")
+    private PipelinedOutputBuffers outputBuffers;
 
     public PartitionedPipelinedOutputBufferManager(PartitioningHandle partitioningHandle, int partitionCount)
     {
@@ -43,7 +45,7 @@ public class PartitionedPipelinedOutputBufferManager
     }
 
     @Override
-    public void addOutputBuffer(OutputBufferId newBuffer)
+    public synchronized void addOutputBuffer(OutputBufferId newBuffer)
     {
         // All buffers are created in the constructor, so just validate that this isn't
         // a request to add a new buffer
@@ -60,7 +62,13 @@ public class PartitionedPipelinedOutputBufferManager
     public void noMoreBuffers() {}
 
     @Override
-    public PipelinedOutputBuffers getOutputBuffers()
+    public synchronized void abandonBuffer(OutputBufferId bufferId)
+    {
+        outputBuffers = outputBuffers.withAbandonedBuffer(bufferId);
+    }
+
+    @Override
+    public synchronized PipelinedOutputBuffers getOutputBuffers()
     {
         return outputBuffers;
     }

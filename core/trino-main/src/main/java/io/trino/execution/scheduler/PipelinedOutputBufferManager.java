@@ -22,5 +22,10 @@ interface PipelinedOutputBufferManager
 
     void noMoreBuffers();
 
+    /**
+     * Marks the buffer of a consumer task that stopped reading before it learned about all producer tasks
+     */
+    void abandonBuffer(OutputBufferId bufferId);
+
     PipelinedOutputBuffers getOutputBuffers();
 }

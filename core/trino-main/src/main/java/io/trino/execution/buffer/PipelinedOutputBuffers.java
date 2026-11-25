@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,10 +45,12 @@ public class PipelinedOutputBuffers
     private final BufferType type;
     private final Map<OutputBufferId, Integer> buffers;
     private final boolean noMoreBufferIds;
+    // buffers whose consumer stopped reading before it learned about all producer tasks; they can only be added
+    private final Set<OutputBufferId> abandonedBufferIds;
 
     public static PipelinedOutputBuffers createInitial(BufferType type)
     {
-        return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false);
+        return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false, ImmutableSet.of());
     }
 
     public static PipelinedOutputBuffers createInitial(PartitioningHandle partitioningHandle)
@@ -61,7 +65,7 @@ public class PipelinedOutputBuffers
         else {
             type = PARTITIONED;
         }
-        return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false);
+        return new PipelinedOutputBuffers(0, type, ImmutableMap.of(), false, ImmutableSet.of());
     }
 
     // Visible only for Jackson... Use the "with" methods instead
@@ -70,12 +74,14 @@ public class PipelinedOutputBuffers
             @JsonProperty("version") long version,
             @JsonProperty("type") BufferType type,
             @JsonProperty("buffers") Map<OutputBufferId, Integer> buffers,
-            @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds)
+            @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
+            @JsonProperty("abandonedBufferIds") Set<OutputBufferId> abandonedBufferIds)
     {
         super(version);
         this.type = requireNonNull(type, "type is null");
         this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
+        this.abandonedBufferIds = ImmutableSet.copyOf(requireNonNull(abandonedBufferIds, "abandonedBufferIds is null"));
     }
 
     @JsonProperty
@@ -96,6 +102,12 @@ public class PipelinedOutputBuffers
         return noMoreBufferIds;
     }
 
+    @JsonProperty
+    public Set<OutputBufferId> getAbandonedBufferIds()
+    {
+        return abandonedBufferIds;
+    }
+
     @Override
     public void checkValidTransition(OutputBuffers outputBuffers)
     {
@@ -105,17 +117,22 @@ public class PipelinedOutputBuffers
         PipelinedOutputBuffers newOutputBuffers = (PipelinedOutputBuffers) outputBuffers;
         checkState(type == newOutputBuffers.getType(), "newOutputBuffers has a different type %s, expected %s", newOutputBuffers.getType(), type);
 
-        if (noMoreBufferIds) {
-            checkArgument(this.equals(newOutputBuffers), "Expected buffer to not change after no more buffers is set");
-            return;
-        }
-
         if (getVersion() > newOutputBuffers.getVersion()) {
             throw new IllegalArgumentException("newOutputBuffers version is older");
         }
 
         if (getVersion() == newOutputBuffers.getVersion()) {
             checkArgument(this.equals(newOutputBuffers), "newOutputBuffers is the same version but contains different information");
+        }
+
+        checkArgument(newOutputBuffers.getAbandonedBufferIds().containsAll(abandonedBufferIds), "newOutputBuffers no longer contains abandoned buffers");
+
+        if (noMoreBufferIds) {
+            // only buffers can be abandoned after no more buffers is set
+            checkArgument(
+                    newOutputBuffers.isNoMoreBufferIds() && buffers.equals(newOutputBuffers.getBuffers()),
+                    "Expected buffer to not change after no more buffers is set");
+            return;
         }
 
         // assure we have not changed the buffer assignments
@@ -145,7 +162,8 @@ public class PipelinedOutputBuffers
                         .putAll(buffers)
                         .put(bufferId, partition)
                         .buildOrThrow(),
-                false);
+                false,
+                abandonedBufferIds);
     }
 
     public PipelinedOutputBuffers withBuffers(Map<OutputBufferId, Integer> buffers)
@@ -177,7 +195,7 @@ public class PipelinedOutputBuffers
         // add the existing buffers
         newBuffers.putAll(this.buffers);
 
-        return new PipelinedOutputBuffers(getVersion() + 1, type, newBuffers, false);
+        return new PipelinedOutputBuffers(getVersion() + 1, type, newBuffers, false, abandonedBufferIds);
     }
 
     public PipelinedOutputBuffers withNoMoreBufferIds()
@@ -186,7 +204,28 @@ public class PipelinedOutputBuffers
             return this;
         }
 
-        return new PipelinedOutputBuffers(getVersion() + 1, type, buffers, true);
+        return new PipelinedOutputBuffers(getVersion() + 1, type, buffers, true, abandonedBufferIds);
+    }
+
+    /**
+     * Marks the buffer of a consumer that will never read it again, so that producers destroy it.
+     */
+    public PipelinedOutputBuffers withAbandonedBuffer(OutputBufferId bufferId)
+    {
+        requireNonNull(bufferId, "bufferId is null");
+        checkArgument(buffers.containsKey(bufferId), "Unknown buffer %s", bufferId);
+        if (abandonedBufferIds.contains(bufferId)) {
+            return this;
+        }
+        return new PipelinedOutputBuffers(
+                getVersion() + 1,
+                type,
+                buffers,
+                noMoreBufferIds,
+                ImmutableSet.<OutputBufferId>builder()
+                        .addAll(abandonedBufferIds)
+                        .add(bufferId)
+                        .build());
     }
 
     private void checkHasBuffer(OutputBufferId bufferId, int partition)
@@ -244,13 +283,17 @@ public class PipelinedOutputBuffers
             return false;
         }
         PipelinedOutputBuffers that = (PipelinedOutputBuffers) o;
-        return getVersion() == that.getVersion() && noMoreBufferIds == that.noMoreBufferIds && type == that.type && buffers.equals(that.buffers);
+        return getVersion() == that.getVersion() &&
+                noMoreBufferIds == that.noMoreBufferIds &&
+                type == that.type &&
+                buffers.equals(that.buffers) &&
+                abandonedBufferIds.equals(that.abandonedBufferIds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getVersion(), type, buffers, noMoreBufferIds);
+        return Objects.hash(getVersion(), type, buffers, noMoreBufferIds, abandonedBufferIds);
     }
 
     @Override
@@ -261,6 +304,7 @@ public class PipelinedOutputBuffers
                 .add("type", type)
                 .add("buffers", buffers)
                 .add("noMoreBufferIds", noMoreBufferIds)
+                .add("abandonedBufferIds", abandonedBufferIds)
                 .toString();
     }
 }
