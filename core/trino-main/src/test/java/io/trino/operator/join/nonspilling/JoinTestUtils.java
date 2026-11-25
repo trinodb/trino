@@ -84,6 +84,7 @@ public final class JoinTestUtils
     {
         return join(
                 innerJoin(outputSingleMatch, false),
+                true,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
@@ -183,6 +184,7 @@ public final class JoinTestUtils
                 HASH_COMPILER);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<PartitionedLookupSourceFactory>(
                 false,
+                true,
                 factory,
                 factory.getOutputTypes());
 

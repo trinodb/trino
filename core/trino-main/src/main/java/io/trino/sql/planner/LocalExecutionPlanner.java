@@ -318,6 +318,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
@@ -325,6 +326,7 @@ import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThr
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getPagePartitioningBufferPoolSize;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskMaxWriterCount;
@@ -335,6 +337,7 @@ import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabl
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
 import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
+import static io.trino.SystemSessionProperties.isJoinShortCircuitEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -344,6 +347,7 @@ import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashA
 import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.RetryPolicy.NONE;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
@@ -2491,6 +2495,7 @@ public class LocalExecutionPlanner
             indexLookupSourceFactory.setTaskContext(context.taskContext);
             JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     false,
+                    false,
                     indexLookupSourceFactory,
                     indexLookupSourceFactory.getOutputTypes());
 
@@ -2511,6 +2516,7 @@ public class LocalExecutionPlanner
             lookupJoinOperatorFactory = switch (node.getType()) {
                 case INNER -> spillingJoin(
                         JoinOperatorType.innerJoin(false, false),
+                        false,
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
@@ -2522,6 +2528,7 @@ public class LocalExecutionPlanner
                         hashCompiler);
                 case SOURCE_OUTER -> spillingJoin(
                         JoinOperatorType.probeOuterJoin(false),
+                        false,
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
@@ -2707,6 +2714,7 @@ public class LocalExecutionPlanner
 
             JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                     false,
+                    isJoinShortCircuitEnabled(session),
                     new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
@@ -2728,6 +2736,7 @@ public class LocalExecutionPlanner
                         partitioned,
                         buildContext.getDriverInstanceCount().orElse(1) == 1,
                         buildSource);
+                abandonDynamicFilterWhenBuildNotNeeded(localDynamicFilter.get(), partitioned, nestedLoopJoinBridgeManager);
             }
 
             context.addDriverFactory(
@@ -2746,7 +2755,16 @@ public class LocalExecutionPlanner
             List<Integer> probeChannels = getChannelsForSymbols(node.getLeftOutputSymbols(), probeSource.getLayout());
             List<Integer> buildChannels = getChannelsForSymbols(node.getRightOutputSymbols(), buildSource.getLayout());
 
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinBridgeManager, probeChannels, buildChannels);
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    nestedLoopJoinBridgeManager,
+                    probeChannels,
+                    buildChannels,
+                    isJoinShortCircuitEnabled(session),
+                    // Wait for build side to be collected before local dynamic filters are consumed by table scan.
+                    // Without the short-circuit, there is no benefit from reading the probe early.
+                    !localDynamicFilters.isEmpty() || !isJoinShortCircuitEnabled(session));
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), probeSource);
         }
 
@@ -2974,6 +2992,7 @@ public class LocalExecutionPlanner
             if (useSpillingJoinOperator(spillEnabled, session)) {
                 JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = new JoinBridgeManager<>(
                         buildOuter,
+                        isJoinShortCircuitEnabled(session),
                         new PartitionedLookupSourceFactory(
                                 buildTypes,
                                 buildOutputTypes,
@@ -2984,6 +3003,8 @@ public class LocalExecutionPlanner
                                 buildOuter,
                                 hashCompiler),
                         buildOutputTypes);
+
+                localDynamicFilter.ifPresent(filter -> abandonDynamicFilterWhenBuildNotNeeded(filter, partitioned, lookupSourceFactory));
 
                 OperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                         buildContext.getNextOperatorId(),
@@ -3012,6 +3033,7 @@ public class LocalExecutionPlanner
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
                 operator = spillingJoin(
                         joinType,
+                        isJoinShortCircuitEnabled(session),
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactory,
@@ -3025,6 +3047,7 @@ public class LocalExecutionPlanner
             else {
                 JoinBridgeManager<io.trino.operator.join.nonspilling.PartitionedLookupSourceFactory> lookupSourceFactory = new JoinBridgeManager<>(
                         buildOuter,
+                        isJoinShortCircuitEnabled(session),
                         new io.trino.operator.join.nonspilling.PartitionedLookupSourceFactory(
                                 buildTypes,
                                 buildOutputTypes,
@@ -3035,6 +3058,8 @@ public class LocalExecutionPlanner
                                 buildOuter,
                                 hashCompiler),
                         buildOutputTypes);
+
+                localDynamicFilter.ifPresent(filter -> abandonDynamicFilterWhenBuildNotNeeded(filter, partitioned, lookupSourceFactory));
 
                 OperatorFactory hashBuilderOperatorFactory = new HashBuilderOperator.HashBuilderOperatorFactory(
                         buildContext.getNextOperatorId(),
@@ -3061,6 +3086,7 @@ public class LocalExecutionPlanner
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
                 operator = join(
                         joinType,
+                        isJoinShortCircuitEnabled(session),
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactory,
@@ -3162,6 +3188,17 @@ public class LocalExecutionPlanner
         private DataSize multipleIf(DataSize value, int multiplier, boolean shouldMultiply)
         {
             return shouldMultiply ? DataSize.ofBytes(value.toBytes() * multiplier) : value;
+        }
+
+        private void abandonDynamicFilterWhenBuildNotNeeded(LocalDynamicFilterConsumer dynamicFilter, boolean partitioned, JoinBridgeManager<?> joinBridgeManager)
+        {
+            // A partitioned dynamic filter needs the domain of every task. When the build of this task stops early,
+            // because the probe finished, this task reads no more probe rows, so it contributes no values. A retried
+            // task could read probe rows again, but with task retries the filters are collected by the build source.
+            if (partitioned && joinBridgeManager.isBuildNotNeededAfterProbe()) {
+                verify(getRetryPolicy(session) != TASK, "Join collects dynamic filters with task retries");
+                joinBridgeManager.whenDestroyed().addListener(dynamicFilter::abandonCollection, directExecutor());
+            }
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(

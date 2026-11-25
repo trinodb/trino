@@ -32,6 +32,9 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.trino.operator.join.JoinType.INNER;
+import static io.trino.operator.join.JoinType.LOOKUP_OUTER;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,6 +57,7 @@ public class LookupJoinOperator
             JoinType joinType,
             boolean outputSingleMatch,
             boolean waitForBuild,
+            boolean finishOnEmptyBuild,
             PartitionedLookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
@@ -71,7 +75,14 @@ public class LookupJoinOperator
                 joinProbeFactory,
                 lookupSourceFuture,
                 statisticsCounter);
-        WorkProcessor<Page> pages = sourcePages.transform(sourcePagesJoiner);
+        WorkProcessor<Page> probePages = sourcePages;
+        if (finishOnEmptyBuild && (joinType == INNER || joinType == LOOKUP_OUTER)) {
+            // no probe row matches an empty build, so stop reading the probe input
+            probePages = sourcePages.finishWhen(() -> lookupSourceFuture.isDone() && getDone(lookupSourceFuture).isEmpty());
+            // wake up the driver, which may be blocked on the probe input, once the build is ready
+            operatorContext.setFinishedFuture(transform(lookupSourceFuture, _ -> null, directExecutor()));
+        }
+        WorkProcessor<Page> pages = probePages.transform(sourcePagesJoiner);
         if (waitForBuild) {
             // wait for build side before fetching any probe pages
             pages = pages.blocking(() -> transform(lookupSourceFuture, _ -> null, directExecutor()));

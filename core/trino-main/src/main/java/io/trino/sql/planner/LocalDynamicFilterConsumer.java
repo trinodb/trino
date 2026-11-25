@@ -145,6 +145,22 @@ public class LocalDynamicFilterConsumer
         collectors.forEach(collector -> collector.accept(convertTupleDomain(result)));
     }
 
+    /**
+     * Stops collecting and publishes a filter that matches no rows. Used when the build stops before all
+     * partitions were added, because no more probe rows are read, so that the filter does not stay incomplete forever.
+     */
+    public void abandonCollection()
+    {
+        synchronized (this) {
+            if (collected) {
+                return;
+            }
+            clearSummaryDomains();
+            collected = true;
+        }
+        collectors.forEach(collector -> collector.accept(convertTupleDomain(TupleDomain.none())));
+    }
+
     @Override
     public void setPartitionCount(int partitionCount)
     {

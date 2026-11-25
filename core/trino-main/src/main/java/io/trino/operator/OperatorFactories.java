@@ -37,6 +37,7 @@ public final class OperatorFactories
 
     public static OperatorFactory join(
             JoinOperatorType joinType,
+            boolean finishOnEmptyBuild,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactory,
@@ -63,11 +64,13 @@ public final class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
+                finishOnEmptyBuild,
                 new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, hasFilter, hashGenerator)));
     }
 
     public static OperatorFactory spillingJoin(
             JoinOperatorType joinType,
+            boolean finishOnEmptyBuild,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -91,6 +94,7 @@ public final class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
+                finishOnEmptyBuild,
                 new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel),
                 hashCompiler,
                 totalOperatorsCount,

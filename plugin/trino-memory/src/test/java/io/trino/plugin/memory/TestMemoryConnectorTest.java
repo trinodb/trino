@@ -213,13 +213,11 @@ public class TestMemoryConnectorTest
     public void testJoinDynamicFilteringNone()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            // Probe-side is not scanned at all, due to dynamic filtering:
-            assertDynamicFiltering(
-                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     noJoinReordering(joinDistributionType),
-                    0,
-                    0,
-                    0);
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
+            assertThat(result.result().getRowCount()).isEqualTo(0);
+            assertThat(getScanOutputPositions(getDistributedQueryRunner(), result.queryId())).containsOnly(0);
         }
     }
 

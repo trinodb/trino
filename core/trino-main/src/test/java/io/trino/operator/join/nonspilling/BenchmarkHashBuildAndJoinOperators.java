@@ -211,6 +211,7 @@ public class BenchmarkHashBuildAndJoinOperators
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
             joinOperatorFactory = join(
                     innerJoin(false, false),
+                    true,
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
@@ -286,6 +287,7 @@ public class BenchmarkHashBuildAndJoinOperators
     {
         List<Integer> outputChannels = ImmutableList.of(0, 1, 2);
         JoinBridgeManager<PartitionedLookupSourceFactory> joinBridgeManager = getLookupSourceFactoryManager(buildContext, outputChannels, 1);
+        joinBridgeManager.incrementProbeFactoryCount();
         buildHash(buildContext, joinBridgeManager, outputChannels, 1);
         return joinBridgeManager;
     }
@@ -305,6 +307,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 HASH_COMPILER);
         return new JoinBridgeManager<>(
                 false,
+                true,
                 factory,
                 factory.getOutputTypes());
     }

@@ -56,6 +56,7 @@ public class LookupJoinOperatorFactory
     private final JoinType joinType;
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
+    private final boolean finishOnEmptyBuild;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
@@ -73,6 +74,7 @@ public class LookupJoinOperatorFactory
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
             JoinOperatorType joinOperatorType,
+            boolean finishOnEmptyBuild,
             JoinProbeFactory joinProbeFactory,
             NullSafeHashCompiler hashCompiler,
             OptionalInt totalOperatorsCount,
@@ -86,6 +88,7 @@ public class LookupJoinOperatorFactory
         this.joinType = requireNonNull(joinOperatorType.getType(), "joinType is null");
         this.outputSingleMatch = joinOperatorType.isOutputSingleMatch();
         this.waitForBuild = joinOperatorType.isWaitForBuild();
+        this.finishOnEmptyBuild = finishOnEmptyBuild;
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;
@@ -125,6 +128,7 @@ public class LookupJoinOperatorFactory
         joinType = other.joinType;
         outputSingleMatch = other.outputSingleMatch;
         waitForBuild = other.waitForBuild;
+        finishOnEmptyBuild = other.finishOnEmptyBuild;
         joinProbeFactory = other.joinProbeFactory;
         outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
@@ -173,6 +177,7 @@ public class LookupJoinOperatorFactory
                 joinType,
                 outputSingleMatch,
                 waitForBuild,
+                finishOnEmptyBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,

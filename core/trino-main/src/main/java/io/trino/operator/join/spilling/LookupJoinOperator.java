@@ -35,10 +35,15 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.trino.operator.WorkProcessor.flatten;
+import static io.trino.operator.join.JoinType.INNER;
+import static io.trino.operator.join.JoinType.LOOKUP_OUTER;
 
 public class LookupJoinOperator
         implements WorkProcessorOperator
@@ -55,6 +60,7 @@ public class LookupJoinOperator
             JoinType joinType,
             boolean outputSingleMatch,
             boolean waitForBuild,
+            boolean finishOnEmptyBuild,
             LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
@@ -66,6 +72,15 @@ public class LookupJoinOperator
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
+        WorkProcessor<Page> probePages = sourcePages;
+        if (finishOnEmptyBuild && (joinType == INNER || joinType == LOOKUP_OUTER)) {
+            // No probe row matches an empty build, so stop reading the probe input. A build with spilled
+            // partitions is never empty, and the operator still completes the partitioned consumption protocol.
+            Supplier<Boolean> buildEmpty = memoize(() -> getDone(lookupSourceProviderFuture).withLease(lease -> lease.getLookupSource().isEmpty()));
+            probePages = sourcePages.finishWhen(() -> lookupSourceProviderFuture.isDone() && buildEmpty.get());
+            // wake up the driver, which may be blocked on the probe input, once the build is ready
+            operatorContext.setFinishedFuture(transform(lookupSourceProviderFuture, _ -> null, directExecutor()));
+        }
         PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
                 new DefaultPageJoiner(
                         operatorContext,
@@ -90,7 +105,7 @@ public class LookupJoinOperator
                 partitioningSpillerFactory,
                 spillMetrics,
                 pageJoinerFactory,
-                sourcePages);
+                probePages);
         WorkProcessor<Page> pages = flatten(WorkProcessor.create(joinProcessor));
         if (waitForBuild) {
             // wait for build side before fetching any probe pages

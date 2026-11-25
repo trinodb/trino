@@ -25,6 +25,11 @@ public interface NestedLoopJoinBridge
 
     ListenableFuture<Void> setPages(NestedLoopJoinPages nestedLoopJoinPages);
 
+    /**
+     * Completes when the probe side no longer needs the build pages, possibly before they are set.
+     */
+    ListenableFuture<Void> whenPagesNoLongerNeeded();
+
     @Override
     void destroy();
 

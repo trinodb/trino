@@ -13,27 +13,8 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorContext;
-import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilterSnapshot;
-import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -41,12 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.EXECUTION_POLICY;
@@ -56,22 +32,18 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MIN_HASH_PARTITION_COUNT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.delayedExecutor;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Runs joins whose tasks stop reading an exchange before all tasks of the stage feeding it exist.
- * The {@code slow} catalog returns one split per batch with a delay, so that its source stage creates
- * tasks one after another, and small output buffers make a producer block once a consumer stops reading.
+ * The {@code slow} catalog of {@link SplitsOverridingTpchPlugin} makes its source stage create tasks one after
+ * another, and small output buffers make a producer block once a consumer stops reading.
  */
 @Execution(SAME_THREAD)
 final class TestExchangeConsumersFinishingEarly
         extends AbstractTestQueryFramework
 {
-    private static final long SPLIT_DELAY_MILLIS = 2_000;
     private static final String SINGLE_PART = "SELECT partkey FROM tpch.tiny.part WHERE name = 'goldenrod lavender spring chocolate lace'";
 
     @Override
@@ -96,15 +68,7 @@ final class TestExchangeConsumersFinishingEarly
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch", Map.of("tpch.splits-per-node", "2"));
             queryRunner.createCatalog("tpch2", "tpch", Map.of("tpch.splits-per-node", "2"));
-            queryRunner.installPlugin(new Plugin()
-            {
-                @Override
-                public Iterable<ConnectorFactory> getConnectorFactories()
-                {
-                    return ImmutableList.of(new SlowSplitsTpchConnectorFactory());
-                }
-            });
-            queryRunner.createCatalog("slow", "slow_tpch", Map.of("tpch.splits-per-node", "2"));
+            SplitsOverridingTpchPlugin.createCatalogs(queryRunner);
         }
         catch (Throwable e) {
             queryRunner.close();
@@ -230,123 +194,5 @@ final class TestExchangeConsumersFinishingEarly
     {
         Object expected = computeActual(session, sql.replace("slow.", "tpch.")).getOnlyValue();
         assertThat(computeActual(session, sql).getOnlyValue()).isEqualTo(expected);
-    }
-
-    private static class SlowSplitsTpchConnectorFactory
-            implements ConnectorFactory
-    {
-        private final TpchConnectorFactory delegate = new TpchConnectorFactory();
-
-        @Override
-        public String getName()
-        {
-            return "slow_tpch";
-        }
-
-        @Override
-        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
-        {
-            Connector connector = delegate.create(catalogName, config, context);
-            ConnectorSplitManager splitManager = new ConnectorSplitManager()
-            {
-                @Override
-                public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> dynamicFilterColumns, Constraint constraint)
-                {
-                    return new SlowSplitSource(connector.getSplitManager().getSplits(transaction, session, table, dynamicFilterColumns, constraint));
-                }
-            };
-            return new Connector()
-            {
-                @Override
-                public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-                {
-                    return connector.beginTransaction(isolationLevel, readOnly, autoCommit);
-                }
-
-                @Override
-                public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
-                {
-                    return connector.getMetadata(session, transactionHandle);
-                }
-
-                @Override
-                public ConnectorSplitManager getSplitManager()
-                {
-                    return splitManager;
-                }
-
-                @Override
-                public ConnectorPageSourceProvider getPageSourceProvider()
-                {
-                    return connector.getPageSourceProvider();
-                }
-
-                @Override
-                public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-                {
-                    return connector.getNodePartitioningProvider();
-                }
-
-                @Override
-                public void commit(ConnectorTransactionHandle transactionHandle)
-                {
-                    connector.commit(transactionHandle);
-                }
-
-                @Override
-                public void rollback(ConnectorTransactionHandle transactionHandle)
-                {
-                    connector.rollback(transactionHandle);
-                }
-
-                @Override
-                public void shutdown()
-                {
-                    connector.shutdown();
-                }
-            };
-        }
-    }
-
-    private static class SlowSplitSource
-            implements ConnectorSplitSource
-    {
-        private final ConnectorSplitSource delegate;
-        private Deque<ConnectorSplit> splits;
-        private boolean first = true;
-
-        SlowSplitSource(ConnectorSplitSource delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
-        {
-            if (splits == null) {
-                splits = new ArrayDeque<>();
-                while (!delegate.isFinished()) {
-                    splits.addAll(delegate.getNextBatch(1000, dynamicFilterSnapshot).join());
-                }
-            }
-            List<ConnectorSplit> batch = List.of(splits.removeFirst());
-            if (first) {
-                first = false;
-                return CompletableFuture.completedFuture(batch);
-            }
-            return CompletableFuture.supplyAsync(() -> batch, delayedExecutor(SPLIT_DELAY_MILLIS, MILLISECONDS));
-        }
-
-        @Override
-        public synchronized boolean isFinished()
-        {
-            return splits != null && splits.isEmpty();
-        }
-
-        @Override
-        public void close()
-        {
-            delegate.close();
-        }
     }
 }

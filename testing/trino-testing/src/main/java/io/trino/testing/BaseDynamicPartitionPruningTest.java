@@ -41,6 +41,7 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.JOIN_SHORT_CIRCUIT_ENABLED;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
@@ -92,6 +93,7 @@ public abstract class BaseDynamicPartitionPruningTest
         return Session.builder(super.getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name()) // Avoid node local DF
+                .setSystemProperty(JOIN_SHORT_CIRCUIT_ENABLED, "false")
                 .build();
     }
 
