@@ -22,6 +22,8 @@ import os
 import sys
 import xml.dom.minidom
 
+from sphinx.domains.python import PythonDomain
+
 try:
     sys.dont_write_bytecode = True
 except:
@@ -69,6 +71,9 @@ def globalReplace(app, docname, source):
 def setup(app):
    app.add_config_value('global_replacements', {}, True)
    app.connect('source-read', globalReplace)
+   # SQL functions are documented with the default Python domain directives,
+   # so label them as SQL objects in the search results and link tooltips
+   PythonDomain.label = 'SQL'
 
 # -- General configuration -----------------------------------------------------
 
