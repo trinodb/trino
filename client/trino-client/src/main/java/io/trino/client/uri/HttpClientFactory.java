@@ -55,7 +55,7 @@ public class HttpClientFactory
 
     public static OkHttpClient.Builder toHttpClientBuilder(TrinoUri uri, String userAgent)
     {
-        OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
+        OkHttpClient.Builder builder = baseClientBuilder(uri, userAgent);
         setupCookieJar(builder);
 
         if (uri.hasPassword()) {
@@ -159,6 +159,11 @@ public class HttpClientFactory
     }
 
     public static OkHttpClient.Builder unauthenticatedClientBuilder(TrinoUri uri, String userAgent)
+    {
+        return baseClientBuilder(uri, userAgent);
+    }
+
+    private static OkHttpClient.Builder baseClientBuilder(TrinoUri uri, String userAgent)
     {
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         setupUserAgent(builder, userAgent);
