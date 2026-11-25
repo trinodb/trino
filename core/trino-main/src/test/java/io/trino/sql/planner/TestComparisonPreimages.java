@@ -40,6 +40,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
@@ -684,6 +685,69 @@ public class TestComparisonPreimages
         var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, compare(NOT_EQUAL, new Cast(input, DOUBLE), new Constant(DOUBLE, 1.0)));
         assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
         assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(Map.of(Symbol.from(input), Domain.create(ValueSet.of(REAL, (long) floatToRawIntBits(1.0f)).complement(), false))));
+
+        // DOUBLE -> REAL rounding casts
+        Reference doubleInput = new Reference(DOUBLE, "value");
+        double floatOverflowThreshold = (double) Float.MAX_VALUE + (double) Math.ulp(Float.MAX_VALUE) / 2.0;
+        List<Double> doubleInputs = List.of(
+                Double.NEGATIVE_INFINITY,
+                -Double.MAX_VALUE,
+                -floatOverflowThreshold,
+                Math.nextUp(-floatOverflowThreshold),
+                -1.5,
+                -1.0,
+                -Float.MIN_VALUE / 2.0,
+                -0.0,
+                0.0,
+                Float.MIN_VALUE / 2.0,
+                1.0,
+                ((double) 1.0f + (double) Math.nextUp(1.0f)) / 2.0,
+                1.5,
+                Math.nextDown(floatOverflowThreshold),
+                floatOverflowThreshold,
+                Double.MAX_VALUE,
+                Double.POSITIVE_INFINITY,
+                Double.NaN);
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (float target : List.of(Float.NEGATIVE_INFINITY, -Float.MAX_VALUE, -1.0f, -0.0f, 0.0f, Float.MIN_VALUE, 1.0f, Math.nextUp(1.0f), Float.MAX_VALUE, Float.POSITIVE_INFINITY, Float.NaN)) {
+                assertEquivalent(compare(operator, new Cast(doubleInput, REAL), new Constant(REAL, (long) floatToRawIntBits(target))), doubleInputs);
+            }
+        }
+        for (List<Expression> items : List.of(
+                List.<Expression>of(new Constant(REAL, (long) floatToRawIntBits(1.0f)), new Constant(REAL, (long) floatToRawIntBits(Float.NaN))),
+                List.<Expression>of(new Constant(REAL, (long) floatToRawIntBits(1.0f)), new Constant(REAL, null)))) {
+            Expression predicate = new In(new Cast(doubleInput, REAL), items);
+            assertEquivalent(predicate, doubleInputs);
+            assertEquivalent(negate(predicate), doubleInputs);
+        }
+
+        // DECIMAL(p, s) -> DOUBLE / REAL rounding casts (including p > 15 and p > 7)
+        DecimalType shortDecimal = DecimalType.createDecimalType(18, 2);
+        Reference shortDecimalInput = new Reference(shortDecimal, "value");
+        List<Long> shortDecimalInputs = List.of(-10000L, -1999L, -100L, -1L, 0L, 1L, 100L, 101L, 1998L, 1999L, 2000L, 10000L);
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (double target : List.of(Double.NEGATIVE_INFINITY, -19.99, 0.0, 1.0, 1.001, 19.99, Double.POSITIVE_INFINITY, Double.NaN)) {
+                assertEquivalent(compare(operator, new Cast(shortDecimalInput, DOUBLE), new Constant(DOUBLE, target)), shortDecimalInputs);
+            }
+            for (float target : List.of(Float.NEGATIVE_INFINITY, -19.99f, 0.0f, 1.0f, 1.001f, 19.99f, Float.POSITIVE_INFINITY, Float.NaN)) {
+                assertEquivalent(compare(operator, new Cast(shortDecimalInput, REAL), new Constant(REAL, (long) floatToRawIntBits(target))), shortDecimalInputs);
+            }
+        }
+
+        DecimalType longDecimal = DecimalType.createDecimalType(20, 0);
+        Reference longDecimalInput = new Reference(longDecimal, "value");
+        List<Int128> longDecimalInputs = List.of(
+                Int128.valueOf((1L << 53) - 1),
+                Int128.valueOf(1L << 53),
+                Int128.valueOf((1L << 53) + 1),
+                Int128.valueOf((1L << 53) + 2),
+                Int128.valueOf((1L << 53) + 3),
+                Int128.valueOf((1L << 53) + 4));
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (double target : List.of((double) (1L << 53), (double) ((1L << 53) + 2), Double.NaN)) {
+                assertEquivalent(compare(operator, new Cast(longDecimalInput, DOUBLE), new Constant(DOUBLE, target)), longDecimalInputs);
+            }
+        }
     }
 
     @Test
