@@ -122,33 +122,32 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
+                <groupId>io.airlift</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>docs</id>
                         <goals>
-                            <goal>single</goal>
+                            <goal>provision</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>src/main/assembly/docs.xml</descriptor>
-                            </descriptors>
+                            <descriptorDirectory>${project.basedir}/src/main/provisio/docs</descriptorDirectory>
+                            <outputDirectory>${project.build.directory}/provisio-docs</outputDirectory>
                         </configuration>
                     </execution>
 
                     <execution>
                         <id>sources</id>
                         <goals>
-                            <goal>single</goal>
+                            <goal>provision</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <descriptors>
-                                <descriptor>src/main/assembly/sources.xml</descriptor>
-                            </descriptors>
+                            <descriptorDirectory>${project.basedir}/src/main/provisio/sources</descriptorDirectory>
+                            <outputDirectory>${project.build.directory}/provisio-sources</outputDirectory>
+                            <attachmentType>jar</attachmentType>
+                            <attachmentClassifier>sources</attachmentClassifier>
                         </configuration>
                     </execution>
                 </executions>

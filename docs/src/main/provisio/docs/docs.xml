@@ -1,0 +1,10 @@
+<runtime>
+    <archive name="${project.artifactId}-${project.version}.zip" useRoot="false" streaming="true" />
+
+    <fileSet to="/html">
+        <directory path="${project.build.directory}/html">
+            <exclude>**/.buildinfo</exclude>
+            <exclude>**/.doctrees/**</exclude>
+        </directory>
+    </fileSet>
+</runtime>
