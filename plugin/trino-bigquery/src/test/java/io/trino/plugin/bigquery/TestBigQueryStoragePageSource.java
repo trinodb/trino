@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
@@ -25,11 +26,14 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
+import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -64,13 +68,20 @@ import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -90,12 +101,15 @@ final class TestBigQueryStoragePageSource
 
     // Fetch the responses synchronously, so that every page is available when requested
     private final ExecutorService executor = newDirectExecutorService();
+    // Fetch the responses in the background, so that a fetch can wait for a response that never comes
+    private final ExecutorService backgroundExecutor = newCachedThreadPool(daemonThreadsNamed("test-bigquery-read-%s"));
     private final BigQueryArrowBufferAllocator arrowBufferAllocator = new BigQueryArrowBufferAllocator(new BigQueryArrowConfig(), new BigQueryArrowAllocatorStats());
 
     @AfterAll
     void tearDown()
     {
         executor.shutdownNow();
+        backgroundExecutor.shutdownNow();
     }
 
     @Test
@@ -104,7 +118,7 @@ final class TestBigQueryStoragePageSource
     {
         try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(arrowResponse(0, 100), arrowResponse(100, 50)))) {
             List<Long> reportedBytes = new ArrayList<>();
-            assertMemoryUsage(createArrowPageSource(server.client(), reportedBytes::add), reportedBytes);
+            assertMemoryUsage(createArrowPageSource(server.client(), executor, reportedBytes::add), reportedBytes);
         }
     }
 
@@ -114,7 +128,7 @@ final class TestBigQueryStoragePageSource
     {
         try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(avroResponse(0, 100), avroResponse(100, 50)))) {
             List<Long> reportedBytes = new ArrayList<>();
-            assertMemoryUsage(createAvroPageSource(server.client(), reportedBytes::add), reportedBytes);
+            assertMemoryUsage(createAvroPageSource(server.client(), executor, reportedBytes::add), reportedBytes);
         }
     }
 
@@ -124,7 +138,7 @@ final class TestBigQueryStoragePageSource
     {
         try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of())) {
             TrinoException memoryLimitExceeded = new TrinoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Exceeded memory limit");
-            assertThatThrownBy(() -> createArrowPageSource(server.client(), _ -> {
+            assertThatThrownBy(() -> createArrowPageSource(server.client(), executor, _ -> {
                 throw memoryLimitExceeded;
             })).isSameAs(memoryLimitExceeded);
             assertThat(server.readRowsRequests()).isZero();
@@ -137,11 +151,86 @@ final class TestBigQueryStoragePageSource
     {
         try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of())) {
             TrinoException memoryLimitExceeded = new TrinoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Exceeded memory limit");
-            assertThatThrownBy(() -> createAvroPageSource(server.client(), _ -> {
+            assertThatThrownBy(() -> createAvroPageSource(server.client(), executor, _ -> {
                 throw memoryLimitExceeded;
             })).isSameAs(memoryLimitExceeded);
             assertThat(server.readRowsRequests()).isZero();
         }
+    }
+
+    @Test
+    void testArrowCloseCancelsUnfinishedStream()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(arrowResponse(0, 100)), false)) {
+            assertCloseCancelsUnfinishedStream(createArrowPageSource(server.client(), backgroundExecutor, _ -> {}), server);
+        }
+    }
+
+    @Test
+    void testAvroCloseCancelsUnfinishedStream()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(avroResponse(0, 100)), false)) {
+            assertCloseCancelsUnfinishedStream(createAvroPageSource(server.client(), backgroundExecutor, _ -> {}), server);
+        }
+    }
+
+    @Test
+    void testArrowCloseCancelsStreamBeforeFirstResponse()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(), false)) {
+            createArrowPageSource(server.client(), backgroundExecutor, _ -> {}).close();
+            assertThat(server.awaitReadRowsCancelled()).isTrue();
+        }
+    }
+
+    @Test
+    void testAvroCloseCancelsStreamBeforeFirstResponse()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(), false)) {
+            createAvroPageSource(server.client(), backgroundExecutor, _ -> {}).close();
+            assertThat(server.awaitReadRowsCancelled()).isTrue();
+        }
+    }
+
+    @Test
+    void testCloseCancelsStreamOpenedByRetry()
+            throws Exception
+    {
+        try (TestingBigQueryReadServer server = new TestingBigQueryReadServer(ImmutableList.of(), false, 1)) {
+            AtomicReference<ReadRowsHelper.ReadRowsIterator> responses = new AtomicReference<>();
+            ReadRowsHelper helper = new ReadRowsHelper(server.client(), "stream", 1)
+            {
+                @Override
+                protected ServerStream<ReadRowsResponse> fetchResponses(long offset)
+                {
+                    // Close between the failure and the retry, so that only the retried stream is left to cancel
+                    if (responses.get() != null) {
+                        responses.get().close();
+                    }
+                    return super.fetchResponses(offset);
+                }
+            };
+            responses.set(helper.readRows());
+
+            Future<ReadRowsResponse> next = backgroundExecutor.submit(() -> responses.get().next());
+            assertThat(server.awaitReadRowsCancelled()).isTrue();
+            assertThat(server.readRowsRequests()).isEqualTo(2);
+            assertThatThrownBy(() -> next.get(10, SECONDS)).isInstanceOf(ExecutionException.class);
+        }
+    }
+
+    private static void assertCloseCancelsUnfinishedStream(ConnectorPageSource pageSource, TestingBigQueryReadServer server)
+            throws Exception
+    {
+        pageSource.isBlocked().get(10, SECONDS);
+        assertPage(pageSource.getNextSourcePage(), 0, 100);
+
+        pageSource.close();
+        assertThat(server.awaitReadRowsCancelled()).isTrue();
     }
 
     private static void assertMemoryUsage(ConnectorPageSource pageSource, List<Long> reportedBytes)
@@ -173,13 +262,13 @@ final class TestBigQueryStoragePageSource
         }
     }
 
-    private ConnectorPageSource createArrowPageSource(BigQueryReadClient client, MemoryContext memoryContext)
+    private ConnectorPageSource createArrowPageSource(BigQueryReadClient client, ExecutorService executor, MemoryContext memoryContext)
     {
         BigQuerySplit split = BigQuerySplit.forStream("trace", "stream", ARROW_SCHEMA.toJson(), COLUMNS, OptionalInt.empty());
         return new BigQueryStorageArrowPageSource(TYPE_MANAGER, client, executor, arrowBufferAllocator, 0, split, COLUMNS, memoryContext);
     }
 
-    private ConnectorPageSource createAvroPageSource(BigQueryReadClient client, MemoryContext memoryContext)
+    private ConnectorPageSource createAvroPageSource(BigQueryReadClient client, ExecutorService executor, MemoryContext memoryContext)
     {
         BigQuerySplit split = BigQuerySplit.forStream("trace", "stream", AVRO_SCHEMA.toString(), COLUMNS, OptionalInt.empty());
         return new BigQueryStorageAvroPageSource(client, executor, TYPE_MANAGER, 0, split, COLUMNS, memoryContext);
@@ -230,11 +319,24 @@ final class TestBigQueryStoragePageSource
             implements AutoCloseable
     {
         private final AtomicInteger readRowsRequests = new AtomicInteger();
+        private final CountDownLatch readRowsCancelled = new CountDownLatch(1);
         private final Server server;
         private final ManagedChannel channel;
         private final BigQueryReadClient client;
 
         public TestingBigQueryReadServer(List<ReadRowsResponse> responses)
+                throws IOException
+        {
+            this(responses, true);
+        }
+
+        public TestingBigQueryReadServer(List<ReadRowsResponse> responses, boolean completeStream)
+                throws IOException
+        {
+            this(responses, completeStream, 0);
+        }
+
+        public TestingBigQueryReadServer(List<ReadRowsResponse> responses, boolean completeStream, int failedReadRowsRequests)
                 throws IOException
         {
             String serverName = InProcessServerBuilder.generateName();
@@ -245,9 +347,16 @@ final class TestBigQueryStoragePageSource
                         @Override
                         public void readRows(ReadRowsRequest request, StreamObserver<ReadRowsResponse> responseObserver)
                         {
-                            readRowsRequests.incrementAndGet();
+                            if (readRowsRequests.incrementAndGet() <= failedReadRowsRequests) {
+                                responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+                                return;
+                            }
+                            ((ServerCallStreamObserver<ReadRowsResponse>) responseObserver).setOnCancelHandler(readRowsCancelled::countDown);
                             responses.forEach(responseObserver::onNext);
-                            responseObserver.onCompleted();
+                            // Without completing, the stream stays open like a BigQuery stream with rows left to read
+                            if (completeStream) {
+                                responseObserver.onCompleted();
+                            }
                         }
                     })
                     .build()
@@ -255,10 +364,12 @@ final class TestBigQueryStoragePageSource
             channel = InProcessChannelBuilder.forName(serverName)
                     .directExecutor()
                     .build();
-            client = BigQueryReadClient.create(BigQueryReadSettings.newBuilder()
+            BigQueryReadSettings.Builder settings = BigQueryReadSettings.newBuilder()
                     .setCredentialsProvider(NoCredentialsProvider.create())
-                    .setTransportChannelProvider(FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel)))
-                    .build());
+                    .setTransportChannelProvider(FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel)));
+            // Otherwise gax retries UNAVAILABLE itself, and the failure never reaches ReadRowsHelper
+            settings.readRowsSettings().setRetryableCodes(ImmutableSet.of());
+            client = BigQueryReadClient.create(settings.build());
         }
 
         public BigQueryReadClient client()
@@ -269,6 +380,12 @@ final class TestBigQueryStoragePageSource
         public int readRowsRequests()
         {
             return readRowsRequests.get();
+        }
+
+        public boolean awaitReadRowsCancelled()
+                throws InterruptedException
+        {
+            return readRowsCancelled.await(10, SECONDS);
         }
 
         @Override
