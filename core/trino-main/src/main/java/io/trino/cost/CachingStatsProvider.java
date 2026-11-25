@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.sql.ir.Expression;
@@ -31,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isEnableStatsCalculator;
 import static io.trino.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -55,6 +55,11 @@ public final class CachingStatsProvider
     // that differ only in the other fields can share an estimate. The identity cache above misses
     // on each copy the join enumerator builds, so those fall back to this lookup.
     private final Map<JoinStatsKey, PlanNodeStatsEstimate> joinCache = new HashMap<>(0);
+
+    // Read once per provider: the session cannot change, and the join enumerator asks a provider
+    // about ten times for every candidate join it costs
+    private boolean statsCalculatorEnabled;
+    private boolean statsCalculatorEnabledKnown;
 
     public CachingStatsProvider(StatsCalculator statsCalculator, Session session, TableStatsProvider tableStatsProvider)
     {
@@ -80,7 +85,7 @@ public final class CachingStatsProvider
     @Override
     public PlanNodeStatsEstimate getStats(PlanNode node)
     {
-        if (!isEnableStatsCalculator(session)) {
+        if (!isStatsCalculatorEnabled()) {
             return PlanNodeStatsEstimate.unknown();
         }
 
@@ -111,6 +116,15 @@ public final class CachingStatsProvider
         }
     }
 
+    private boolean isStatsCalculatorEnabled()
+    {
+        if (!statsCalculatorEnabledKnown) {
+            statsCalculatorEnabled = isEnableStatsCalculator(session);
+            statsCalculatorEnabledKnown = true;
+        }
+        return statsCalculatorEnabled;
+    }
+
     private PlanNodeStatsEstimate getJoinStats(JoinNode node)
     {
         JoinStatsKey key = JoinStatsKey.of(node);
@@ -135,11 +149,16 @@ public final class CachingStatsProvider
 
         JoinStatsKey flipped()
         {
+            // without a stream: the join enumerator asks for the swapped key of every candidate join
+            ImmutableList.Builder<EquiJoinClause> flippedCriteria = ImmutableList.builderWithExpectedSize(criteria.size());
+            for (EquiJoinClause clause : criteria) {
+                flippedCriteria.add(clause.flip());
+            }
             return new JoinStatsKey(
                     type,
                     /* left= */ right,
                     /* right= */ left,
-                    criteria.stream().map(EquiJoinClause::flip).collect(toImmutableList()),
+                    flippedCriteria.build(),
                     filter);
         }
     }

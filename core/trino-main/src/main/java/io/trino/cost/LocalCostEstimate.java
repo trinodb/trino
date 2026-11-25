@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Objects;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -136,10 +135,16 @@ public class LocalCostEstimate
      */
     public static LocalCostEstimate addPartialComponents(LocalCostEstimate one, LocalCostEstimate two, LocalCostEstimate... more)
     {
-        return Stream.concat(Stream.of(one, two), Stream.of(more))
-                .reduce(zero(), (a, b) -> new LocalCostEstimate(
-                        a.cpuCost + b.cpuCost,
-                        a.maxMemory + b.maxMemory,
-                        a.networkCost + b.networkCost));
+        // Summed in the order a reduction starting from zero adds them, so that the result is the
+        // same to the last bit. Costing one join adds partial components about six times.
+        double cpuCost = 0.0 + one.cpuCost + two.cpuCost;
+        double maxMemory = 0.0 + one.maxMemory + two.maxMemory;
+        double networkCost = 0.0 + one.networkCost + two.networkCost;
+        for (LocalCostEstimate estimate : more) {
+            cpuCost += estimate.cpuCost;
+            maxMemory += estimate.maxMemory;
+            networkCost += estimate.networkCost;
+        }
+        return new LocalCostEstimate(cpuCost, maxMemory, networkCost);
     }
 }
