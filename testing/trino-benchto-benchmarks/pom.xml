@@ -61,19 +61,12 @@
         <plugins>
             <!-- Build archive files -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <configuration>
-                    <descriptors>
-                        <descriptor>src/assembly/benchmarks.xml</descriptor>
-                    </descriptors>
-                    <finalName>presto-benchto-benchmarks-package-${project.version}</finalName>
-                    <appendAssemblyId>false</appendAssemblyId>
-                </configuration>
+                <groupId>io.airlift</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <goals>
-                            <goal>single</goal>
+                            <goal>provision</goal>
                         </goals>
                         <phase>package</phase>
                     </execution>
