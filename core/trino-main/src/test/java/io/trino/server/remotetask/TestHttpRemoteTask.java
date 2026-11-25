@@ -24,6 +24,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.jaxrs.JaxRsJsonMapper;
 import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
@@ -232,6 +233,28 @@ public class TestHttpRemoteTask
         poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testWorkerWithoutStatusStreamUsesPolling()
+            throws Exception
+    {
+        var resource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
+        var config = new TaskManagerConfig().setStatusStreamingEnabled(true);
+        var factory = createHttpRemoteTaskFactory(resource, createDynamicFilterService(), new QueryManagerConfig(), config);
+        try {
+            var task = createRemoteTask(factory, ImmutableSet.of());
+            resource.setInitialTaskInfo(task.getTaskInfo());
+            task.start();
+            poll(() -> resource.stats.getStatusRequests() > 0);
+            task.cancel();
+            poll(() -> task.getTaskInfo().taskStatus().state().isDone());
+            assertThat(resource.stats.getStreamConnections()).isZero();
+        }
+        finally {
+            factory.stop();
+        }
     }
 
     @Test
@@ -806,6 +829,7 @@ public class TestHttpRemoteTask
                                 config,
                                 taskManagerConfig,
                                 testingHttpClient,
+                                new HttpClientConfig(),
                                 new BaseTestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
                                 dynamicFilterDomainsCodec,
@@ -813,7 +837,7 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestCodec,
                                 failTaskRequestCodec,
                                 noopTracer(),
-                                new RemoteTaskStats(),
+                                testingTaskResource.stats,
                                 dynamicFilterService);
                     }
                 });
@@ -875,6 +899,7 @@ public class TestHttpRemoteTask
         private static final long NEW_TASK_INSTANCE_ID = 1;
 
         private final AtomicLong lastActivityNanos;
+        private final RemoteTaskStats stats = new RemoteTaskStats();
         private final FailureScenario failureScenario;
 
         private final AtomicReference<TestingHttpClient> httpClient = new AtomicReference<>();

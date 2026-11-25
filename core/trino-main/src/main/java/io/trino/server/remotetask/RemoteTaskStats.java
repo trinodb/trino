@@ -19,6 +19,8 @@ import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.concurrent.atomic.LongAdder;
+
 public class RemoteTaskStats
 {
     private final IncrementalAverage updateRoundTripMillis = new IncrementalAverage();
@@ -28,8 +30,70 @@ public class RemoteTaskStats
     private final DistributionStat updateWithPlanBytes = new DistributionStat();
     private final DistributionStat updateWithDynamicFilterBytes = new DistributionStat();
 
+    private final LongAdder statusRequests = new LongAdder();
+
+    private final LongAdder streamConnections = new LongAdder();
+    private final LongAdder streamEvents = new LongAdder();
+    private final LongAdder streamFallbackTasks = new LongAdder();
+    private final LongAdder taskUpdateRequests = new LongAdder();
+
     private long requestSuccess;
     private long requestFailure;
+
+    public void recordStreamConnection()
+    {
+        streamConnections.increment();
+    }
+
+    @Managed
+    public long getStreamConnections()
+    {
+        return streamConnections.sum();
+    }
+
+    public void recordStreamEvent()
+    {
+        streamEvents.increment();
+    }
+
+    @Managed
+    public long getStreamEvents()
+    {
+        return streamEvents.sum();
+    }
+
+    public void recordStreamFallbackTask()
+    {
+        streamFallbackTasks.increment();
+    }
+
+    @Managed
+    public long getStreamFallbackTasks()
+    {
+        return streamFallbackTasks.sum();
+    }
+
+    public void recordTaskUpdateRequest()
+    {
+        taskUpdateRequests.increment();
+    }
+
+    @Managed
+    public long getTaskUpdateRequests()
+    {
+        return taskUpdateRequests.sum();
+    }
+
+    public void recordStatusRequest()
+    {
+        statusRequests.increment();
+    }
+
+    @Managed
+    public long getStatusRequests()
+    {
+        return statusRequests.sum();
+    }
 
     public void statusRoundTripMillis(long roundTripMillis)
     {

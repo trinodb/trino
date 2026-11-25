@@ -124,6 +124,7 @@ import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskStatus.failWith;
 import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_STATUS_STREAM_HEADER;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -159,6 +160,7 @@ public final class HttpRemoteTask
     private final Tracer tracer;
     private final Span span;
     private final TaskInfoFetcher taskInfoFetcher;
+    private final Optional<TaskStatusStreamClient> statusStream;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
@@ -239,6 +241,7 @@ public final class HttpRemoteTask
             Duration taskTerminationTimeout,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
+            Optional<TaskStatusStreamClient> statusStream,
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
@@ -269,6 +272,7 @@ public final class HttpRemoteTask
         requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
+            this.statusStream = requireNonNull(statusStream, "statusStream is null");
             this.taskId = taskId;
             this.session = session;
             this.stageSpan = stageSpan;
@@ -451,11 +455,17 @@ public final class HttpRemoteTask
     {
         try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
             // to start we just need to trigger an update
+            boolean subscribed = statusStream.isPresent() && statusStream.get().subscribe(taskId, taskStatusFetcher);
+            if (subscribed) {
+                taskStatusFetcher.deferStart();
+            }
             started.set(true);
             triggerUpdate();
 
             dynamicFiltersFetcher.start();
-            taskStatusFetcher.start();
+            if (!subscribed || terminating.get()) {
+                taskStatusFetcher.start();
+            }
             taskInfoFetcher.start();
         }
     }
@@ -664,6 +674,12 @@ public final class HttpRemoteTask
     {
         taskStatusFetcher.updateTaskStatus(newValue.taskStatus());
         taskInfoFetcher.updateTaskInfoFromTaskUpdate(newValue);
+        if (statusStream.flatMap(stream -> stream.tokenFor(taskId)).isPresent()) {
+            taskStatusFetcher.clearDeferredStart();
+        }
+        else {
+            taskStatusFetcher.startIfDeferred();
+        }
 
         // remove acknowledged splits, which frees memory
         for (SplitAssignment assignment : splitAssignments) {
@@ -821,13 +837,15 @@ public final class HttpRemoteTask
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = preparePost()
+        Request.Builder requestBuilder = preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setHeader(TRINO_NODE_INSTANCE_ID_HEADER, nodeInstanceId)
                 .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
-                .setSpanBuilder(createSpanBuilder("task-update", span))
-                .build();
+                .setSpanBuilder(createSpanBuilder("task-update", span));
+        statusStream.flatMap(stream -> stream.tokenFor(taskId)).ifPresent(id -> requestBuilder.setHeader(TRINO_TASK_STATUS_STREAM_HEADER, id));
+        Request request = requestBuilder.build();
+        stats.recordTaskUpdateRequest();
 
         updateErrorTracker.startRequest();
 
@@ -929,6 +947,7 @@ public final class HttpRemoteTask
         // only when termination is complete do we shut down status fetching
         if (taskState.isDone()) {
             // stop continuously fetching task status
+            unsubscribeStatusStream();
             taskStatusFetcher.stop();
             // cancel pending request
             Future<?> request = currentRequest.getAndSet(null);
@@ -987,8 +1006,16 @@ public final class HttpRemoteTask
             return;
         }
 
+        if (!taskStatusState.isDone()) {
+            taskStatusFetcher.startIfDeferred();
+        }
         Request request = remoteRequestSupplier.get();
         doScheduleAsyncCleanupRequest(new Backoff(maxErrorDuration), request, action);
+    }
+
+    private void unsubscribeStatusStream()
+    {
+        statusStream.ifPresent(stream -> stream.unsubscribe(taskId));
     }
 
     private Request buildDeleteTaskRequest(boolean abort)
@@ -1296,6 +1323,11 @@ public final class HttpRemoteTask
                         updateErrorTracker.requestFailed(cause);
                     }
 
+                    if (statusStream.flatMap(stream -> stream.tokenFor(taskId)).isPresent()) {
+                        unsubscribeStatusStream();
+                        taskStatusFetcher.start();
+                    }
+                    taskStatusFetcher.startIfDeferred();
                     // on failure assume we need to update again
                     scheduleUpdate();
                 }

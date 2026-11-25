@@ -17,17 +17,23 @@ import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
+import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import io.trino.execution.SqlTask;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.TaskStatus;
 import io.trino.operator.ForExchange;
 import io.trino.server.testing.TestingTrinoServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.ByteArrayOutputStream;
+import java.time.Instant;
 import java.util.Optional;
 
 import static io.airlift.http.client.HttpStatus.OK;
@@ -36,6 +42,8 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.trino.server.InternalHeaders.TRINO_NODE_INSTANCE_ID_HEADER;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -112,6 +120,41 @@ final class TestTaskResource
         assertThat(server.getTaskManager().getAllTasks())
                 .extracting(SqlTask::getTaskId)
                 .doesNotContain(taskId);
+    }
+
+    @Test
+    @Timeout(10)
+    void testStatusStreamRefreshDoesNotRenewTaskLease()
+            throws Exception
+    {
+        TaskId id = new TaskId(new StageId("stream_refresh", 0), 0, 0);
+        var manager = server.getTaskManager();
+        TaskStatus initialStatus = manager.getTaskStatus(id);
+        SqlTask task = manager.findTaskForStatusStream(id).orElseThrow();
+        Instant lastHeartbeat = task.lastHeartbeat();
+        JsonCodec<TaskStatus> codec = JsonCodec.jsonCodec(TaskStatus.class);
+        var stream = new WorkerTaskStatusStream(codec, new Duration(5, MILLISECONDS));
+        stream.watch(task, initialStatus.version());
+        var output = new ByteArrayOutputStream()
+        {
+            @Override
+            public void flush()
+            {
+                if (toString(UTF_8).contains("data: ")) {
+                    stream.close();
+                }
+            }
+        };
+        stream.writeTo(output);
+
+        assertThat(output.toString(UTF_8).lines().filter(line -> line.startsWith("data: ")))
+                .singleElement()
+                .satisfies(line -> {
+                    TaskStatus refreshed = codec.fromJson(line.substring(6));
+                    assertThat(refreshed.taskId()).isEqualTo(id);
+                    assertThat(refreshed.version()).isEqualTo(initialStatus.version());
+                });
+        assertThat(task.lastHeartbeat()).isEqualTo(lastHeartbeat);
     }
 
     private StatusResponse getTaskStatus(TaskId taskId, Optional<String> nodeInstanceId)

@@ -49,6 +49,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class ContinuousTaskStatusFetcher
 {
@@ -71,6 +72,8 @@ class ContinuousTaskStatusFetcher
 
     @GuardedBy("this")
     private boolean running;
+    private volatile boolean deferred;
+    private long deferredSince;
 
     @GuardedBy("this")
     private ListenableFuture<FullJsonResponseHandler.JsonResponse<TaskStatus>> future;
@@ -109,18 +112,56 @@ class ContinuousTaskStatusFetcher
         this.stats = requireNonNull(stats, "stats is null");
     }
 
+    synchronized void deferStart()
+    {
+        if (!deferred && !running && !getTaskStatus().state().isDone()) {
+            deferredSince = System.nanoTime();
+            deferred = true;
+        }
+    }
+
+    synchronized void clearDeferredStart()
+    {
+        deferred = false;
+    }
+
+    void startIfDeferred()
+    {
+        if (deferred) {
+            start();
+        }
+    }
+
+    void startIfOverdue()
+    {
+        if (deferred && System.nanoTime() - deferredSince >= refreshMaxWait.roundTo(NANOSECONDS)) {
+            startIfDeferred();
+        }
+    }
+
     public synchronized void start()
     {
-        if (running) {
-            // already running
+        deferred = false;
+        if (running || getTaskStatus().state().isDone()) {
             return;
         }
         running = true;
         scheduleNextRequest();
     }
 
+    void startAfterStreamClosed()
+    {
+        try {
+            start();
+        }
+        catch (RuntimeException e) {
+            onFail.accept(e);
+        }
+    }
+
     public synchronized void stop()
     {
+        deferred = false;
         running = false;
         if (future != null) {
             future.cancel(true);
@@ -159,6 +200,7 @@ class ContinuousTaskStatusFetcher
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
+        stats.recordStatusRequest();
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);
