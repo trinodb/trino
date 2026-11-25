@@ -88,14 +88,29 @@ public class TestRealType
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getPreviousValue(real(1.0f))).contains(real(Math.nextDown(1.0f)));
+        assertThat(type.getPreviousValue(real(0.0f))).contains(real(-Float.MIN_VALUE));
+        assertThat(type.getPreviousValue(real(-0.0f))).contains(real(-Float.MIN_VALUE));
+        assertThat(type.getPreviousValue(real(Float.MIN_VALUE))).contains(real(0.0f));
+        assertThat(type.getPreviousValue(real(Float.POSITIVE_INFINITY))).contains(real(Float.MAX_VALUE));
+        assertThat(type.getPreviousValue(real(Float.NEGATIVE_INFINITY))).isEmpty();
+        assertThat(type.getPreviousValue(real(Float.NaN))).isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getNextValue(real(1.0f))).contains(real(Math.nextUp(1.0f)));
+        assertThat(type.getNextValue(real(0.0f))).contains(real(Float.MIN_VALUE));
+        assertThat(type.getNextValue(real(-0.0f))).contains(real(Float.MIN_VALUE));
+        assertThat(type.getNextValue(real(-Float.MIN_VALUE))).contains(real(0.0f));
+        assertThat(type.getNextValue(real(Float.NEGATIVE_INFINITY))).contains(real(-Float.MAX_VALUE));
+        assertThat(type.getNextValue(real(Float.POSITIVE_INFINITY))).isEmpty();
+        assertThat(type.getNextValue(real(Float.NaN))).isEmpty();
+    }
+
+    private static long real(float value)
+    {
+        return floatToIntBits(value);
     }
 }
