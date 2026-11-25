@@ -158,6 +158,33 @@ html_theme_options = {
     # Bundled fonts are loaded from trino.css instead of being downloaded from Google Fonts
     'font': False,
     'globaltoc_collapse': True,
+    'palette': [
+        {
+            'media': '(prefers-color-scheme)',
+            'toggle': {
+                'icon': 'material/brightness-auto',
+                'name': 'Switch to light mode',
+            },
+        },
+        {
+            'media': '(prefers-color-scheme: light)',
+            'scheme': 'default',
+            'toggle': {
+                'icon': 'material/brightness-7',
+                'name': 'Switch to dark mode',
+            },
+        },
+        {
+            'media': '(prefers-color-scheme: dark)',
+            'scheme': 'slate',
+            'toggle': {
+                'icon': 'material/brightness-4',
+                'name': 'Switch to system preference',
+            },
+        },
+    ],
+    # Share the color scheme choice between documentation versions
+    'scope': '/',
     'toc_title': 'Contents',
     'features': [
         'content.code.copy',

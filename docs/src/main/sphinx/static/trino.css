@@ -47,7 +47,7 @@ html {
     scroll-behavior: smooth;
 }
 
-:root, [data-md-color-scheme="default"] {
+[data-md-color-scheme="default"] {
     --md-code-bg-color: #f5f5f5;
     --md-code-hl-keyword-color: #3b78e7;
     --md-code-hl-operator-color: #3b78e7;
@@ -86,7 +86,7 @@ html {
     }
 }
 
-.md-typeset h1 {
+[data-md-color-scheme="default"] .md-typeset h1 {
     color: rgba(0, 0, 0, .80);
 }
 
@@ -138,6 +138,11 @@ pre.literal-block {
     background-color: var(--md-default-fg-color--light);
     color: var(--md-default-bg-color);
     font-weight: normal;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table.data:not(.plain) th {
+    background-color: var(--md-default-fg-color--lightest);
+    color: var(--md-default-fg-color);
 }
 
 .md-typeset table.data:not(.plain) th,
