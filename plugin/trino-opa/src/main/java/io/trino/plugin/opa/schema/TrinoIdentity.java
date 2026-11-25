@@ -19,14 +19,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.spi.security.Identity;
 
+import java.security.Principal;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY;
 import static java.util.Objects.requireNonNull;
 
 public record TrinoIdentity(
         String user,
+        @JsonInclude(NON_ABSENT) Optional<String> principal,
         Set<String> groups,
         @JsonInclude(NON_EMPTY) Map<String, String> extraCredentials)
 {
@@ -34,6 +38,7 @@ public record TrinoIdentity(
     {
         return new TrinoIdentity(
                 identity.getUser(),
+                identity.getPrincipal().map(Principal::getName),
                 identity.getGroups(),
                 Maps.filterKeys(identity.getExtraCredentials(), allowedExtraCredentialsKeys::contains));
     }
@@ -41,6 +46,7 @@ public record TrinoIdentity(
     public TrinoIdentity
     {
         requireNonNull(user, "user is null");
+        requireNonNull(principal, "principal is null");
         groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
         extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }

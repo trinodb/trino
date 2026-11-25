@@ -144,6 +144,10 @@ The `context` object contains all other contextual information about the query:
 - `identity`: The identity of the user performing the operation, containing the
   following fields:
   - `user`: username
+  - `principal`: name of the authenticated principal, if any. It differs from
+    `user` when the authenticated principal impersonates another user, for
+    example with the `X-Trino-User` header. The field is omitted if there is no
+    authenticated principal.
   - `groups`: list of groups this user belongs to
   - `extraCredentials`: map of extra credentials from the client connection,
     restricted to the keys listed in `opa.identity.extra-credentials-keys`. The

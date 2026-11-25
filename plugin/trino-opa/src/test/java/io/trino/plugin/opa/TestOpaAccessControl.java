@@ -30,6 +30,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -1101,6 +1102,33 @@ final class TestOpaAccessControl
 
         JsonNode identityNode = mockClient.getRequests().get(0).path("input").path("context").path("identity");
         assertThat(identityNode.has("extraCredentials")).isFalse();
+    }
+
+    @Test
+    void testPrincipalPropagation()
+    {
+        Identity impersonated = Identity.forUser("impersonated-user")
+                .withPrincipal(new BasicPrincipal("impersonator"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+        authorizer.checkCanShowSchemas(new SystemSecurityContext(impersonated, TEST_QUERY_ID, Instant.now()), "some_catalog");
+
+        JsonNode identityNode = mockClient.getRequests().get(0).at("/input/context/identity");
+        assertThat(identityNode.path("user").asText()).isEqualTo("impersonated-user");
+        assertThat(identityNode.path("principal").asText()).isEqualTo("impersonator");
+    }
+
+    @Test
+    void testPrincipalOmittedWhenAbsent()
+    {
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+        authorizer.checkCanExecuteQuery(TEST_IDENTITY, TEST_QUERY_ID);
+
+        JsonNode identityNode = mockClient.getRequests().get(0).at("/input/context/identity");
+        assertThat(identityNode.has("principal")).isFalse();
     }
 
     @Test
