@@ -144,7 +144,7 @@ allocates a certain amount of memory for buffering.
 
 - **Type:** {ref}`prop-type-integer`
 - **Restrictions:** Must be a power of two
-- **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 64
+- **Default value:** Twice the number of physical CPUs of the node, with a minimum value of 2 and a maximum of 64
 - **Session property:** `task_max_writer_count`
 
 The number of concurrent writer threads per worker per query when either
@@ -178,7 +178,7 @@ for splits running longer than the threshold.
 
 - **Type:** {ref}`prop-type-duration`
 - **Minimum value:** `3m`
-- **Default value:** `10m`
+- **Default value:** `15m`
 
 The length of time Trino waits for a blocked split processing thread before failing the
 task. Only applies to threads that are blocked by the third-party Joni regular
