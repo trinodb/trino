@@ -14,10 +14,13 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+
+import java.util.Optional;
 
 public final class VarbinaryType
         extends AbstractVariableWidthType
@@ -31,6 +34,11 @@ public final class VarbinaryType
             .build();
 
     public static final VarbinaryType VARBINARY = new VarbinaryType();
+
+    // The values adjacent to a given value may be materialized in the plan, so we don't want them to be too large.
+    // Range comparison against large values is usually nonsensical, too, so there is no need to support them beyond
+    // a certain size. The specific choice here is arbitrary and can be adjusted if needed.
+    private static final int MAX_MATERIALIZED_VALUE_LENGTH = 100;
 
     private VarbinaryType()
     {
@@ -69,6 +77,19 @@ public final class VarbinaryType
         }
 
         return new SqlVarbinary(getSlice(block, position).getBytes());
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        Slice value = (Slice) object;
+        if (value.length() >= MAX_MATERIALIZED_VALUE_LENGTH) {
+            return Optional.empty();
+        }
+        // nothing sorts between a value and the same value with a zero byte appended
+        Slice next = Slices.allocate(value.length() + 1);
+        next.setBytes(0, value);
+        return Optional.of(next);
     }
 
     @Override

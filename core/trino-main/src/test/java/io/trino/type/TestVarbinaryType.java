@@ -71,7 +71,9 @@ public class TestVarbinaryType
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEmpty();
+        assertThat(type.getNextValue(Slices.EMPTY_SLICE)).contains(Slices.wrappedBuffer((byte) 0));
+        assertThat(type.getNextValue(Slices.wrappedBuffer((byte) 1, (byte) -1))).contains(Slices.wrappedBuffer((byte) 1, (byte) -1, (byte) 0));
+        assertThat(type.getNextValue(Slices.allocate(99))).contains(Slices.allocate(100));
+        assertThat(type.getNextValue(Slices.allocate(100))).isEmpty();
     }
 }

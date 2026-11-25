@@ -3990,6 +3990,22 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTruncateVarbinaryTransform()
+    {
+        assertUpdate("CREATE TABLE test_truncate_varbinary_transform (d VARBINARY, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 20)'])");
+        assertUpdate("INSERT INTO test_truncate_varbinary_transform VALUES (X'61', 1), (X'6162', 2), (X'616161616161616161616161616161616161', 3)", 3);
+
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d <= X'61'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d > X'61'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d > X'616161616161616161616161616161616161'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test_truncate_varbinary_transform");
+    }
+
+    @Test
     public void testTruncateTextTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
