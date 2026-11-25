@@ -1,0 +1,14 @@
+<runtime>
+    <archive name="presto-benchto-benchmarks-package-${project.version}.tar.gz" useRoot="false" streaming="true" />
+
+    <fileSet to="/">
+        <directory path="${basedir}">
+            <include>README*</include>
+        </directory>
+        <directory path="${basedir}/src/main/resources" />
+    </fileSet>
+
+    <fileSet to="/generate_schemas">
+        <directory path="${basedir}/generate_schemas" />
+    </fileSet>
+</runtime>
