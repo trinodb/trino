@@ -23,10 +23,10 @@ import io.airlift.slice.XxHash64;
 /// reach the code that reads the values of a type.
 public final class VariableWidthValues
 {
-    /// Whether builders of variable-width values build [StridedVariableWidthBlock]s. Experimental: set with the
-    /// system property `trino.experimental.strided-variable-width-block` when the JVM starts. The value is a
-    /// constant, so the code for the other class costs nothing when this is not set.
-    public static final boolean STRIDED = Boolean.getBoolean("trino.experimental.strided-variable-width-block");
+    /// Whether builders of variable-width values build [StridedVariableWidthBlock]s. Experimental: on unless the
+    /// system property `trino.experimental.strided-variable-width-block` is `false` when the JVM starts. The value
+    /// is a constant, so the code for the other class costs nothing when this is off.
+    public static final boolean STRIDED = Boolean.parseBoolean(System.getProperty("trino.experimental.strided-variable-width-block", "true"));
 
     private VariableWidthValues() {}
 
