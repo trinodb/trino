@@ -15,6 +15,7 @@ package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.execution.TaskFailureListener;
@@ -48,10 +49,13 @@ public class LazyExchangeDataSource
     private final TaskFailureListener taskFailureListener;
     private final RetryPolicy retryPolicy;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final Runnable closedBeforeNoMoreInputsListener;
 
     private final SettableFuture<Void> initializationFuture = SettableFuture.create();
     private final AtomicReference<ExchangeDataSource> delegate = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    @GuardedBy("this")
+    private boolean noMoreInputs;
 
     public LazyExchangeDataSource(
             QueryId queryId,
@@ -61,7 +65,8 @@ public class LazyExchangeDataSource
             LocalMemoryContext memoryContext,
             TaskFailureListener taskFailureListener,
             RetryPolicy retryPolicy,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            Runnable closedBeforeNoMoreInputsListener)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
@@ -71,6 +76,7 @@ public class LazyExchangeDataSource
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.closedBeforeNoMoreInputsListener = requireNonNull(closedBeforeNoMoreInputsListener, "closedBeforeNoMoreInputsListener is null");
     }
 
     @Override
@@ -158,6 +164,7 @@ public class LazyExchangeDataSource
         if (closed.get()) {
             return;
         }
+        noMoreInputs = true;
         ExchangeDataSource dataSource = delegate.get();
         if (dataSource != null) {
             dataSource.noMoreInputs();
@@ -191,15 +198,20 @@ public class LazyExchangeDataSource
     @Override
     public void close()
     {
+        boolean closedBeforeNoMoreInputs;
         synchronized (this) {
             if (!closed.compareAndSet(false, true)) {
                 return;
             }
+            closedBeforeNoMoreInputs = !noMoreInputs;
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource != null) {
                 dataSource.close();
             }
         }
         initializationFuture.set(null);
+        if (closedBeforeNoMoreInputs) {
+            closedBeforeNoMoreInputsListener.run();
+        }
     }
 }

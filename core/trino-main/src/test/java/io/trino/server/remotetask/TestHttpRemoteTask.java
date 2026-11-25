@@ -1331,7 +1331,8 @@ public class TestHttpRemoteTask
                     initialTaskStatus.fullGcTime(),
                     dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION),
                     initialTaskStatus.queuedPartitionedSplitsWeight(),
-                    initialTaskStatus.runningPartitionedSplitsWeight());
+                    initialTaskStatus.runningPartitionedSplitsWeight(),
+                    ImmutableSet.of());
         }
 
         private record DynamicFiltersFetchRequest(

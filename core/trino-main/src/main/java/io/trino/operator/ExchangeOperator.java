@@ -111,7 +111,8 @@ public class ExchangeOperator
                         operatorContext.localUserMemoryContext(),
                         taskContext::sourceTaskFailed,
                         retryPolicy,
-                        exchangeManagerRegistry);
+                        exchangeManagerRegistry,
+                        () -> taskContext.remoteSourceAbandoned(sourceId));
             }
             int operatorInstanceId = nextOperatorInstanceId;
             nextOperatorInstanceId++;

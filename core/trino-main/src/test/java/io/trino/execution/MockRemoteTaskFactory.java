@@ -317,7 +317,8 @@ public class MockRemoteTaskFactory
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION,
                     queuedSplitsInfo.getWeightSum(),
-                    combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum());
+                    combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum(),
+                    ImmutableSet.of());
         }
 
         private synchronized void updateSplitQueueSpace()

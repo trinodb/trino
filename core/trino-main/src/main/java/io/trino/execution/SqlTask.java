@@ -212,7 +212,8 @@ public class SqlTask
                             TaskHolder newHolder = new TaskHolder(
                                     createTaskInfo(taskHolder),
                                     taskHolder.getIoTotals(),
-                                    taskHolder.getDynamicFilterDomains());
+                                    taskHolder.getDynamicFilterDomains(),
+                                    taskHolder.getAbandonedRemoteSources());
                             checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
                             finished = true;
                         }
@@ -436,7 +437,8 @@ public class SqlTask
                 fullGcTime,
                 dynamicFiltersVersion,
                 queuedPartitionedSplitsWeight,
-                runningPartitionedSplitsWeight);
+                runningPartitionedSplitsWeight,
+                taskHolder.getAbandonedRemoteSources());
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -666,6 +668,7 @@ public class SqlTask
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoTotals finalIoTotals;
         private final VersionedDynamicFilterDomains finalDynamicFilterDomains;
+        private final Set<PlanNodeId> finalAbandonedRemoteSources;
 
         private TaskHolder()
         {
@@ -673,6 +676,7 @@ public class SqlTask
             this.finalTaskInfo = null;
             this.finalIoTotals = null;
             this.finalDynamicFilterDomains = null;
+            this.finalAbandonedRemoteSources = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -681,14 +685,27 @@ public class SqlTask
             this.finalTaskInfo = null;
             this.finalIoTotals = null;
             this.finalDynamicFilterDomains = null;
+            this.finalAbandonedRemoteSources = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoTotals finalIoTotals, VersionedDynamicFilterDomains finalDynamicFilterDomains)
+        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoTotals finalIoTotals, VersionedDynamicFilterDomains finalDynamicFilterDomains, Set<PlanNodeId> finalAbandonedRemoteSources)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoTotals = requireNonNull(finalIoTotals, "finalIoTotals is null");
             this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
+            this.finalAbandonedRemoteSources = ImmutableSet.copyOf(finalAbandonedRemoteSources);
+        }
+
+        public Set<PlanNodeId> getAbandonedRemoteSources()
+        {
+            if (finalAbandonedRemoteSources != null) {
+                return finalAbandonedRemoteSources;
+            }
+            if (taskExecution == null) {
+                return ImmutableSet.of();
+            }
+            return taskExecution.getTaskContext().getAbandonedRemoteSources();
         }
 
         public boolean isFinished()

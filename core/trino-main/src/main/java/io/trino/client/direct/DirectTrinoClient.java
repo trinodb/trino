@@ -183,7 +183,9 @@ public class DirectTrinoClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "Query"),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(dispatchQuery.getSession()),
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                // the query output is read by a single consumer, so nothing waits for buffers it abandons
+                () -> {});
     }
 
     private void getQueryFutureWithHeartbeats(ListenableFuture<Object> anyCompleteFuture, DispatchQuery dispatchQuery)

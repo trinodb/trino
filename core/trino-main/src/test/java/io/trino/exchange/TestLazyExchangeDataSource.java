@@ -25,6 +25,8 @@ import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,7 +71,32 @@ public class TestLazyExchangeDataSource
         }
     }
 
+    @Test
+    public void testCloseBeforeNoMoreInputsNotifiesListener()
+    {
+        AtomicInteger notifications = new AtomicInteger();
+        LazyExchangeDataSource source = createUnresolvedSource(notifications::incrementAndGet);
+        source.close();
+        source.close();
+        assertThat(notifications).hasValue(1);
+    }
+
+    @Test
+    public void testCloseAfterNoMoreInputsDoesNotNotifyListener()
+    {
+        AtomicInteger notifications = new AtomicInteger();
+        LazyExchangeDataSource source = createUnresolvedSource(notifications::incrementAndGet);
+        source.noMoreInputs();
+        source.close();
+        assertThat(notifications).hasValue(0);
+    }
+
     private static LazyExchangeDataSource createUnresolvedSource()
+    {
+        return createUnresolvedSource(() -> {});
+    }
+
+    private static LazyExchangeDataSource createUnresolvedSource(Runnable closedBeforeNoMoreInputsListener)
     {
         return new LazyExchangeDataSource(
                 new QueryId("query"),
@@ -83,6 +110,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                closedBeforeNoMoreInputsListener);
     }
 }

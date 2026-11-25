@@ -213,7 +213,8 @@ public class TestTaskInfoFetcherInstanceMismatch
                 new Duration(0, MILLISECONDS),
                 0,
                 0,
-                0);
+                0,
+                ImmutableSet.of());
 
         return new TaskInfo(
                 status,

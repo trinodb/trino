@@ -270,7 +270,8 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         Duration.valueOf("0s"),
                         0,
                         1,
-                        1),
+                        1,
+                        ImmutableSet.of()),
                 Instant.now(),
                 new OutputBufferInfo(
                         "TESTING",

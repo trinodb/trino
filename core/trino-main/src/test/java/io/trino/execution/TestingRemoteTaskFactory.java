@@ -202,7 +202,8 @@ public class TestingRemoteTaskFactory
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION,
                     0,
-                    0);
+                    0,
+                    ImmutableSet.of());
         }
 
         @Override
