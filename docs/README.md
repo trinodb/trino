@@ -262,30 +262,17 @@ contribution](https://trino.io/development/process.html).
 
 ## Docker container
 
-The build of the docs uses a Docker container that includes Sphinx and the
-required libraries. The container is referenced in the `SPHINX_IMAGE` variable
-in the `build` script.
+The build of the docs uses a Docker container that includes Sphinx, the theme,
+and the required libraries. The container is referenced in the `SPHINX_IMAGE`
+variable in the `build` script.
 
-The specific details for the container are available in `Dockerfile`, and
-`requirements.in`. The file `requirements.txt` must be updated after any changes
-to `requirements.in`.
+The container is defined in the `build/sphinx` directory of the
+[trinodb/docker-images](https://github.com/trinodb/docker-images) repository,
+in `Dockerfile` and `requirements.in`. The file `requirements.txt` must be
+updated after any changes to `requirements.in`.
 
-The container must be published to the GitHub container registry at ghcr.io with
-the necessary access credentials and the following command, after modification
-of the version tag `xxx` to the new desired value as used in the `build` script:
-
-```
-docker buildx build docs --platform=linux/arm64,linux/amd64 --tag ghcr.io/trinodb/build/sphinx:xxx --provenance=false --push
-```
-
-Note that the version must be updated and the command automatically also
-publishes the container with support for arm64 and amd64 processors. This is
-necessary so the build performs well on both hardware platforms.
-
-After the container is published, you can update the `build` script and merge
-the related pull request.
-
-Example PRs:
-
-* https://github.com/trinodb/trino/pull/17778
-* https://github.com/trinodb/trino/pull/13225
+The container is published to the GitHub container registry at
+`ghcr.io/trinodb/build/sphinx` with every release of the
+[trinodb/docker-images](https://github.com/trinodb/docker-images) repository,
+for both amd64 and arm64 processors. To use a new version of the container,
+update the version tag of `SPHINX_IMAGE` in the `build` script.
