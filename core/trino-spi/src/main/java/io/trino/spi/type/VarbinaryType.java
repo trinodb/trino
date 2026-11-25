@@ -16,8 +16,9 @@ package io.trino.spi.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 
 public final class VarbinaryType
         extends AbstractVariableWidthType
@@ -74,9 +75,9 @@ public final class VarbinaryType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition);
+        return VariableWidthValues.getSlice(valueBlock, valuePosition);
     }
 
     @Override

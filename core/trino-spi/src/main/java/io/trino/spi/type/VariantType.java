@@ -18,7 +18,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.block.VariantBlock;
 import io.trino.spi.block.VariantBlockBuilder;
 import io.trino.spi.function.BlockIndex;
@@ -169,8 +170,8 @@ public final class VariantType
 
     private static int getSliceLength(Block nestedBlock, int position)
     {
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) nestedBlock.getUnderlyingValueBlock();
-        return variableWidthBlock.getSliceLength(nestedBlock.getUnderlyingValuePosition(position));
+        ValueBlock variableWidthBlock = nestedBlock.getUnderlyingValueBlock();
+        return VariableWidthValues.getSliceLength(variableWidthBlock, nestedBlock.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -251,10 +252,8 @@ public final class VariantType
             @FlatVariableOffset int variableSizeOffset)
     {
         int rawPosition = position + block.getRawOffset();
-        Slice metadataSlice = ((VariableWidthBlock) block.getRawMetadata().getUnderlyingValueBlock())
-                .getSlice(block.getRawMetadata().getUnderlyingValuePosition(rawPosition));
-        Slice data = ((VariableWidthBlock) block.getRawValues().getUnderlyingValueBlock())
-                .getSlice(block.getRawValues().getUnderlyingValuePosition(rawPosition));
+        Slice metadataSlice = VariableWidthValues.getSlice(block.getRawMetadata().getUnderlyingValueBlock(), block.getRawMetadata().getUnderlyingValuePosition(rawPosition));
+        Slice data = VariableWidthValues.getSlice(block.getRawValues().getUnderlyingValueBlock(), block.getRawValues().getUnderlyingValuePosition(rawPosition));
         writeFlat(metadataSlice, data, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset);
     }
 

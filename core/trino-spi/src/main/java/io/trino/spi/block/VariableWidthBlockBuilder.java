@@ -41,6 +41,7 @@ import static io.trino.spi.block.BlockUtil.checkValidArrayGrowth;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.checkIndex;
 
 public class VariableWidthBlockBuilder
@@ -61,6 +62,10 @@ public class VariableWidthBlockBuilder
     private static final boolean COPY_VALUES_IN_CHUNKS = ByteVector.SPECIES_PREFERRED.vectorBitSize() >= CHUNK.vectorBitSize();
 
     private final BlockBuilderStatus blockBuilderStatus;
+    // The builder that the values go to instead when builders build StridedVariableWidthBlocks, see VariableWidthValues.
+    // Every method starts with the test of that constant, which costs nothing when it is not set.
+    @Nullable
+    private final StridedVariableWidthBlockBuilder strided;
 
     private boolean initialized;
     private final int initialEntryCount;
@@ -84,25 +89,48 @@ public class VariableWidthBlockBuilder
 
         initialEntryCount = expectedEntries;
         initialSliceOutputSize = min(expectedBytes, MAX_ARRAY_SIZE);
+        if (VariableWidthValues.STRIDED) {
+            strided = new StridedVariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, initialSliceOutputSize);
+        }
+        else {
+            strided = null;
+        }
 
         updateRetainedSize();
+    }
+
+    private VariableWidthBlockBuilder(StridedVariableWidthBlockBuilder strided)
+    {
+        this.blockBuilderStatus = null;
+        this.initialEntryCount = 0;
+        this.initialSliceOutputSize = 0;
+        this.strided = strided;
     }
 
     @Override
     public int getPositionCount()
     {
+        if (VariableWidthValues.STRIDED) {
+            return strided.getPositionCount();
+        }
         return positionCount;
     }
 
     @Override
     public long getSizeInBytes()
     {
+        if (VariableWidthValues.STRIDED) {
+            return strided.getSizeInBytes();
+        }
         return offsets[positionCount] + SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
+        if (VariableWidthValues.STRIDED) {
+            return INSTANCE_SIZE + strided.getRetainedSizeInBytes();
+        }
         long size = INSTANCE_SIZE + arraysRetainedSizeInBytes;
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
@@ -117,6 +145,11 @@ public class VariableWidthBlockBuilder
 
     public VariableWidthBlockBuilder writeEntry(Slice source, int sourceIndex, int length)
     {
+        if (VariableWidthValues.STRIDED) {
+            checkFromIndexSize(sourceIndex, length, source.length());
+            strided.writeEntry(source.byteArray(), source.byteArrayOffset() + sourceIndex, length);
+            return this;
+        }
         ensureFreeSpace(length);
         source.getBytes(sourceIndex, bytes, offsets[positionCount], length);
         entryAdded(length, false);
@@ -125,6 +158,10 @@ public class VariableWidthBlockBuilder
 
     public VariableWidthBlockBuilder writeEntry(byte[] source, int sourceIndex, int length)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.writeEntry(source, sourceIndex, length);
+            return this;
+        }
         ensureFreeSpace(length);
         System.arraycopy(source, sourceIndex, bytes, offsets[positionCount], length);
         entryAdded(length, false);
@@ -134,6 +171,10 @@ public class VariableWidthBlockBuilder
     @Override
     public void append(ValueBlock block, int position)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.append(block, position);
+            return;
+        }
         ensureCapacity(positionCount + 1);
 
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
@@ -172,6 +213,10 @@ public class VariableWidthBlockBuilder
     @Override
     public void appendRepeated(ValueBlock block, int position, int count)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.appendRepeated(block, position, count);
+            return;
+        }
         if (count == 0) {
             return;
         }
@@ -245,6 +290,10 @@ public class VariableWidthBlockBuilder
     @Override
     public void appendRange(ValueBlock block, int offset, int length)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.appendRange(block, offset, length);
+            return;
+        }
         if (length == 0) {
             return;
         }
@@ -296,6 +345,10 @@ public class VariableWidthBlockBuilder
     @Override
     public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.appendPositions(block, positions, offset, length);
+            return;
+        }
         if (length == 0) {
             return;
         }
@@ -612,6 +665,10 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder appendNull()
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.appendNull();
+            return this;
+        }
         hasNullValue = true;
         entryAdded(0, true);
         return this;
@@ -620,6 +677,10 @@ public class VariableWidthBlockBuilder
     @Override
     public void resetTo(int position)
     {
+        if (VariableWidthValues.STRIDED) {
+            strided.resetTo(position);
+            return;
+        }
         checkIndex(position, positionCount + 1);
         positionCount = position;
     }
@@ -648,6 +709,9 @@ public class VariableWidthBlockBuilder
     @Override
     public Block build()
     {
+        if (VariableWidthValues.STRIDED) {
+            return strided.build();
+        }
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
@@ -655,14 +719,20 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public VariableWidthBlock buildValueBlock()
+    public ValueBlock buildValueBlock()
     {
+        if (VariableWidthValues.STRIDED) {
+            return strided.buildValueBlock();
+        }
         return new VariableWidthBlock(0, positionCount, Slices.wrappedBuffer(bytes, 0, offsets[positionCount]), offsets, hasNullValue ? valueIsValid : null);
     }
 
     @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
+        if (VariableWidthValues.STRIDED) {
+            return new VariableWidthBlockBuilder(strided.newBlockBuilderLike(blockBuilderStatus));
+        }
         return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount), calculateBlockResetBytes(offsets[positionCount]));
     }
 
@@ -671,6 +741,9 @@ public class VariableWidthBlockBuilder
     {
         if (expectedEntries < 0 || expectedEntries > MAX_ARRAY_SIZE) {
             throw new IllegalArgumentException("Invalid expectedEntries: " + expectedEntries);
+        }
+        if (VariableWidthValues.STRIDED) {
+            return new VariableWidthBlockBuilder(strided.newBlockBuilderLike(expectedEntries, blockBuilderStatus));
         }
         int currentSizeInBytes = positionCount == 0 ? positionCount : (getOffset(positionCount) - getOffset(0));
         long scaledBytes = positionCount == 0 ? 0 : (long) currentSizeInBytes * expectedEntries / positionCount;
@@ -744,6 +817,9 @@ public class VariableWidthBlockBuilder
     @Override
     public String toString()
     {
+        if (VariableWidthValues.STRIDED) {
+            return "VariableWidthBlockBuilder{" + strided + '}';
+        }
         StringBuilder sb = new StringBuilder("VariableWidthBlockBuilder{");
         sb.append("positionCount=").append(positionCount);
         sb.append(", size=").append(offsets[positionCount]);

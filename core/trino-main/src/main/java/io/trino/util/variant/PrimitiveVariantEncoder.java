@@ -15,7 +15,8 @@ package io.trino.util.variant;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -472,15 +473,15 @@ abstract class PrimitiveVariantEncoder
 
     private static Slice getSlice(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition);
+        return VariableWidthValues.getSlice(valueBlock, valuePosition);
     }
 
     private static int getSliceLength(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSliceLength(valuePosition);
+        return VariableWidthValues.getSliceLength(valueBlock, valuePosition);
     }
 }

@@ -105,7 +105,7 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
 
         serializer.serialize(state, out);
 
-        VariableWidthBlock serialized = out.buildValueBlock();
+        VariableWidthBlock serialized = (VariableWidthBlock) out.buildValueBlock();
         assertThat(serialized.getSliceLength(0)).isEqualTo(expectedLength * Long.BYTES);
         LongDecimalWithOverflowAndLongState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serializedModification.apply(serialized), 0, outState);

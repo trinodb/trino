@@ -59,7 +59,7 @@ public class BenchmarkVariableWidthBlockBuilder
     {
         VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, selectedPositions.length, (int) ((long) data.totalBytes * data.selectedPercent / 100));
         builder.appendPositions(data.block, selectedPositions, 0, selectedPositions.length);
-        return builder.buildValueBlock();
+        return (VariableWidthBlock) builder.buildValueBlock();
     }
 
     public enum ValueLengths
@@ -145,7 +145,7 @@ public class BenchmarkVariableWidthBlockBuilder
                     builder.writeEntry(value);
                 }
             }
-            block = builder.buildValueBlock();
+            block = (VariableWidthBlock) builder.buildValueBlock();
 
             // positions in increasing order, like the positions a filter or a partitioner selects
             int selectedPositions = POSITIONS * selectedPercent / 100;

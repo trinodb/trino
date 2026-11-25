@@ -20,7 +20,8 @@ import io.trino.geospatial.Rectangle;
 import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -108,7 +109,7 @@ public class PagesSpatialIndexSupplier
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             Block channelBlock = channels.get(geometryChannel).get(blockIndex);
-            VariableWidthBlock block = (VariableWidthBlock) channelBlock.getUnderlyingValueBlock();
+            ValueBlock block = channelBlock.getUnderlyingValueBlock();
             int blockPosition = decodePosition(pageAddress);
             int valueBlockPosition = channelBlock.getUnderlyingValuePosition(blockPosition);
 
@@ -117,7 +118,7 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
-            Slice slice = block.getSlice(valueBlockPosition);
+            Slice slice = VariableWidthValues.getSlice(block, valueBlockPosition);
             Geometry geometry = deserialize(slice);
             verifyNotNull(geometry);
             if (geometry.isEmpty()) {
