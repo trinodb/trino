@@ -486,6 +486,31 @@ public class TestTrinoUri
     }
 
     @Test
+    public void testRestrictHosts()
+    {
+        TrinoUri uri = createTrinoUri("trino://localhost:8080?restrictHosts=true&allowedHosts=trino.example.com,*.example.net");
+        assertThat(uri.isHostRestrictionEnabled()).isTrue();
+        assertThat(uri.getAllowedHosts()).containsExactlyInAnyOrder("trino.example.com", "*.example.net");
+
+        assertInvalid("trino://localhost:8080?allowedHosts=trino.example.com", "Connection property allowedHosts requires restrictHosts to be enabled");
+        assertInvalid("trino://localhost:8080?restrictHosts=false&allowedHosts=trino.example.com", "Connection property allowedHosts requires restrictHosts to be enabled");
+        assertInvalid("trino://localhost:8080?restrictHosts=true&allowedHosts=trino*.example.com", "Connection property allowedHosts value is invalid: trino*.example.com");
+        assertInvalid("trino://localhost:8080?restrictHosts=true&allowedHosts=trino.example.com:8443", "Connection property allowedHosts value is invalid: trino.example.com:8443");
+    }
+
+    @Test
+    public void testRestrictHostsValues()
+    {
+        TrinoUri defaults = createTrinoUri("trino://localhost:8080");
+        assertThat(defaults.isHostRestrictionEnabled()).isFalse();
+        assertThat(defaults.getAllowedHosts()).isEmpty();
+
+        assertThat(createTrinoUri("trino://localhost:8080?restrictHosts=true&allowedHosts=").getAllowedHosts()).isEmpty();
+        assertThat(createTrinoUri("trino://localhost:8080?restrictHosts=true&allowedHosts=%20a.example.com%20,%20,b.example.com%20").getAllowedHosts())
+                .containsExactly("a.example.com", "b.example.com");
+    }
+
+    @Test
     public void testDefaultPorts()
     {
         TrinoUri uri = createTrinoUri("trino://localhost");

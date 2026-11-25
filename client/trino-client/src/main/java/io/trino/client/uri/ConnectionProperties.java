@@ -23,6 +23,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
+import io.trino.client.HostPattern;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
 import io.trino.client.uri.AbstractConnectionProperty.Validator;
@@ -124,10 +125,13 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
     public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
     public static final ConnectionProperty<String, Boolean> DISALLOW_LOCAL_REDIRECT = new LocalRedirectDisallowed();
+    public static final ConnectionProperty<String, Boolean> RESTRICT_HOSTS = new RestrictHosts();
+    public static final ConnectionProperty<String, Set<String>> ALLOWED_HOSTS = new AllowedHosts();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
             .add(ACCESS_TOKEN)
+            .add(ALLOWED_HOSTS)
             .add(APPLICATION_NAME_PREFIX)
             .add(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)
             .add(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)
@@ -166,6 +170,7 @@ final class ConnectionProperties
             .add(OAUTH2_TOKEN_ENDPOINT)
             .add(PASSWORD)
             .add(RESOURCE_ESTIMATES)
+            .add(RESTRICT_HOSTS)
             .add(ROLES)
             .add(SCHEMA)
             .add(SESSION_PROPERTIES)
@@ -1103,6 +1108,40 @@ final class ConnectionProperties
         public LocalRedirectDisallowed()
         {
             super(PropertyName.DISALLOW_LOCAL_REDIRECT, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class RestrictHosts
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public RestrictHosts()
+        {
+            super(PropertyName.RESTRICT_HOSTS, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class AllowedHosts
+            extends AbstractConnectionProperty<String, Set<String>>
+    {
+        private static final Validator<Properties> RESTRICT_HOSTS_ENABLED = validator(
+                properties -> RESTRICT_HOSTS.getValueOrDefault(properties, false),
+                format("Connection property %s requires %s to be enabled", PropertyName.ALLOWED_HOSTS, PropertyName.RESTRICT_HOSTS));
+
+        public AllowedHosts()
+        {
+            super(PropertyName.ALLOWED_HOSTS, NOT_REQUIRED, RESTRICT_HOSTS_ENABLED, converter(AllowedHosts::parseHosts, AllowedHosts::formatHosts));
+        }
+
+        private static Set<String> parseHosts(String hosts)
+        {
+            Set<String> allowedHosts = ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().split(hosts));
+            allowedHosts.forEach(HostPattern::parse);
+            return allowedHosts;
+        }
+
+        private static String formatHosts(Set<String> hosts)
+        {
+            return Joiner.on(",").join(hosts);
         }
     }
 

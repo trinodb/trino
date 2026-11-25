@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
+import static io.trino.client.uri.ConnectionProperties.ALLOWED_HOSTS;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -81,6 +82,7 @@ import static io.trino.client.uri.ConnectionProperties.OAUTH2_SCOPE;
 import static io.trino.client.uri.ConnectionProperties.OAUTH2_TOKEN_ENDPOINT;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
+import static io.trino.client.uri.ConnectionProperties.RESTRICT_HOSTS;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SCHEMA;
 import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
@@ -463,6 +465,16 @@ public class TrinoUri
     public boolean isLocalRedirectDisallowed()
     {
         return resolveWithDefault(DISALLOW_LOCAL_REDIRECT, false);
+    }
+
+    public boolean isHostRestrictionEnabled()
+    {
+        return resolveWithDefault(RESTRICT_HOSTS, false);
+    }
+
+    public Set<String> getAllowedHosts()
+    {
+        return resolveWithDefault(ALLOWED_HOSTS, ImmutableSet.of());
     }
 
     public Optional<String> getEncoding()
@@ -1129,6 +1141,16 @@ public class TrinoUri
         public Builder setDisallowLocalRedirect(boolean value)
         {
             return setProperty(DISALLOW_LOCAL_REDIRECT, value);
+        }
+
+        public Builder setRestrictHosts(boolean restrictHosts)
+        {
+            return setProperty(RESTRICT_HOSTS, restrictHosts);
+        }
+
+        public Builder setAllowedHosts(Set<String> allowedHosts)
+        {
+            return setProperty(ALLOWED_HOSTS, requireNonNull(allowedHosts, "allowedHosts is null"));
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
