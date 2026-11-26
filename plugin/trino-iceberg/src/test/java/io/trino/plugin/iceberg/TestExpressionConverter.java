@@ -45,6 +45,7 @@ import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -180,6 +181,30 @@ public class TestExpressionConverter
     }
 
     @Test
+    public void testIntegralRangeMembership()
+    {
+        IcebergColumnHandle column = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "x")).columnType(BIGINT).build();
+        Schema schema = new Schema(Types.NestedField.optional(1, "x", Types.LongType.get()));
+        for (long bound : List.of(Long.MIN_VALUE, 0L, Long.MAX_VALUE)) {
+            for (Range range : List.of(
+                    Range.lessThan(BIGINT, bound),
+                    Range.lessThanOrEqual(BIGINT, bound),
+                    Range.greaterThan(BIGINT, bound),
+                    Range.greaterThanOrEqual(BIGINT, bound))) {
+                for (boolean nullAllowed : List.of(false, true)) {
+                    Domain domain = Domain.create(ValueSet.ofRanges(range), nullAllowed);
+                    Evaluator evaluator = new Evaluator(schema.asStruct(), toIcebergExpression(column, domain), true);
+                    for (Long value : Arrays.asList(null, Long.MIN_VALUE, -1L, 0L, 1L, Long.MAX_VALUE)) {
+                        GenericRecord row = GenericRecord.create(schema);
+                        row.setField("x", value);
+                        assertThat(evaluator.eval(row)).as("%s contains %s", domain, value).isEqualTo(domain.includesNullableValue(value));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     public void testTimestampNanosOutOfRangeSingleValuesAreAlwaysFalse()
     {
         assertThat(toIcebergExpression(TIMESTAMP_NANOS_COLUMN, Domain.singleValue(TIMESTAMP_NANOS, new LongTimestamp(MIN_NANO_EPOCH_MICROS - 1, 0))))
@@ -211,13 +236,17 @@ public class TestExpressionConverter
         assertThat(toIcebergExpression(
                 TIMESTAMP_NANOS_COLUMN,
                 Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_NANOS, new LongTimestamp(MIN_NANO_EPOCH_MICROS - 1, 0), true, upperBound, true)), false)))
-                .hasToString(predicate(LT_EQ, "ts_nano", upperBound));
+                .hasToString(Expressions.and(notNull("ts_nano"), predicate(LT_EQ, "ts_nano", upperBound)).toString());
+        assertThat(toIcebergExpression(
+                TIMESTAMP_NANOS_COLUMN,
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(TIMESTAMP_NANOS, new LongTimestamp(MIN_NANO_EPOCH_MICROS - 1, 0))), false)))
+                .hasToString(notNull("ts_nano").toString());
 
         LongTimestamp lowerBound = new LongTimestamp(123_456_789L, 654_000);
         assertThat(toIcebergExpression(
                 TIMESTAMP_NANOS_COLUMN,
                 Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_NANOS, lowerBound, true, new LongTimestamp(MAX_NANO_EPOCH_MICROS + 1, 0), true)), false)))
-                .hasToString(predicate(GT_EQ, "ts_nano", lowerBound));
+                .hasToString(predicate(GT_EQ, "ts_nano", lowerBound).toString());
     }
 
     @Test
@@ -252,13 +281,17 @@ public class TestExpressionConverter
         assertThat(toIcebergExpression(
                 TIMESTAMP_TZ_NANOS_COLUMN,
                 Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_TZ_NANOS, timestampTzFromEpochMicros(MIN_NANO_EPOCH_MICROS - 1), true, upperBound, true)), false)))
-                .hasToString(predicate(LT_EQ, "ts_tz_nano", upperBound));
+                .hasToString(Expressions.and(notNull("ts_tz_nano"), predicate(LT_EQ, "ts_tz_nano", upperBound)).toString());
+        assertThat(toIcebergExpression(
+                TIMESTAMP_TZ_NANOS_COLUMN,
+                Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(TIMESTAMP_TZ_NANOS, timestampTzFromEpochMicros(MIN_NANO_EPOCH_MICROS - 1))), false)))
+                .hasToString(notNull("ts_tz_nano").toString());
 
         LongTimestampWithTimeZone lowerBound = LongTimestampWithTimeZone.fromEpochMillisAndFraction(123_456L, 654_000, UTC_KEY);
         assertThat(toIcebergExpression(
                 TIMESTAMP_TZ_NANOS_COLUMN,
                 Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_TZ_NANOS, lowerBound, true, timestampTzFromEpochMicros(MAX_NANO_EPOCH_MICROS + 1), true)), false)))
-                .hasToString(predicate(GT_EQ, "ts_tz_nano", lowerBound));
+                .hasToString(predicate(GT_EQ, "ts_tz_nano", lowerBound).toString());
     }
 
     private static Expression toIcebergExpression(IcebergColumnHandle columnHandle, Domain domain)
@@ -271,14 +304,19 @@ public class TestExpressionConverter
         return timestampTzFromMicros(epochMicros);
     }
 
-    private static String predicate(Expression.Operation operation, String columnName, LongTimestamp timestamp)
+    private static Expression notNull(String columnName)
     {
-        return Expressions.predicate(operation, columnName, Expressions.nanos(timestampToNanos(timestamp))).toString();
+        return Expressions.not(Expressions.isNull(columnName));
     }
 
-    private static String predicate(Expression.Operation operation, String columnName, LongTimestampWithTimeZone timestamp)
+    private static Expression predicate(Expression.Operation operation, String columnName, LongTimestamp timestamp)
     {
-        return Expressions.predicate(operation, columnName, Expressions.nanos(timestampTzToNanos(timestamp))).toString();
+        return Expressions.predicate(operation, columnName, Expressions.nanos(timestampToNanos(timestamp)));
+    }
+
+    private static Expression predicate(Expression.Operation operation, String columnName, LongTimestampWithTimeZone timestamp)
+    {
+        return Expressions.predicate(operation, columnName, Expressions.nanos(timestampTzToNanos(timestamp)));
     }
 
     private static String singleValueExpression(String columnName, LongTimestamp timestamp)

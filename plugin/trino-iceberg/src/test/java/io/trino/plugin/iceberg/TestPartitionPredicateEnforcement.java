@@ -21,10 +21,13 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.expressions.Binder;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.expressions.ResidualEvaluator;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.PartitionPredicateEnforcement.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.PartitionPredicateEnforcement.implies;
 import static io.trino.plugin.iceberg.PartitionPredicateEnforcement.selectPartitionSpecs;
@@ -50,6 +54,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
+import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
@@ -297,6 +303,24 @@ public class TestPartitionPredicateEnforcement
     }
 
     @Test
+    public void testUnboundedLowRangeExcludesNullPartition()
+    {
+        Schema schema = new Schema(Types.NestedField.optional(1, "d", Types.IntegerType.get()));
+        Table table = createTable(schema, PartitionSpec.builderFor(schema).truncate("d", 10).build());
+        IcebergColumnHandle col = column(1, "d", INTEGER);
+
+        // Iceberg orders null before every value, so `d < 10` alone would select and delete the null partition
+        for (Range range : List.of(Range.lessThan(INTEGER, 10L), Range.lessThanOrEqual(INTEGER, 9L))) {
+            Domain domain = Domain.create(ValueSet.ofRanges(range), false);
+            assertThat(canEnforce(table, col, domain)).isTrue();
+            ResidualEvaluator residualEvaluator = ResidualEvaluator.of(table.spec(), toIcebergExpression(col, domain), true);
+            assertThat(residualEvaluator.residualFor(partition(table, 0))).isSameAs(alwaysTrue());
+            assertThat(residualEvaluator.residualFor(partition(table, 10))).isSameAs(alwaysFalse());
+            assertThat(residualEvaluator.residualFor(partition(table, null))).isSameAs(alwaysFalse());
+        }
+    }
+
+    @Test
     public void testBoundsAtTypeLimitsAreNotEnforced()
     {
         Schema schema = new Schema(Types.NestedField.optional(1, "d", Types.IntegerType.get()));
@@ -321,6 +345,13 @@ public class TestPartitionPredicateEnforcement
     {
         Path location = tempDir.resolve("table_" + TABLE_COUNTER.incrementAndGet());
         return HADOOP_TABLES.create(schema, spec, location.toUri().toString());
+    }
+
+    private static StructLike partition(Table table, Object value)
+    {
+        GenericRecord partition = GenericRecord.create(table.spec().partitionType());
+        partition.set(0, value);
+        return partition;
     }
 
     private static boolean canEnforce(Table table, IcebergColumnHandle column, Domain domain)

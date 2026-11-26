@@ -4091,6 +4091,27 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testRangeFilterExcludesNullPartition()
+    {
+        try (TestTable table = newTrinoTable("test_range_filter_null_partition", "(d INTEGER, b BIGINT) WITH (partitioning = ARRAY['d'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, 0), (1, 1), (10, 2)", 3);
+
+            assertThat(query("SELECT b FROM " + table.getName() + " WHERE d < 10"))
+                    .matches("VALUES BIGINT '1'")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT b FROM " + table.getName() + " WHERE d <= 10"))
+                    .matches("VALUES BIGINT '1', BIGINT '2'")
+                    .isFullyPushedDown();
+
+            // Iceberg orders null before every value, so a range without a lower bound must not delete the NULL partition
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE d < 10", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE d <= 10", 1);
+            assertThat(query("SELECT b FROM " + table.getName()))
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    @Test
     public void testTruncateIntegerTransform()
     {
         testTruncateIntegerTransform("integer");

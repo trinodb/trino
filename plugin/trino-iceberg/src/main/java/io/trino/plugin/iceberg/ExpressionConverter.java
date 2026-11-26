@@ -206,11 +206,16 @@ public final class ExpressionConverter
             };
         }
 
+        // Iceberg orders null before every value, so a range without a lower bound has to exclude null itself
+        Expression notNull = not(isNull(columnName));
         List<Expression> conjuncts = new ArrayList<>(2);
-        if (!range.isLowUnbounded()) {
+        if (range.isLowUnbounded()) {
+            conjuncts.add(notNull);
+        }
+        else {
             conjuncts.add(switch (range(type, range.getLowBoundedValue())) {
                 case ABOVE_RANGE -> alwaysFalse();
-                case BELOW_RANGE -> alwaysTrue();
+                case BELOW_RANGE -> notNull;
                 case IN_RANGE -> {
                     Object icebergLow = normalizeFloatingPointZero(convertTrinoValueToIceberg(type, range.getLowBoundedValue()), range.isLowInclusive());
                     if (range.isLowInclusive()) {
