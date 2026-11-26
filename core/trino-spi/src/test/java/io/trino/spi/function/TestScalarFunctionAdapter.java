@@ -271,6 +271,34 @@ class TestScalarFunctionAdapter
     }
 
     @Test
+    public void testAdaptRejectsWrongParameterCount()
+    {
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
+        MethodHandle methodHandle = MethodHandles.empty(methodType(long.class, long.class, long.class));
+        assertThatThrownBy(() -> ScalarFunctionAdapter.adapt(methodHandle, BIGINT, ImmutableList.of(BIGINT), convention, convention))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("requires 1");
+    }
+
+    @Test
+    public void testAdaptRejectsUnrelatedSessionType()
+    {
+        InvocationConvention convention = new InvocationConvention(ImmutableList.of(), FAIL_ON_NULL, true, false);
+        MethodHandle methodHandle = MethodHandles.empty(methodType(long.class, String.class));
+        assertThatThrownBy(() -> ScalarFunctionAdapter.adapt(methodHandle, BIGINT, ImmutableList.of(), convention, convention))
+                .isInstanceOf(WrongMethodTypeException.class);
+    }
+
+    @Test
+    public void testAdaptRejectsUnrelatedValueBlockType()
+    {
+        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION);
+        MethodHandle methodHandle = MethodHandles.empty(methodType(long.class, Slice.class, int.class));
+        assertThatThrownBy(() -> ScalarFunctionAdapter.adapt(methodHandle, BIGINT, ImmutableList.of(BIGINT), convention, convention))
+                .isInstanceOf(WrongMethodTypeException.class);
+    }
+
+    @Test
     public void testAdaptPreservesPrimitiveFailOnNullReturn()
             throws Throwable
     {

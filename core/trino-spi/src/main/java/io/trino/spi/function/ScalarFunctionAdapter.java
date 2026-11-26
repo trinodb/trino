@@ -305,7 +305,7 @@ public final class ScalarFunctionAdapter
         return methodType.changeParameterType(parameterIndex, canonicalType);
     }
 
-    // For a parameter that may be declared as a supertype or as a specialization of the canonical type. A cast between unrelated types would never succeed.
+    // For a parameter that may be declared as a supertype or as a specialization of the canonical type.
     private static MethodType relatedParameterType(MethodType methodType, int parameterIndex, Class<?> canonicalType)
     {
         Class<?> declaredType = methodType.parameterType(parameterIndex);
@@ -322,7 +322,7 @@ public final class ScalarFunctionAdapter
         if (declaredType == void.class) {
             return methodType;
         }
-        // A primitive must match exactly, as asType would widen it. A reference may be a supertype, which is cast down when the function returns, or a subtype.
+        // A reference may be a supertype, which is cast down when the function returns, or a subtype.
         boolean compatible = declaredType.isPrimitive()
                 ? wrap(declaredType) == wrap(canonicalType)
                 : declaredType.isAssignableFrom(wrap(canonicalType)) || wrap(canonicalType).isAssignableFrom(declaredType);
