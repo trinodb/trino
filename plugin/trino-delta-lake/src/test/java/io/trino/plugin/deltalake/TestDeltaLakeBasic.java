@@ -3373,6 +3373,27 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    public void testTimeTravelWithTimestampInSessionTimeZone()
+            throws Exception
+    {
+        String tableName = "test_time_travel_timestamp_session_time_zone_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        Session viennaSession = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Europe/Vienna")).build();
+        Session losAngelesSession = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Los_Angeles")).build();
+
+        // Version 6 was committed at 2023-10-16 06:53:14.248 UTC
+        assertThat(query(viennaSession, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 08:53:14.247'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query(viennaSession, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 08:53:14.248'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query(losAngelesSession, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-15 23:53:14.247'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query(losAngelesSession, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-15 23:53:14.248'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testTimeTravelWithV2Checkpoint()
             throws Exception
     {

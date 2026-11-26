@@ -5779,7 +5779,7 @@ public class TestDeltaLakeConnectorTest
 
         // precision 0
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).withZoneSameInstant(getSession().getTimeZoneKey().getZoneId()).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
 
         // precision 10
         String timestampWithPrecision10 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(10) + " UTC";

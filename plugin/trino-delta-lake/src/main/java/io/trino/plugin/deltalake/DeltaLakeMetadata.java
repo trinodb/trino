@@ -179,6 +179,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Collections;
@@ -660,9 +661,8 @@ public class DeltaLakeMetadata
                     ? (long) version.getVersion()
                     : ((LongTimestamp) version.getVersion()).getEpochMicros();
             long epochMillisUtc = floorDiv(epochMicrosUtc, MICROSECONDS_PER_MILLISECOND);
-            long epochMillis = Instant.ofEpochMilli(epochMillisUtc)
-                    .atOffset(ZoneOffset.UTC)
-                    .atZoneSameInstant(session.getTimeZoneKey().getZoneId())
+            long epochMillis = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillisUtc), ZoneOffset.UTC)
+                    .atZone(session.getTimeZoneKey().getZoneId())
                     .toInstant()
                     .toEpochMilli();
             return findSnapshotIdAsOfTime(fileSystem, tableLocation, epochMillis, executor);
