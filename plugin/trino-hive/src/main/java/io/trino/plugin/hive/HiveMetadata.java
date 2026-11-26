@@ -348,6 +348,8 @@ import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
@@ -3322,6 +3324,11 @@ public class HiveMetadata
         if (!hiveTablePartitioning.columns().equals(columns)) {
             return Optional.empty();
         }
+        if (hiveTablePartitioning.partitioningHandle().getBucketingVersion() == BUCKETING_V2
+                && hiveTablePartitioning.columns().stream().map(HiveColumnHandle::getType).anyMatch(HiveMetadata::hasSignedZeroSensitiveV2Hash)) {
+            // Hive v2 can store equal values with opposite zero signs in different buckets.
+            return Optional.empty();
+        }
 
         HiveTablePartitioning newTablePartitioning = hiveTablePartitioning;
         if (partitioningHandle.isPresent()) {
@@ -3340,6 +3347,15 @@ public class HiveMetadata
             return Optional.empty();
         }
         return Optional.of(hiveTable.withTablePartitioning(Optional.of(newTablePartitioning)));
+    }
+
+    private static boolean hasSignedZeroSensitiveV2Hash(Type type)
+    {
+        if (type instanceof MapType mapType) {
+            // Hive v2 hashes map values using v1.
+            return hasSignedZeroSensitiveV2Hash(mapType.getKeyType());
+        }
+        return type.equals(DOUBLE) || type.equals(REAL) || type.getTypeParameters().stream().anyMatch(HiveMetadata::hasSignedZeroSensitiveV2Hash);
     }
 
     @Override
