@@ -81,6 +81,7 @@ public class IcebergModule
     {
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(TableMetadataCache.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TableMetadataCache.class).withGeneratedName();
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(SortingFileWriterConfig.class, "iceberg");
 

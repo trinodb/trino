@@ -17,9 +17,12 @@ import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.iceberg.IcebergConfig;
 import org.apache.iceberg.TableMetadata;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.function.Function;
 
@@ -54,12 +57,14 @@ public final class TableMetadataCache
             cache = EvictableCacheBuilder.newBuilder()
                     .maximumSize(0)
                     .shareNothingWhenDisabled()
+                    .recordStats()
                     .build();
             return;
         }
         cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
                 .<String, TableMetadata>weigher((_, metadata) -> estimatedRetainedBytes(metadata))
+                .recordStats()
                 .build();
     }
 
@@ -77,6 +82,24 @@ public final class TableMetadataCache
             throwIfUnchecked(e.getCause());
             throw e;
         }
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getCacheStats()
+    {
+        return new CacheStatsMBean(cache);
+    }
+
+    /**
+     * Sum of the estimated retained sizes of cached entries, as counted against the configured maximum size.
+     */
+    @Managed
+    public long getTotalWeight()
+    {
+        return cache.asMap().values().stream()
+                .mapToLong(TableMetadataCache::estimatedRetainedBytes)
+                .sum();
     }
 
     private static int estimatedRetainedBytes(TableMetadata metadata)
