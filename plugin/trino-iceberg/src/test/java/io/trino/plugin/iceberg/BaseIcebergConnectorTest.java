@@ -2897,6 +2897,10 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
 
+        assertUpdate("DELETE FROM test_day_transform_date WHERE d = DATE '2015-01-13'", 2);
+        assertThat(query("SELECT b FROM test_day_transform_date WHERE d = DATE '2015-01-13'"))
+                .returnsEmptyResult();
+
         assertUpdate("DROP TABLE test_day_transform_date");
     }
 
@@ -3581,6 +3585,12 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_year_transform_date WHERE year(d) = 2015"))
                 .isFullyPushedDown();
 
+        // Iceberg widens pre-1970 inclusive upper bounds to handle legacy transforms, so these must not be fully pushed down
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d < DATE '1970-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d <= DATE '1969-12-31'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
         // date_trunc
         assertThat(query("SELECT * FROM test_year_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
@@ -4041,6 +4051,46 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTruncateVarcharStrictRange()
+    {
+        assertUpdate("CREATE TABLE test_truncate_varchar_strict_range (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 20)'])");
+        assertUpdate("INSERT INTO test_truncate_varchar_strict_range VALUES (NULL, 0), ('a', 1), ('ab', 2), ('aaaaaaaaaaaaaaaaaa', 3)", 4);
+
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d IS NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d <= 'a'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d > 'a'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT b FROM test_truncate_varchar_strict_range WHERE d > 'aaaaaaaaaaaaaaaaaa'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test_truncate_varchar_strict_range");
+    }
+
+    @Test
+    public void testTruncateVarbinaryTransform()
+    {
+        assertUpdate("CREATE TABLE test_truncate_varbinary_transform (d VARBINARY, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 20)'])");
+        assertUpdate("INSERT INTO test_truncate_varbinary_transform VALUES (NULL, 0), (X'61', 1), (X'6162', 2), (X'616161616161616161616161616161616161', 3)", 4);
+
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d IS NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d <= X'61'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d > X'61'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT b FROM test_truncate_varbinary_transform WHERE d > X'616161616161616161616161616161616161'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertUpdate("DROP TABLE test_truncate_varbinary_transform");
+    }
+
+    @Test
     public void testTruncateIntegerTransform()
     {
         testTruncateIntegerTransform("integer");
@@ -4268,7 +4318,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE d IS NULL"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM " + tableName + " WHERE d IS NOT NULL"))
-                .isNotFullyPushedDown(FilterNode.class); // this could be subsumed
+                .isFullyPushedDown();
 
         // Bucketing transform doesn't allow comparison filter elimination
         assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + value))

@@ -126,12 +126,16 @@ public final class ExpressionConverter
         List<Expression> conjuncts = new ArrayList<>();
         for (Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
-            checkArgument(!columnHandle.isMetadataColumn(), "Constraint on an unexpected column %s", columnHandle);
-            Domain domain = entry.getValue();
-            checkArgument(isConvertibleToIcebergExpression(domain), "Unexpected not convertible domain on column %s: %s", columnHandle, domain);
-            conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
+            conjuncts.add(toIcebergExpression(columnHandle, entry.getValue()));
         }
         return and(conjuncts);
+    }
+
+    public static Expression toIcebergExpression(IcebergColumnHandle columnHandle, Domain domain)
+    {
+        checkArgument(!columnHandle.isMetadataColumn(), "Constraint on an unexpected column %s", columnHandle);
+        checkArgument(isConvertibleToIcebergExpression(domain), "Unexpected not convertible domain on column %s: %s", columnHandle, domain);
+        return toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain);
     }
 
     private static Expression toIcebergExpression(String columnName, Type type, Domain domain)

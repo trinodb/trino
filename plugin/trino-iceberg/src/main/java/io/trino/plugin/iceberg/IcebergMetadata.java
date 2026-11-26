@@ -362,7 +362,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getProperty;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
-import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
@@ -393,6 +392,8 @@ import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColu
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
 import static io.trino.plugin.iceberg.PartitionFieldPredicate.canEnforcePartitionRowDomain;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.PartitionPredicateEnforcement.canEnforceColumnConstraintInSpecs;
+import static io.trino.plugin.iceberg.PartitionPredicateEnforcement.selectPartitionSpecs;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
@@ -3987,8 +3988,10 @@ public class IcebergMetadata
         }
         else {
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            // Column handles carry names from the handle's schema, which may differ from the loaded table's
+            Schema tableSchema = SchemaParser.fromJson(table.getTableSchemaJson());
 
-            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId());
+            List<PartitionSpec> partitionSpecs = selectPartitionSpecs(icebergTable, tableSchema, getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId()));
 
             Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
@@ -4008,7 +4011,7 @@ public class IcebergMetadata
                 else if (!isConvertibleToIcebergExpression(domain)) {
                     unsupported.put(columnHandle, domain);
                 }
-                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
+                else if (canEnforceColumnConstraintInSpecs(partitionSpecs, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
                 }
                 else {
