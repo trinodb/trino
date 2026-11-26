@@ -214,6 +214,7 @@ public class ElasticsearchClient
                 config.getHosts().stream()
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
                         .toArray(HttpHost[]::new));
+        config.getPathPrefix().ifPresent(builder::setPathPrefix);
 
         builder.setHttpClientConfigCallback(_ -> {
             RequestConfig requestConfig = RequestConfig.custom()
