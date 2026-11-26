@@ -247,14 +247,12 @@ rego script:
 
 ```text
   package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
+  import rego.v1
 
   default allow := true
 
   table_resource := input.action.resource.table
-  is_admin {
+  is_admin if {
     input.context.identity.user == "admin"
   }
 
@@ -287,14 +285,12 @@ rego script:
 
 ```text
   package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
+  import rego.v1
 
   default allow := true
 
   column_resource := input.action.resource.column
-  is_admin {
+  is_admin if {
     input.context.identity.user == "admin"
   }
 
@@ -349,9 +345,7 @@ following rego script:
 
 ```text
 package trino
-import future.keywords.in
-import future.keywords.if
-import future.keywords.contains
+import rego.v1
 
 default allow := true
 
@@ -475,11 +469,11 @@ You can add batching support for policies that do not support it:
 ```text
 package foo
 
-import future.keywords.contains
+import rego.v1
 
 # ... rest of the policy ...
 # this assumes the non-batch response field is called "allow"
-batch contains i {
+batch contains i if {
     some i
     raw_resource := input.action.filterResources[i]
     allow with input.action.resource as raw_resource
@@ -488,7 +482,7 @@ batch contains i {
 # Corner case: filtering columns is done with a single table item, and many columns inside
 # We cannot use our normal logic in other parts of the policy as they are based on sets
 # and we need to retain order
-batch contains i {
+batch contains i if {
     some i
     input.action.operation == "FilterColumns"
     count(input.action.filterResources) == 1
