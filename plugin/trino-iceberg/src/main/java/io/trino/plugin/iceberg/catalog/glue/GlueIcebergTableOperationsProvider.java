@@ -19,6 +19,7 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
@@ -40,6 +41,7 @@ public class GlueIcebergTableOperationsProvider
     private final boolean cacheTableMetadata;
     private final StatsRecordingGlueClient glueClient;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final TableMetadataCache tableMetadataCache;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
@@ -49,7 +51,8 @@ public class GlueIcebergTableOperationsProvider
             IcebergGlueCatalogConfig catalogConfig,
             GlueMetastoreStats stats,
             GlueClient glueClient,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -57,6 +60,7 @@ public class GlueIcebergTableOperationsProvider
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.glueClient = new StatsRecordingGlueClient(glueClient, stats);
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.tableMetadataCache = requireNonNull(tableMetadataCache, "tableMetadataCache is null");
     }
 
     @Override
@@ -81,6 +85,7 @@ public class GlueIcebergTableOperationsProvider
                 table,
                 owner,
                 location,
-                encryptionManagerFactory);
+                encryptionManagerFactory,
+                tableMetadataCache);
     }
 }
