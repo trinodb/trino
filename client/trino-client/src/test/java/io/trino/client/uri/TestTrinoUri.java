@@ -31,6 +31,8 @@ import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY_PASSWORD;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY_USER;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
@@ -97,6 +99,15 @@ public class TestTrinoUri
         assertInvalid("trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Provided connection properties are invalid:\n" +
                 "Connection property httpProxy cannot be used when socksProxy is set\n" +
                 "Connection property socksProxy cannot be used when httpProxy is set");
+
+        // http proxy credentials
+        assertInvalid("trino://localhost:8080?httpProxyUser=proxyuser", "Connection property httpProxyUser requires httpProxy to be set");
+        assertInvalid("trino://localhost:8080?httpProxyPassword=proxypass", "Connection property httpProxyPassword requires httpProxy to be set");
+        assertInvalid("trino://localhost:8080?httpProxy=localhost:8888&httpProxyUser=proxyuser", "Connection property httpProxyUser requires httpProxyPassword to be set");
+        assertInvalid("trino://localhost:8080?httpProxy=localhost:8888&httpProxyPassword=proxypass", "Connection property httpProxyPassword requires httpProxyUser to be set");
+        assertInvalid("trino://localhost:8080?socksProxy=localhost:1080&httpProxyUser=proxyuser&httpProxyPassword=proxypass", "Provided connection properties are invalid:\n" +
+                "Connection property httpProxyPassword requires httpProxy to be set\n" +
+                "Connection property httpProxyUser requires httpProxy to be set");
 
         // invalid ssl flag
         assertInvalid("trino://localhost:8080?SSL=0", "Connection property SSL value is invalid: 0");
@@ -260,6 +271,20 @@ public class TestTrinoUri
 
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(HTTP_PROXY.toString())).isEqualTo("localhost:5678");
+        assertThat(parameters.getHttpProxyUser()).isEmpty();
+        assertThat(parameters.getHttpProxyPassword()).isEmpty();
+    }
+
+    @Test
+    public void testUriWithHttpProxyCredentials()
+    {
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?httpProxy=localhost:5678&httpProxyUser=proxyuser&httpProxyPassword=proxypass");
+        assertThat(parameters.getHttpProxyUser()).contains("proxyuser");
+        assertThat(parameters.getHttpProxyPassword()).contains("proxypass");
+
+        Properties properties = parameters.getProperties();
+        assertThat(properties.getProperty(HTTP_PROXY_USER.toString())).isEqualTo("proxyuser");
+        assertThat(properties.getProperty(HTTP_PROXY_PASSWORD.toString())).isEqualTo("proxypass");
     }
 
     @Test

@@ -69,6 +69,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, ClientSelectedRole>> ROLES = new Roles();
     public static final ConnectionProperty<String, HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<String, HostAndPort> HTTP_PROXY = new HttpProxy();
+    public static final ConnectionProperty<String, String> HTTP_PROXY_PASSWORD = new HttpProxyPassword();
+    public static final ConnectionProperty<String, String> HTTP_PROXY_USER = new HttpProxyUser();
     public static final ConnectionProperty<String, String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<String, Boolean> DISABLE_COMPRESSION = new DisableCompression();
     public static final ConnectionProperty<String, String> ENCODING = new Encoding();
@@ -150,6 +152,8 @@ final class ConnectionProperties
             .add(HOSTNAME_IN_CERTIFICATE)
             .add(HTTP_LOGGING_LEVEL)
             .add(HTTP_PROXY)
+            .add(HTTP_PROXY_PASSWORD)
+            .add(HTTP_PROXY_USER)
             .add(KERBEROS_CONFIG_PATH)
             .add(KERBEROS_CONSTRAINED_DELEGATION)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
@@ -337,6 +341,40 @@ final class ConnectionProperties
         public HttpProxy()
         {
             super(PropertyName.HTTP_PROXY, NOT_REQUIRED, NO_SOCKS_PROXY, converter(HostAndPort::fromString, HostAndPort::toString));
+        }
+    }
+
+    private static class HttpProxyPassword
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> REQUIRES_HTTP_PROXY = validator(
+                properties -> HTTP_PROXY.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.HTTP_PROXY_PASSWORD, PropertyName.HTTP_PROXY));
+
+        private static final Validator<Properties> REQUIRES_HTTP_PROXY_USER = validator(
+                properties -> HTTP_PROXY_USER.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.HTTP_PROXY_PASSWORD, PropertyName.HTTP_PROXY_USER));
+
+        public HttpProxyPassword()
+        {
+            super(PropertyName.HTTP_PROXY_PASSWORD, NOT_REQUIRED, REQUIRES_HTTP_PROXY.and(REQUIRES_HTTP_PROXY_USER), STRING_CONVERTER);
+        }
+    }
+
+    private static class HttpProxyUser
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> REQUIRES_HTTP_PROXY = validator(
+                properties -> HTTP_PROXY.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.HTTP_PROXY_USER, PropertyName.HTTP_PROXY));
+
+        private static final Validator<Properties> REQUIRES_HTTP_PROXY_PASSWORD = validator(
+                properties -> HTTP_PROXY_PASSWORD.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.HTTP_PROXY_USER, PropertyName.HTTP_PROXY_PASSWORD));
+
+        public HttpProxyUser()
+        {
+            super(PropertyName.HTTP_PROXY_USER, NOT_REQUIRED, REQUIRES_HTTP_PROXY.and(REQUIRES_HTTP_PROXY_PASSWORD), STRING_CONVERTER);
         }
     }
 
