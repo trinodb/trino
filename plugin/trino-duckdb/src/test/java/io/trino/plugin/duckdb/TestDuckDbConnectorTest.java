@@ -14,6 +14,7 @@
 package io.trino.plugin.duckdb;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.testing.BaseConnectorTest.SetColumnTypeSetup;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -86,11 +87,17 @@ final class TestDuckDbConnectorTest
 
         if (type.equals("time") ||
                 type.startsWith("time(") ||
-                type.startsWith("timestamp") ||
                 type.equals("varbinary") ||
                 type.startsWith("array") ||
                 type.startsWith("row")) {
             return Optional.of(setup.asUnsupported());
+        }
+
+        if (type.startsWith("timestamp(")) {
+            int precision = Integer.parseInt(type.substring("timestamp(".length(), type.indexOf(')')));
+            if (precision > 9) {
+                return Optional.of(setup.asUnsupported());
+            }
         }
 
         if (setup.getTrinoTypeName().equals("char(3)") && setup.getSampleValueLiteral().equals("'ab'")) {
@@ -193,6 +200,11 @@ final class TestDuckDbConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // DuckDB does not preserve the original time zone and always returns timestamps in UTC
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
+
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "varchar(100) -> varchar(50)" -> Optional.of(setup.withNewColumnType("varchar"));
             case "char(25) -> char(20)",

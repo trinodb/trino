@@ -300,6 +300,50 @@ final class TestDuckDbTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
+    @Test
+    public void testTimestamp()
+    {
+        SqlDataTypeTest.create()
+                // timestamp(0) -> DuckDB timestamp_s
+                .addRoundTrip("TIMESTAMP '1958-01-01 13:18:03'", "TIMESTAMP '1958-01-01 13:18:03'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59'", "TIMESTAMP '1969-12-31 23:59:59'")
+
+                // timestamp(3) -> DuckDB timestamp_ms
+                .addRoundTrip("TIMESTAMP '1958-01-01 13:18:03.123'", "TIMESTAMP '1958-01-01 13:18:03.123'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.000'", "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999'", "TIMESTAMP '1969-12-31 23:59:59.999'")
+
+                // timestamp(6) -> DuckDB timestamp
+                .addRoundTrip("TIMESTAMP '1958-01-01 13:18:03.123456'", "TIMESTAMP '1958-01-01 13:18:03.123456'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.000000'", "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
+
+                // timestamp(9) -> DuckDB timestamp_ns
+                .addRoundTrip("TIMESTAMP '1958-01-01 13:18:03.123456789'", "TIMESTAMP '1958-01-01 13:18:03.123456789'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.000000000'", "TIMESTAMP '1970-01-01 00:00:00.000000000'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999999'", "TIMESTAMP '1969-12-31 23:59:59.999999999'")
+
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIMESTAMP '1958-01-01 13:18:03.123456 +00:00'", "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.000000 +00:00'", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999 +00:00'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-02-12 14:03:00.123456 +02:00'", "TIMESTAMP '2020-02-12 12:03:00.123456 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-02-12 14:03:00.123456 -05:00'", "TIMESTAMP '2020-02-12 19:03:00.123456 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-02-12 14:03:00.123456 Europe/Tallinn'", "TIMESTAMP '2020-02-12 12:03:00.123456 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-02-12 14:03:00.123456789 +02:00'", "TIMESTAMP '2020-02-12 12:03:00.123456789 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999999 +00:00'", "TIMESTAMP '1969-12-31 23:59:59.999999999 UTC'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamptz"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamptz"));
+    }
+
     private DataSetup duckDbCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(duckDb.getSqlExecutor(), TPCH_SCHEMA + "." + tableNamePrefix);
