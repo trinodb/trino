@@ -222,7 +222,6 @@ final class S3InputStream
         }
 
         // close the stream and open at desired position
-        streamPosition = nextReadPosition;
         closeStream();
 
         try {
