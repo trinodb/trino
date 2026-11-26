@@ -13,6 +13,8 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.trino.spi.Page;
 import jakarta.annotation.Nullable;
 
@@ -31,6 +33,7 @@ public class PageBuffer
     @Nullable
     private Page page;
     private boolean finished;
+    private final SettableFuture<Void> finishedFuture = SettableFuture.create();
 
     public WorkProcessor<Page> pages()
     {
@@ -75,5 +78,14 @@ public class PageBuffer
     public void finish()
     {
         finished = true;
+        finishedFuture.set(null);
+    }
+
+    /**
+     * Completes once no more pages will be added.
+     */
+    public ListenableFuture<Void> whenFinished()
+    {
+        return finishedFuture;
     }
 }

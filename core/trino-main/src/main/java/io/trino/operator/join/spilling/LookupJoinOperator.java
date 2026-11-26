@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join.spilling;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.OperatorContext;
@@ -38,9 +39,11 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.operator.WorkProcessor.flatten;
 import static io.trino.operator.join.JoinType.INNER;
 import static io.trino.operator.join.JoinType.LOOKUP_OUTER;
@@ -68,7 +71,8 @@ public class LookupJoinOperator
             HashGenerator hashGenerator,
             PartitioningSpillerFactory partitioningSpillerFactory,
             OperatorContext operatorContext,
-            WorkProcessor<Page> sourcePages)
+            WorkProcessor<Page> sourcePages,
+            ListenableFuture<Void> sourcePagesFinished)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
@@ -96,22 +100,30 @@ public class LookupJoinOperator
                         joinerPartitioningSpillerFactory,
                         statisticsCounter,
                         savedRows);
+        // wait for build side before fetching any probe pages, unless there are none and the join may short-circuit
+        ListenableFuture<Void> buildReady = transform(lookupSourceProviderFuture, _ -> null, directExecutor());
+        ListenableFuture<Void> probeReady;
+        if (!waitForBuild) {
+            probeReady = immediateVoidFuture();
+        }
+        else if (finishOnEmptyBuild) {
+            probeReady = whenAnyComplete(ImmutableList.of(buildReady, sourcePagesFinished));
+        }
+        else {
+            probeReady = buildReady;
+        }
         joinProcessor = new SpillingJoinProcessor(
                 afterClose,
                 lookupJoinsCount,
-                waitForBuild,
+                probeReady,
                 lookupSourceFactory,
                 lookupSourceProviderFuture,
                 partitioningSpillerFactory,
                 spillMetrics,
                 pageJoinerFactory,
                 probePages);
-        WorkProcessor<Page> pages = flatten(WorkProcessor.create(joinProcessor));
-        if (waitForBuild) {
-            // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceProviderFuture, _ -> null, directExecutor()));
-        }
-        this.pages = pages;
+        this.pages = flatten(WorkProcessor.create(joinProcessor))
+                .blocking(() -> probeReady);
     }
 
     @Override

@@ -1684,8 +1684,20 @@ public class TestHashJoinOperator
             assertThat(joinOperator.needsInput()).isFalse();
             joinOperator.finish();
             assertThat(joinOperator.getOutput()).isNull();
+            assertThat(joinOperator.getOutput()).isNull();
+            assertThat(joinOperator.isBlocked().isDone()).isTrue();
+            assertThat(joinOperator.isFinished()).isTrue();
+        }
 
-            // lookup join operator got blocked waiting for build side
+        // join that waits for build side to be collected, without short-circuit
+        taskContext = createTaskContext();
+        joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, true, false);
+        driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertThat(joinOperator.needsInput()).isFalse();
+            joinOperator.finish();
+            assertThat(joinOperator.getOutput()).isNull();
             assertThat(joinOperator.isBlocked().isDone()).isFalse();
             assertThat(joinOperator.isFinished()).isFalse();
         }
@@ -1821,6 +1833,11 @@ public class TestHashJoinOperator
 
     private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean waitForBuild)
     {
+        return createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, waitForBuild, true);
+    }
+
+    private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean waitForBuild, boolean shortCircuit)
+    {
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder buildPages = rowPagesBuilder(buildTypes);
@@ -1832,7 +1849,7 @@ public class TestHashJoinOperator
         RowPagesBuilder probePages = rowPagesBuilder(probeTypes);
         OperatorFactory joinOperatorFactory = spillingJoin(
                 innerJoin(false, waitForBuild),
-                true,
+                shortCircuit,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

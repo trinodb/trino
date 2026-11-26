@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -27,6 +28,17 @@ public interface WorkProcessorOperatorFactory
     WorkProcessorOperator create(
             OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages);
+
+    /**
+     * @param sourcePagesFinished completes once {@code sourcePages} will produce no more pages
+     */
+    default WorkProcessorOperator create(
+            OperatorContext operatorContext,
+            WorkProcessor<Page> sourcePages,
+            ListenableFuture<Void> sourcePagesFinished)
+    {
+        return create(operatorContext, sourcePages);
+    }
 
     WorkProcessorOperatorFactory duplicate();
 

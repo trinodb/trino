@@ -106,6 +106,22 @@ public abstract class BaseTestJoinShortCircuit
 
     @Test
     @Timeout(120)
+    void testProbeWithoutSplitsOverBroadcastExchange()
+    {
+        assertScannedRows(execute(withJoinDistribution("BROADCAST"), PROBE_WITHOUT_SPLITS), PARTSUPP_ROWS);
+    }
+
+    @Test
+    @Timeout(120)
+    void testProbeWithoutSplitsForCrossJoin()
+    {
+        assertScannedRows(
+                execute(getSession(), "SELECT count(*) FROM no_splits.tiny.part p CROSS JOIN slow.sf1.partsupp ps WHERE ps.partkey < p.partkey"),
+                PARTSUPP_ROWS);
+    }
+
+    @Test
+    @Timeout(120)
     void testBuildWithoutSplits()
     {
         MaterializedResultWithPlan result = execute(withJoinDistribution("PARTITIONED"), "SELECT count(*) FROM slow.sf1.partsupp ps JOIN no_splits.tiny.part p ON ps.partkey = p.partkey");

@@ -15,6 +15,7 @@ package io.trino.operator.join.spilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.NullSafeHashCompiler;
@@ -167,6 +168,12 @@ public class LookupJoinOperatorFactory
     @Override
     public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
     {
+        throw new UnsupportedOperationException("sourcePagesFinished is required");
+    }
+
+    @Override
+    public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages, ListenableFuture<Void> sourcePagesFinished)
+    {
         checkState(!closed, "Factory is already closed");
         LookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
@@ -185,7 +192,8 @@ public class LookupJoinOperatorFactory
                 probeHashGenerator,
                 partitioningSpillerFactory,
                 operatorContext,
-                sourcePages);
+                sourcePages,
+                sourcePagesFinished);
     }
 
     @Override
