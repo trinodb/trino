@@ -13,23 +13,16 @@
  */
 package io.trino.plugin.cassandra.tls;
 
+import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.trino.plugin.cassandra.CassandraClientConfig;
 import io.trino.plugin.cassandra.CassandraSessionConfigurator;
-import io.trino.spi.TrinoException;
-
-import javax.net.ssl.SSLContext;
-
-import java.io.File;
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Optional;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.cassandra.tls.CassandraTlsEngineFactory.createSslEngineFactory;
 
 public class CassandraTlsModule
         implements Module
@@ -42,27 +35,9 @@ public class CassandraTlsModule
 
     @ProvidesIntoSet
     @Singleton
-    public CassandraSessionConfigurator tlsConfigurator(CassandraTlsConfig config)
+    public CassandraSessionConfigurator tlsConfigurator(CassandraTlsConfig config, CassandraClientConfig clientConfig)
     {
-        return builder -> buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                .ifPresent(builder::withSslContext);
-    }
-
-    private static Optional<SSLContext> buildSslContext(
-            Optional<File> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<File> truststorePath,
-            Optional<String> truststorePassword)
-    {
-        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
-            return Optional.empty();
-        }
-
-        try {
-            return Optional.of(createSSLContext(keystorePath, keystorePassword, truststorePath, truststorePassword));
-        }
-        catch (GeneralSecurityException | IOException e) {
-            throw new TrinoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
-        }
+        SslEngineFactory sslEngineFactory = createSslEngineFactory(config, clientConfig.getContactPoints());
+        return builder -> builder.withSslEngineFactory(sslEngineFactory);
     }
 }
