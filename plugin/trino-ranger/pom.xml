@@ -297,7 +297,7 @@
         <dependency>
             <groupId>com.carrotsearch</groupId>
             <artifactId>hppc</artifactId>
-            <version>0.12.0</version>
+            <version>0.13.0</version>
             <scope>runtime</scope>
         </dependency>
 
