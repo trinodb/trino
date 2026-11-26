@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
@@ -35,16 +36,19 @@ public class FileMetastoreTableOperationsProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ForwardingFileIoFactory fileIoFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final TableMetadataCache tableMetadataCache;
 
     @Inject
     public FileMetastoreTableOperationsProvider(
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.tableMetadataCache = requireNonNull(tableMetadataCache, "tableMetadataCache is null");
     }
 
     @Override
@@ -64,6 +68,7 @@ public class FileMetastoreTableOperationsProvider
                 table,
                 owner,
                 location,
-                encryptionManagerFactory);
+                encryptionManagerFactory,
+                tableMetadataCache);
     }
 }

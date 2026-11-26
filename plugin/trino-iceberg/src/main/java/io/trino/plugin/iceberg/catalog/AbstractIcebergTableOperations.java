@@ -95,6 +95,7 @@ public abstract class AbstractIcebergTableOperations
     protected final Optional<String> location;
     private final FileIO fileIo;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final TableMetadataCache tableMetadataCache;
 
     protected TableMetadata currentMetadata;
     protected String currentMetadataLocation;
@@ -115,6 +116,19 @@ public abstract class AbstractIcebergTableOperations
             Optional<String> location,
             EncryptionManagerFactory encryptionManagerFactory)
     {
+        this(fileIo, session, database, table, owner, location, encryptionManagerFactory, TableMetadataCache.disabled());
+    }
+
+    protected AbstractIcebergTableOperations(
+            FileIO fileIo,
+            ConnectorSession session,
+            String database,
+            String table,
+            Optional<String> owner,
+            Optional<String> location,
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
+    {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.session = requireNonNull(session, "session is null");
         this.database = requireNonNull(database, "database is null");
@@ -122,6 +136,7 @@ public abstract class AbstractIcebergTableOperations
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.tableMetadataCache = requireNonNull(tableMetadataCache, "tableMetadataCache is null");
         this.effectiveFileIo = fileIo;
     }
 
@@ -359,7 +374,7 @@ public abstract class AbstractIcebergTableOperations
     {
         refreshFromMetadataLocation(
                 newLocation,
-                metadataLocation -> TableMetadataParser.read(io().newInputFile(metadataLocation)));
+                metadataLocation -> tableMetadataCache.get(metadataLocation, location -> TableMetadataParser.read(io().newInputFile(location))));
     }
 
     protected void refreshFromMetadataLocation(String newLocation, Function<String, TableMetadata> metadataLoader)

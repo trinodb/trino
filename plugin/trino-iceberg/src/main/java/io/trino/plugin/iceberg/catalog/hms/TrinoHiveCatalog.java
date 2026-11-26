@@ -39,6 +39,7 @@ import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -147,6 +148,7 @@ public class TrinoHiveCatalog
     private final boolean hideMaterializedViewStorageTable;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergScanExecutor;
+    private final TableMetadataCache sharedTableMetadataCache;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -165,7 +167,8 @@ public class TrinoHiveCatalog
             boolean deleteSchemaLocationsFallback,
             boolean hideMaterializedViewStorageTable,
             Executor metadataFetchingExecutor,
-            ExecutorService icebergScanExecutor)
+            ExecutorService icebergScanExecutor,
+            TableMetadataCache sharedTableMetadataCache)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -175,6 +178,7 @@ public class TrinoHiveCatalog
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.sharedTableMetadataCache = requireNonNull(sharedTableMetadataCache, "sharedTableMetadataCache is null");
     }
 
     public CachingHiveMetastore getMetastore()
@@ -889,8 +893,10 @@ public class TrinoHiveCatalog
             if (storageMetadataLocation == null) {
                 throw new TrinoException(ICEBERG_INVALID_METADATA, "Storage location missing in definition of materialized view " + materializedView.getTableName());
             }
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
+            return sharedTableMetadataCache.get(storageMetadataLocation, location -> {
+                TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+                return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), location);
+            });
         });
     }
 

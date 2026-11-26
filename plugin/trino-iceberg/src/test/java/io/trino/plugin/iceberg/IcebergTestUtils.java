@@ -46,6 +46,7 @@ import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -321,7 +322,7 @@ public final class IcebergTestUtils
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())));
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())), TableMetadataCache.disabled());
         TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
@@ -340,7 +341,7 @@ public final class IcebergTestUtils
             String catalogName,
             EncryptionManagerFactory encryptionManagerFactory)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, encryptionManagerFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, encryptionManagerFactory, TableMetadataCache.disabled());
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),
@@ -355,7 +356,8 @@ public final class IcebergTestUtils
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                TableMetadataCache.disabled());
     }
 
     public static Map<String, Long> getMetadataFileAndUpdatedMillis(TrinoFileSystem trinoFileSystem, String tableLocation)

@@ -19,6 +19,7 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.TrinoException;
@@ -50,9 +51,10 @@ public class FileMetastoreTableOperations
             String table,
             Optional<String> owner,
             Optional<String> location,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
     {
-        super(fileIo, metastore, session, database, table, owner, location, encryptionManagerFactory);
+        super(fileIo, metastore, session, database, table, owner, location, encryptionManagerFactory, tableMetadataCache);
     }
 
     @Override

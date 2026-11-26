@@ -26,6 +26,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -188,13 +189,14 @@ public class TestIcebergSplitSource
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 TESTING_TYPE_MANAGER,
-                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient()))),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())), TableMetadataCache.disabled()),
                 false,
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                TableMetadataCache.disabled());
 
         return queryRunner;
     }

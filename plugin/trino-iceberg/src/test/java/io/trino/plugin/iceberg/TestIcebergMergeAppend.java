@@ -18,6 +18,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -53,7 +54,7 @@ public class TestIcebergMergeAppend
         HiveMetastore metastore = getHiveMetastore(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY, TableMetadataCache.disabled());
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 cachingHiveMetastore,
@@ -67,7 +68,8 @@ public class TestIcebergMergeAppend
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                TableMetadataCache.disabled());
 
         return queryRunner;
     }

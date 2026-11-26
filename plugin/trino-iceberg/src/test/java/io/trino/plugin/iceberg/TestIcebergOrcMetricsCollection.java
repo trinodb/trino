@@ -20,6 +20,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -89,7 +90,7 @@ public class TestIcebergOrcMetricsCollection
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.file-format", "ORC"));
 
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY, TableMetadataCache.disabled());
 
         HiveMetastore metastore = getHiveMetastore(queryRunner);
 
@@ -107,7 +108,8 @@ public class TestIcebergOrcMetricsCollection
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                TableMetadataCache.disabled());
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
