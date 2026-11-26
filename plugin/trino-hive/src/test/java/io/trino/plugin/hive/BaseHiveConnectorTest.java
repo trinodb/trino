@@ -6334,7 +6334,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     @ParameterizedTest
-    @CsvSource({"DOUBLE, 1", "DOUBLE, 2", "REAL, 2"})
+    @CsvSource({"DOUBLE, 1", "DOUBLE, 2", "REAL, 1", "REAL, 2"})
     public void testBucketedJoinWithSignedZeros(String keyType, int bucketingVersion)
     {
         Session partitionedJoin = Session.builder(getSession())

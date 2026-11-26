@@ -3355,7 +3355,7 @@ public class HiveMetadata
             // Hive v2 hashes map values using v1.
             return hasSignedZeroSensitiveV2Hash(mapType.getKeyType());
         }
-        return type.equals(DOUBLE) || type.equals(REAL) || type.getTypeParameters().stream().anyMatch(HiveMetadata::hasSignedZeroSensitiveV2Hash);
+        return type == DOUBLE || type == REAL || type.getTypeParameters().stream().anyMatch(HiveMetadata::hasSignedZeroSensitiveV2Hash);
     }
 
     @Override
