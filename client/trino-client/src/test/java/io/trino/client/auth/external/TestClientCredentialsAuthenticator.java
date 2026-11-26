@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.trino.client.OkHttpUtil.excludeCredentials;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -177,6 +178,45 @@ class TestClientCredentialsAuthenticator
         trinoServer.takeRequest(); // discard retry
         RecordedRequest secondCallRequest = trinoServer.takeRequest();
         assertThat(secondCallRequest.getHeaders().get(AUTHORIZATION)).isEqualTo("Bearer cached-token");
+    }
+
+    @Test
+    void testCachedTokenIsNotInjectedWhenCredentialsAreExcluded()
+            throws Exception
+    {
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
+        enqueueToken("cached-token", 3600);
+        trinoServer.enqueue(ok());
+        trinoServer.enqueue(ok());
+
+        OkHttpClient client = buildTrinoClient();
+        client.newCall(trinoRequest()).execute().close();
+        client.newCall(trinoRequestWithoutCredentials()).execute().close();
+
+        trinoServer.takeRequest(); // discard initial 401
+        trinoServer.takeRequest(); // discard retry
+        assertThat(trinoServer.takeRequest().getHeaders().get(AUTHORIZATION)).isNull();
+    }
+
+    @Test
+    void testChallengeIsNotAnsweredWhenCredentialsAreExcluded()
+            throws Exception
+    {
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
+
+        OkHttpClient client = buildTrinoClient();
+        try (Response response = client.newCall(trinoRequestWithoutCredentials()).execute()) {
+            assertThat(response.code()).isEqualTo(HTTP_UNAUTHORIZED);
+        }
+
+        assertThat(trinoServer.getRequestCount()).isEqualTo(1);
+        assertThat(idpServer.getRequestCount()).isZero();
     }
 
     @Test
@@ -516,6 +556,11 @@ class TestClientCredentialsAuthenticator
                 .url("http://" + trinoServer.getHostName() + ":" + trinoServer.getPort() + TRINO_PATH)
                 .get()
                 .build();
+    }
+
+    private Request trinoRequestWithoutCredentials()
+    {
+        return excludeCredentials(trinoRequest().newBuilder()).build();
     }
 
     private void enqueueToken(String accessToken, long expiresIn)
