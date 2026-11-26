@@ -14,6 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -24,6 +25,7 @@ import java.nio.file.Path;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Resources.getResource;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraPlugin
 {
@@ -60,5 +62,31 @@ public class TestCassandraPlugin
                         "cassandra.tls.truststore-path", truststoreFile.toString(),
                         "cassandra.tls.truststore-password", "changeit"),
                 new TestingConnectorContext()).shutdown();
+    }
+
+    @Test
+    void testTlsWithoutKeystoreAndTruststore()
+    {
+        Plugin plugin = new CassandraPlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        // the default trust anchors of the JVM are used
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "cassandra.contact-points", "host1",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
+                        "cassandra.tls.enabled", "true"),
+                new TestingConnectorContext()).shutdown();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "cassandra.contact-points", "host1",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
+                        "cassandra.tls.enabled", "true",
+                        "cassandra.tls.verify-hostnames", "false"),
+                new TestingConnectorContext()))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Invalid configuration property with prefix '': cassandra.tls.keystore-path or cassandra.tls.truststore-path must be set when cassandra.tls.verify-hostnames is false or cassandra.tls.use-reverse-dns is true");
     }
 }

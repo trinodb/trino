@@ -14,8 +14,10 @@
 package io.trino.plugin.cassandra.tls;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.io.File;
 import java.util.Optional;
@@ -26,6 +28,8 @@ public class CassandraTlsConfig
     private String keystorePassword;
     private File truststorePath;
     private String truststorePassword;
+    private boolean verifyHostnames = true;
+    private boolean useReverseDns;
 
     public Optional<@FileExists File> getKeystorePath()
     {
@@ -75,5 +79,39 @@ public class CassandraTlsConfig
     {
         this.truststorePassword = truststorePassword;
         return this;
+    }
+
+    public boolean isVerifyHostnames()
+    {
+        return verifyHostnames;
+    }
+
+    @Config("cassandra.tls.verify-hostnames")
+    @ConfigDescription("Verify that the certificate presented by a Cassandra node matches the host name or IP address of that node")
+    public CassandraTlsConfig setVerifyHostnames(boolean verifyHostnames)
+    {
+        this.verifyHostnames = verifyHostnames;
+        return this;
+    }
+
+    public boolean isUseReverseDns()
+    {
+        return useReverseDns;
+    }
+
+    @Config("cassandra.tls.use-reverse-dns")
+    @ConfigDescription("Verify the certificate of a node addressed by IP against its reverse DNS name instead of the IP address, as the Cassandra driver does by default. Less secure")
+    public CassandraTlsConfig setUseReverseDns(boolean useReverseDns)
+    {
+        this.useReverseDns = useReverseDns;
+        return this;
+    }
+
+    // The default trust anchors of the JVM contain public certificate authorities, which issue a certificate to the owner of any domain.
+    // Such a certificate says nothing unless it is verified against the address used to connect.
+    @AssertTrue(message = "cassandra.tls.keystore-path or cassandra.tls.truststore-path must be set when cassandra.tls.verify-hostnames is false or cassandra.tls.use-reverse-dns is true")
+    public boolean isKeystoreOrTruststoreConfigured()
+    {
+        return keystorePath != null || truststorePath != null || (verifyHostnames && !useReverseDns);
     }
 }
