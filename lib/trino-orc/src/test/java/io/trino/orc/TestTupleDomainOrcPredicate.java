@@ -70,6 +70,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -258,6 +259,54 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", "taco"))).isEqualTo(create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
         assertThat(getDomain(VARCHAR, 10, stringColumnStats(5L, null, "taco"))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, utf8Slice("taco"))), true));
         assertThat(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(VARCHAR, utf8Slice("apple"))), true));
+    }
+
+    @Test
+    public void testBoundedVarcharLongerValues()
+    {
+        // The file holds 'abcd' and 'xyz', and the reader returns 'abc' and 'xyz' through a varchar(3)
+        Type varchar3 = createVarcharType(3);
+        assertThat(getDomain(varchar3, 10, stringColumnStats(10L, "abcd", "xyz")))
+                .isEqualTo(create(ValueSet.ofRanges(range(varchar3, utf8Slice("abc"), true, utf8Slice("xyz"), true)), false));
+        assertThat(getDomain(varchar3, 10, stringColumnStats(10L, "abc", "xyz")))
+                .isEqualTo(create(ValueSet.ofRanges(range(varchar3, utf8Slice("abc"), true, utf8Slice("xyz"), true)), false));
+        assertThat(getDomain(varchar3, 10, stringColumnStats(10L, "abcd", null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(varchar3, utf8Slice("abc"))), false));
+        // the cut counts code points, not bytes
+        assertThat(getDomain(createVarcharType(2), 10, stringColumnStats(10L, "\u00e9\u00e9\u00e9", "\u00ea")))
+                .isEqualTo(create(ValueSet.ofRanges(range(createVarcharType(2), utf8Slice("\u00e9\u00e9"), true, utf8Slice("\u00ea"), true)), false));
+
+        TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
+                .addColumn(new OrcColumnId(0), singleValue(varchar3, utf8Slice("abc")))
+                .build();
+        assertThat(predicate.matches(10, new ColumnMetadata<>(List.of(stringColumnStats(10L, "abcd", "xyz"))))).isTrue();
+        assertThat(predicate.matches(10, new ColumnMetadata<>(List.of(stringColumnStats(10L, "abd", "xyz"))))).isFalse();
+    }
+
+    @Test
+    public void testBoundedVarcharBloomFilter()
+    {
+        Type varchar3 = createVarcharType(3);
+        BloomFilter bloomFilter = new BloomFilter(100, 0.01);
+        bloomFilter.add(utf8Slice("abcd"));
+        bloomFilter.add(utf8Slice("x"));
+        ColumnStatistics statistics = stringColumnStats(10L, "abcd", "xyz").withBloomFilter(bloomFilter);
+
+        // 'abc' is how the reader returns 'abcd', so the bloom filter cannot rule it out
+        assertThat(bloomPredicate(varchar3, "abc").matches(10, new ColumnMetadata<>(List.of(statistics)))).isTrue();
+        // a shorter value is never the result of a cut, so the bloom filter still prunes it
+        assertThat(bloomPredicate(varchar3, "ab").matches(10, new ColumnMetadata<>(List.of(statistics)))).isFalse();
+        assertThat(bloomPredicate(varchar3, "x").matches(10, new ColumnMetadata<>(List.of(statistics)))).isTrue();
+        // unbounded varchar values are read as stored, so the bloom filter prunes as before
+        assertThat(bloomPredicate(VARCHAR, "abc").matches(10, new ColumnMetadata<>(List.of(statistics)))).isFalse();
+    }
+
+    private static TupleDomainOrcPredicate bloomPredicate(Type type, String value)
+    {
+        return TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(new OrcColumnId(0), singleValue(type, utf8Slice(value)))
+                .build();
     }
 
     @Test
