@@ -13,15 +13,21 @@
  */
 package io.trino.parquet.writer;
 
+import io.airlift.slice.OutputStreamSliceOutput;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.format.ColumnIndex;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.Util;
+import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.parquet.ParquetMetadataConverter.toParquetOffsetIndex;
 import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public interface ColumnWriter
@@ -64,16 +70,35 @@ public interface ColumnWriter
     class BufferData
     {
         private final ColumnMetaData metaData;
+        private final Optional<ColumnIndex> columnIndex;
+        private final OffsetIndexBuilder offsetIndex;
         private final List<ParquetDataOutput> data;
         private final OptionalInt dictionaryPageSize;
         private final Optional<BloomFilter> bloomFilter;
 
-        public BufferData(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter, ColumnMetaData metaData)
+        public BufferData(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter, ColumnMetaData metaData, Optional<ColumnIndex> columnIndex, OffsetIndexBuilder offsetIndex)
         {
+            this.columnIndex = requireNonNull(columnIndex, "columnIndex is null");
+            this.offsetIndex = requireNonNull(offsetIndex, "offsetIndex is null");
             this.data = requireNonNull(data, "data is null");
             this.dictionaryPageSize = requireNonNull(dictionaryPageSize, "dictionaryPageSize is null");
             this.bloomFilter = requireNonNull(bloomFilter, "bloomFilter is null");
             this.metaData = requireNonNull(metaData, "metaData is null");
+        }
+
+        public void writePageIndexes(org.apache.parquet.format.ColumnChunk chunk, OutputStreamSliceOutput output)
+                throws IOException
+        {
+            if (columnIndex.isPresent()) {
+                long start = output.longSize();
+                Util.writeColumnIndex(columnIndex.orElseThrow(), output);
+                chunk.setColumn_index_offset(start);
+                chunk.setColumn_index_length(toIntExact(output.longSize() - start));
+            }
+            long start = output.longSize();
+            Util.writeOffsetIndex(toParquetOffsetIndex(offsetIndex.build(metaData.getData_page_offset())), output);
+            chunk.setOffset_index_offset(start);
+            chunk.setOffset_index_length(toIntExact(output.longSize() - start));
         }
 
         public ColumnMetaData getMetaData()

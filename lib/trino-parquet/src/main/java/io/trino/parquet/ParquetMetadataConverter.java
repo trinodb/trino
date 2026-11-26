@@ -13,6 +13,7 @@
  */
 package io.trino.parquet;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.parquet.metadata.IndexReference;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -236,6 +237,25 @@ public final class ParquetMetadataConverter
         return builder.build();
     }
 
+    public static ColumnIndex toParquetColumnIndex(org.apache.parquet.internal.column.columnindex.ColumnIndex index)
+    {
+        ColumnIndex result = new ColumnIndex(index.getNullPages(), index.getMinValues(), index.getMaxValues(), BoundaryOrder.valueOf(index.getBoundaryOrder().name()));
+        result.setNull_counts(index.getNullCounts());
+        if (index.getNanCounts() != null && !index.getNanCounts().isEmpty()) {
+            result.setNan_counts(index.getNanCounts());
+        }
+        return result;
+    }
+
+    public static OffsetIndex toParquetOffsetIndex(org.apache.parquet.internal.column.columnindex.OffsetIndex index)
+    {
+        ImmutableList.Builder<PageLocation> pages = ImmutableList.builderWithExpectedSize(index.getPageCount());
+        for (int i = 0; i < index.getPageCount(); i++) {
+            pages.add(new PageLocation(index.getOffset(i), index.getCompressedPageSize(i), index.getFirstRowIndex(i)));
+        }
+        return new OffsetIndex(pages.build());
+    }
+
     public static org.apache.parquet.internal.column.columnindex.ColumnIndex fromParquetColumnIndex(
             PrimitiveType type,
             ColumnIndex parquetColumnIndex)
@@ -338,7 +358,7 @@ public final class ParquetMetadataConverter
     }
 
     /// Floating point min/max is omitted from footers when the column may contain NaN, see [#toTypeDefinedOrder(PrimitiveType)]
-    private static boolean mayContainNaN(org.apache.parquet.column.statistics.Statistics<?> stats)
+    public static boolean mayContainNaN(org.apache.parquet.column.statistics.Statistics<?> stats)
     {
         return isFloatingPointType(stats.type()) && (!stats.isNanCountSet() || stats.getNanCount() > 0);
     }

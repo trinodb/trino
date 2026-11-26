@@ -34,13 +34,16 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.IndexReference;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
+import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -67,6 +70,7 @@ import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
+import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
@@ -74,6 +78,7 @@ import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -147,6 +152,9 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
+import static org.apache.parquet.filter2.predicate.FilterApi.eq;
+import static org.apache.parquet.filter2.predicate.FilterApi.longColumn;
+import static org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter.calculateRowRanges;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.mapType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
@@ -166,6 +174,81 @@ public class TestParquetWriter
             .named("v")
             .named("trino_schema");
     private static final RowType VARIANT_ROW_TYPE = rowType(field("v", VARIANT), field("i", INTEGER));
+
+    @Test
+    public void testPageIndexes()
+            throws IOException
+    {
+        List<Type> types = List.of(BIGINT);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().setMaxPageValueCount(100).setBatchSize(100).build(),
+                        types,
+                        List.of("id"),
+                        generateInputPages(types, 100, LongStream.range(0, 300).boxed().toList())),
+                ParquetReaderOptions.defaultOptions());
+        BlockMetadata block = getOnlyElement(MetadataReader.readFooter(dataSource, Optional.empty()).getBlocks());
+        ColumnChunkMetadata column = getOnlyElement(block.columns());
+        Set<ColumnPath> paths = Set.of(column.getPath());
+        TrinoColumnIndexStore indexes = new TrinoColumnIndexStore(dataSource, block, paths, paths, Optional.empty());
+        OffsetIndex offsets = indexes.getOffsetIndex(column.getPath());
+        assertThat(offsets.getPageCount()).isEqualTo(3);
+        long offset = column.getFirstDataPageOffset();
+        for (int page = 0; page < offsets.getPageCount(); page++) {
+            assertThat(offsets.getOffset(page)).isEqualTo(offset);
+            assertThat(offsets.getFirstRowIndex(page)).isEqualTo(page * 100L);
+            offset += offsets.getCompressedPageSize(page);
+        }
+        assertThat(offset).isEqualTo(column.getStartingPos() + column.getTotalSize());
+        assertThat(calculateRowRanges(FilterCompat.get(eq(longColumn("id"), 125L)), indexes, paths, block.rowCount()).rowCount())
+                .isEqualTo(100);
+    }
+
+    @Test
+    public void testRepeatedColumnOffsetIndex()
+            throws IOException
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        Page page = new Page(ArrayBlock.fromElementBlock(
+                100,
+                Optional.empty(),
+                IntStream.rangeClosed(0, 100).map(row -> row * 2).toArray(),
+                new LongArrayBlock(200, Optional.empty(), new long[200])));
+        Page nulls = new Page(RunLengthEncodedBlock.create(arrayType, null, 100));
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().setMaxPageValueCount(100).setBatchSize(100).build(),
+                        List.of(arrayType),
+                        List.of("items"),
+                        List.of(page, nulls, page)),
+                ParquetReaderOptions.defaultOptions());
+        BlockMetadata block = getOnlyElement(MetadataReader.readFooter(dataSource, Optional.empty()).getBlocks());
+        ColumnPath path = getOnlyElement(block.columns()).getPath();
+        TrinoColumnIndexStore indexes = new TrinoColumnIndexStore(dataSource, block, Set.of(path), Set.of(path), Optional.empty());
+        OffsetIndex offsets = indexes.getOffsetIndex(path);
+        assertThat(offsets.getPageCount()).isEqualTo(3);
+        assertThat(offsets.getFirstRowIndex(1)).isEqualTo(100);
+        assertThat(offsets.getFirstRowIndex(2)).isEqualTo(200);
+        assertThat(indexes.getColumnIndex(path).getNullPages()).containsExactly(false, true, false);
+    }
+
+    @Test
+    public void testPageIndexWithNaN()
+            throws IOException
+    {
+        List<Type> types = List.of(DOUBLE);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().setMaxPageValueCount(2).setBatchSize(2).build(),
+                        types,
+                        List.of("value"),
+                        generateInputPages(types, 2, List.of(1.0, 2.0, 3.0, Double.NaN))),
+                ParquetReaderOptions.defaultOptions());
+        BlockMetadata block = getOnlyElement(MetadataReader.readFooter(dataSource, Optional.empty()).getBlocks());
+        ColumnChunkMetadata column = getOnlyElement(block.columns());
+        assertThat(column.getColumnIndexReference()).isNull();
+        assertThat(column.getOffsetIndexReference()).isNotNull();
+    }
 
     @Test
     public void testCreatedByIsParsable()
@@ -864,9 +947,9 @@ public class TestParquetWriter
         assertThat(blocks.size()).isGreaterThan(1);
 
         ColumnChunkMetadata lastRowGroupLastColumn = blocks.getLast().columns().getLast();
-        long lastColumnEndOffset = lastRowGroupLastColumn.getStartingPos() + lastRowGroupLastColumn.getTotalSize();
-        // First bloom filter should start after the data of the last row-group
-        assertThat(blocks.getFirst().columns().getFirst().getBloomFilterOffset()).isEqualTo(lastColumnEndOffset);
+        IndexReference lastOffsetIndex = lastRowGroupLastColumn.getOffsetIndexReference();
+        // First bloom filter should start after the last row group's page indexes
+        assertThat(blocks.getFirst().columns().getFirst().getBloomFilterOffset()).isEqualTo(lastOffsetIndex.getOffset() + lastOffsetIndex.getLength());
 
         ImmutableList.Builder<Long> bloomFilterOffsetsBuilder = ImmutableList.builder();
         for (BlockMetadata block : blocks) {

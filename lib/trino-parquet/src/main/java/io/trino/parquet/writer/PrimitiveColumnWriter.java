@@ -41,6 +41,8 @@ import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageEncodingStats;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
+import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
+import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -64,6 +66,7 @@ import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepet
 import static io.trino.parquet.writer.valuewriter.PrimitiveValueWriter.createStatistics;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.column.ParquetProperties.DEFAULT_COLUMN_INDEX_TRUNCATE_LENGTH;
 import static org.apache.parquet.format.Util.writePageHeader;
 
 public class PrimitiveColumnWriter
@@ -91,6 +94,9 @@ public class PrimitiveColumnWriter
 
     // current page stats
     private int valueCount;
+    private long currentPageRowCount;
+    private ColumnIndexBuilder columnIndexBuilder;
+    private final OffsetIndexBuilder offsetIndexBuilder = OffsetIndexBuilder.getBuilder();
     private int currentPageNullCounts;
 
     // column meta data stats
@@ -141,6 +147,9 @@ public class PrimitiveColumnWriter
         this.pageSizeThreshold = pageSizeThreshold;
         this.pageValueCountLimit = pageValueCountLimit;
         this.columnStatistics = createStatistics(columnDescriptor.getPrimitiveType());
+        this.columnIndexBuilder = ParquetMetadataConverter.isMinMaxStatsSupported(columnStatistics.type())
+                ? ColumnIndexBuilder.getBuilder(columnStatistics.type(), DEFAULT_COLUMN_INDEX_TRUNCATE_LENGTH)
+                : ColumnIndexBuilder.getNoOpBuilder();
         this.compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
         this.bloomFilter = requireNonNull(bloomFilter, "bloomFilter is null");
     }
@@ -161,6 +170,7 @@ public class PrimitiveColumnWriter
 
         DefLevelWriterProvider.ValuesCount valuesCount = rootDefinitionLevelWriter.writeDefinitionLevels();
         currentPageNullCounts += valuesCount.totalValuesCount() - valuesCount.maxDefinitionLevelValuesCount();
+        currentPageRowCount += columnChunk.getRowCount();
         valueCount += valuesCount.totalValuesCount();
 
         if (columnDescriptor.getMaxRepetitionLevel() > 0) {
@@ -196,11 +206,17 @@ public class PrimitiveColumnWriter
         EncodingStats stats = convertEncodingStats(columnMetaData.getEncoding_stats());
         boolean isOnlyDictionaryEncodingPages = stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
 
+        // Binary bounds can exceed the truncation limit when no safe truncated bound exists.
+        if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * ParquetMetadataConverter.MAX_STATS_SIZE) {
+            columnIndexBuilder = ColumnIndexBuilder.getNoOpBuilder();
+        }
         return ImmutableList.of(new BufferData(
                 dataStreams.data(),
                 dataStreams.dictionaryPageSize(),
                 isOnlyDictionaryEncodingPages ? Optional.empty() : dataStreams.bloomFilter(),
-                columnMetaData));
+                columnMetaData,
+                Optional.ofNullable(columnIndexBuilder.build()).map(ParquetMetadataConverter::toParquetColumnIndex),
+                offsetIndexBuilder));
     }
 
     // Returns ColumnMetaData that offset is invalid
@@ -276,6 +292,13 @@ public class PrimitiveColumnWriter
         Statistics<?> statistics = primitiveValueWriter.resetAndGetStatistics();
         statistics.incrementNumNulls(currentPageNullCounts);
         columnStatistics.mergeStatistics(statistics);
+        offsetIndexBuilder.add(pageCompressedSize, currentPageRowCount);
+        if (ParquetMetadataConverter.mayContainNaN(statistics)) {
+            // Readers may use bounds without taking NaN counts into account.
+            columnIndexBuilder = ColumnIndexBuilder.getNoOpBuilder();
+        }
+        columnIndexBuilder.add(statistics);
+        currentPageRowCount = 0;
 
         // reset page stats
         valueCount = 0;
@@ -381,6 +404,7 @@ public class PrimitiveColumnWriter
     public long getRetainedBytes()
     {
         return INSTANCE_SIZE +
+                columnIndexBuilder.getMinMaxSize() +
                 compressedOutputStream.getRetainedSize() +
                 primitiveValueWriter.getAllocatedSize() +
                 definitionLevelWriter.getAllocatedSize() +
