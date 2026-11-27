@@ -14,25 +14,23 @@
 package io.trino.execution.resourcegroups.db;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
+import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.resourcegroups.ResourceGroupSelector;
-import io.trino.plugin.resourcegroups.db.DbResourceGroupConfig;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
-import io.trino.plugin.resourcegroups.db.H2DaoProvider;
-import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.trino.plugin.resourcegroups.db.TestingResourceGroupsDao;
+import io.trino.plugin.resourcegroups.db.TestingResourceGroupsDatabase;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.Plugin;
 import io.trino.spi.TrinoException;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.junit.ReportLeakedContainers;
 
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 
 import static io.airlift.json.JsonCodec.listJsonCodec;
@@ -43,14 +41,14 @@ import static io.trino.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-final class H2TestUtil
+final class DbResourceGroupTestUtil
 {
-    private static final String CONFIGURATION_MANAGER_TYPE = "h2";
+    private static final String CONFIGURATION_MANAGER_TYPE = "db";
     public static final String TEST_ENVIRONMENT = "test_environment";
     public static final String TEST_ENVIRONMENT_2 = "test_environment_2";
     public static final JsonCodec<List<String>> CLIENT_TAGS_CODEC = listJsonCodec(String.class);
 
-    private H2TestUtil() {}
+    private DbResourceGroupTestUtil() {}
 
     public static Session adhocSession()
     {
@@ -101,29 +99,13 @@ final class H2TestUtil
         }
     }
 
-    public static String getDbConfigUrl()
-    {
-        return "jdbc:h2:mem:test_" + Math.abs(new Random().nextLong()) + ";NON_KEYWORDS=KEY,VALUE"; // key and value are reserved keywords in H2 2.x
-    }
-
-    public static H2ResourceGroupsDao getDao(String url)
-    {
-        DbResourceGroupConfig dbResourceGroupConfig = new DbResourceGroupConfig()
-                .setConfigDbUrl(url);
-        H2ResourceGroupsDao dao = new H2DaoProvider(dbResourceGroupConfig).get();
-        dao.createResourceGroupsTable();
-        dao.createSelectorsTable();
-        dao.createResourceGroupsGlobalPropertiesTable();
-        return dao;
-    }
-
-    public static QueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
+    public static QueryRunner createQueryRunner(TestingResourceGroupsDatabase database)
             throws Exception
     {
-        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT);
+        return createQueryRunner(database, TEST_ENVIRONMENT);
     }
 
-    public static QueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
+    public static QueryRunner createQueryRunner(TestingResourceGroupsDatabase database, String environment)
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner
@@ -132,13 +114,12 @@ final class H2TestUtil
                 .setEnvironment(environment)
                 .build();
         try {
-            Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
-            queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
+                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, database.getConfigurationProperties());
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            setup(queryRunner, dao, environment);
+            setup(queryRunner, database.getDao(), environment);
             return queryRunner;
         }
         catch (Exception e) {
@@ -150,12 +131,17 @@ final class H2TestUtil
     public static QueryRunner getSimpleQueryRunner()
             throws Exception
     {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        return createQueryRunner(dbConfigUrl, dao);
+        return createQueryRunner(createDatabase());
     }
 
-    private static void setup(QueryRunner queryRunner, H2ResourceGroupsDao dao, String environment)
+    public static TestingResourceGroupsDatabase createDatabase()
+    {
+        TestingResourceGroupsDatabase database = TestingResourceGroupsDatabase.create();
+        ReportLeakedContainers.ignoreContainerId(database.getContainerId());
+        return database;
+    }
+
+    private static void setup(QueryRunner queryRunner, TestingResourceGroupsDao dao, String environment)
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
