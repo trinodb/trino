@@ -207,6 +207,15 @@ public class TestConnectorSessionFunctions
         assertQuery(session, "SELECT mock.default.multiply(nationkey) + mock2.default.multiply(nationkey) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 7");
     }
 
+    @Test
+    public void testSqlRoutine()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("mock", "connector_long", "5")
+                .build();
+        assertQuery(session, "WITH FUNCTION f(x bigint) RETURNS bigint RETURN mock.default.multiply(x) SELECT f(nationkey) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 5");
+    }
+
     public static Object multiply(ConnectorSession session, Object value)
     {
         return value == null ? null : (Long) value * session.getProperty("connector_long", Long.class);
