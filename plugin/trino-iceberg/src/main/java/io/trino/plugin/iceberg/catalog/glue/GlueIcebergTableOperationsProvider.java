@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
@@ -47,6 +48,7 @@ public class GlueIcebergTableOperationsProvider
             ForwardingFileIoFactory fileIoFactory,
             TypeManager typeManager,
             IcebergGlueCatalogConfig catalogConfig,
+            GlueCache glueCache,
             GlueMetastoreStats stats,
             GlueClient glueClient,
             EncryptionManagerFactory encryptionManagerFactory)
@@ -55,7 +57,7 @@ public class GlueIcebergTableOperationsProvider
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
-        this.glueClient = new StatsRecordingGlueClient(glueClient, stats);
+        this.glueClient = new StatsRecordingGlueClient(glueClient, glueCache, stats);
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 

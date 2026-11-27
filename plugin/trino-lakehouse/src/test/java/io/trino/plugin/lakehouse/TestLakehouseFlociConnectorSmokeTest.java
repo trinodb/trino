@@ -39,6 +39,7 @@ public class TestLakehouseFlociConnectorSmokeTest
 
         return LakehouseQueryRunner.builder()
                 .addLakehouseProperty("hive.metastore", "glue")
+                .addLakehouseProperty("hive.metastore-cache-ttl", "1d")
                 .addLakehouseProperty("hive.metastore.glue.default-warehouse-dir", "s3://test-bucket/")
                 .addLakehouseProperty("fs.s3.enabled", "true")
                 .addLakehouseProperties(floci.s3AndGlueProperties())
@@ -79,5 +80,39 @@ public class TestLakehouseFlociConnectorSmokeTest
                    location = 's3://test-bucket/tpch/region-\\E.*\\Q',
                    type = 'ICEBERG'
                 )\\E""");
+    }
+
+    @Test
+    public void testGlueCacheInvalidation()
+    {
+        String tableName = "test_cache_invalidation_" + randomNameSuffix();
+        String renamedTableName = "test_cache_invalidation_renamed_" + randomNameSuffix();
+
+        try {
+            // Populate negative table cache entry and table names cache before creating the Iceberg table
+            assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist.*");
+            assertThat(computeActual("SHOW TABLES LIKE '" + tableName + "'").getRowCount()).isZero();
+
+            assertUpdate("CREATE TABLE " + tableName + " (a int)");
+            assertThat(computeActual("SHOW TABLES LIKE '" + tableName + "'").getOnlyValue()).isEqualTo(tableName);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertQuery("SELECT a FROM " + tableName, "VALUES 1");
+
+            // Drop and recreate with a different schema to verify stale table metadata is invalidated
+            assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist.*");
+            assertUpdate("CREATE TABLE " + tableName + " (b varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 'hello'", 1);
+            assertQuery("SELECT b FROM " + tableName, "VALUES 'hello'");
+
+            // Rename and verify both source and target cache entries are invalidated
+            assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTableName);
+            assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist.*");
+            assertQuery("SELECT b FROM " + renamedTableName, "VALUES 'hello'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            assertUpdate("DROP TABLE IF EXISTS " + renamedTableName);
+        }
     }
 }
