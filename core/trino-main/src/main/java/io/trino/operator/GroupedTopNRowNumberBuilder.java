@@ -130,6 +130,14 @@ public class GroupedTopNRowNumberBuilder
         pageManager.compactIfNeeded();
     }
 
+    void updateBoundary(TopNDynamicFilter filter)
+    {
+        if (groupedTopNRowNumberAccumulator.isFull(0)) {
+            long rowId = groupedTopNRowNumberAccumulator.peekRootRowId(0);
+            filter.update(pageManager.getPage(rowId), pageManager.getPosition(rowId));
+        }
+    }
+
     @Nullable
     @VisibleForTesting
     GroupByHash getGroupByHash()

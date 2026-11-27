@@ -138,6 +138,12 @@ public final class BlockTypeOperators
         long compare(Block left, int leftPosition, Block right, int rightPosition);
     }
 
+    public boolean hasBothUnorderedComparisons(Type type)
+    {
+        var operators = type.getTypeOperatorDeclaration(typeOperators);
+        return !operators.getComparisonUnorderedFirstOperators().isEmpty() && !operators.getComparisonUnorderedLastOperators().isEmpty();
+    }
+
     public BlockPositionOrdering generateBlockPositionOrdering(Type type, SortOrder sortOrder)
     {
         return getBlockOperator(type, BlockPositionOrdering.class, () -> typeOperators.getOrderingOperator(type, sortOrder, ORDERING_CONVENTION), Optional.of(sortOrder));

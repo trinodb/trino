@@ -86,6 +86,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -305,7 +306,6 @@ public class TupleDomainParquetPredicate
         return effectivePredicateDomain.overlaps(getDomain(effectivePredicateDomain.getType(), dictionary, timeZone));
     }
 
-    @VisibleForTesting
     public static Domain getDomain(
             ColumnDescriptor column,
             Type type,
@@ -446,11 +446,11 @@ public class TupleDomainParquetPredicate
             return Domain.create(new FloatingPointValueSet(rangesBuilder.build(), true), hasNullValue);
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Slice min = (Slice) minimums.get(i);
-                Slice max = (Slice) maximums.get(i);
+                Slice min = truncateToLength((Slice) minimums.get(i), varcharType);
+                Slice max = truncateToLength((Slice) maximums.get(i), varcharType);
                 rangesBuilder.addRangeInclusive(min, max);
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);

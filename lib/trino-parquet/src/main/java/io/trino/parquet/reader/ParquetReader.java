@@ -142,6 +142,8 @@ public class ParquetReader
     private final ColumnReaderFactory columnReaderFactory;
     private final AggregatedMemoryContext memoryContext;
 
+    private RowGroupFilter rowGroupFilter = _ -> true;
+
     private int currentRowGroup = -1;
     private PrunedBlockMetadata currentBlockMetadata;
     private long currentGroupRowCount;
@@ -311,6 +313,11 @@ public class ParquetReader
         }
         this.codecMetrics = ImmutableMap.copyOf(codecMetrics);
         this.chunkReaders = dataSource.planRead(ranges, memoryContext);
+    }
+
+    public void setRowGroupFilter(RowGroupFilter rowGroupFilter)
+    {
+        this.rowGroupFilter = requireNonNull(rowGroupFilter, "rowGroupFilter is null");
     }
 
     @Override
@@ -1068,6 +1075,10 @@ public class ParquetReader
         }
 
         currentRowGroup++;
+        while (currentRowGroup < rowGroups.size() && !rowGroupFilter.matches(rowGroups.get(currentRowGroup))) {
+            freeCurrentRowGroupBuffers();
+            currentRowGroup++;
+        }
         if (currentRowGroup == rowGroups.size()) {
             return false;
         }
@@ -1518,5 +1529,12 @@ public class ParquetReader
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
+    }
+
+    @FunctionalInterface
+    public interface RowGroupFilter
+    {
+        boolean matches(RowGroupInfo group)
+                throws IOException;
     }
 }

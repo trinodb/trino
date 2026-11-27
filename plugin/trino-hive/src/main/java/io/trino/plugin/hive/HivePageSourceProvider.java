@@ -73,6 +73,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.isParquetSerde;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
@@ -144,6 +145,11 @@ public class HivePageSourceProvider
             return new EmptyPageSource();
         }
 
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveTable.getCompactEffectivePredicate();
+        // Parquet checks a scan-driven predicate against the file schema before using it, including for the first row group.
+        if (!dynamicFilter.shouldRefreshDuringScan() || !isParquetSerde(hiveSplit.getSchema().serializationLibraryName())) {
+            effectivePredicate = effectivePredicate.intersect(dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast));
+        }
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 session,
@@ -154,9 +160,7 @@ public class HivePageSourceProvider
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(
-                                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
-                        .simplify(domainCompactionThreshold),
+                effectivePredicate.simplify(domainCompactionThreshold),
                 typeManager,
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
@@ -164,7 +168,8 @@ public class HivePageSourceProvider
                 originalFile,
                 hiveTable.getTransaction(),
                 columnMappings,
-                memoryContext);
+                memoryContext,
+                dynamicFilter);
 
         if (pageSource.isPresent()) {
             return pageSource.get();
@@ -197,6 +202,30 @@ public class HivePageSourceProvider
             List<ColumnMapping> columnMappings,
             MemoryContext memoryContext)
     {
+        return createHivePageSource(pageSourceFactories, session, path, tableBucketNumber, start, length, estimatedFileSize, fileModifiedTime, schema, effectivePredicate, typeManager, bucketConversion, bucketValidation, acidInfo, originalFile, transaction, columnMappings, memoryContext, DynamicFilter.EMPTY);
+    }
+
+    private static Optional<ConnectorPageSource> createHivePageSource(
+            Set<HivePageSourceFactory> pageSourceFactories,
+            ConnectorSession session,
+            Location path,
+            OptionalInt tableBucketNumber,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Schema schema,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TypeManager typeManager,
+            Optional<BucketConversion> bucketConversion,
+            Optional<BucketValidation> bucketValidation,
+            Optional<AcidInfo> acidInfo,
+            boolean originalFile,
+            AcidTransaction transaction,
+            List<ColumnMapping> columnMappings,
+            MemoryContext memoryContext,
+            DynamicFilter dynamicFilter)
+    {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
         }
@@ -225,7 +254,8 @@ public class HivePageSourceProvider
                     tableBucketNumber,
                     originalFile,
                     transaction,
-                    memoryContext);
+                    memoryContext,
+                    dynamicFilter);
 
             if (pageSource.isPresent()) {
                 return Optional.of(createHivePageSource(

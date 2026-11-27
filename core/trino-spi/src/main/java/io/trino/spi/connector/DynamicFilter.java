@@ -80,5 +80,14 @@ public interface DynamicFilter
      */
     boolean isAwaitable();
 
+    /**
+     * Returns true if the producer updates the predicate as scan pages are consumed.
+     * Readers can use this hint to refresh the predicate between row groups.
+     */
+    default boolean shouldRefreshDuringScan()
+    {
+        return false;
+    }
+
     TupleDomain<ColumnHandle> getCurrentPredicate();
 }

@@ -15,23 +15,36 @@ package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.metastore.HiveType;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
@@ -39,14 +52,45 @@ import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullC
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.projectSufficientColumns;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TestParquetPageSourceFactory
 {
+    @Test
+    public void testJoinFilterIsNotRefreshedBetweenRowGroups()
+            throws Exception
+    {
+        File file = new File(Resources.getResource("issue-10873.parquet").toURI());
+        HiveColumnHandle column = createBaseColumn("x", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
+        TestingDynamicFilter filter = new TestingDynamicFilter(2);
+        filter.update(TupleDomain.withColumnDomains(Map.of(column, Domain.notNull(INTEGER))));
+        try (ConnectorPageSource source = ParquetPageSourceFactory.createPageSource(
+                new LocalInputFile(file),
+                0,
+                file.length(),
+                List.of(column),
+                List.of(TupleDomain.all()),
+                true,
+                UTC,
+                new FileFormatDataSourceStats(),
+                ParquetReaderOptions.defaultOptions(),
+                Optional.empty(),
+                Optional.empty(),
+                100,
+                OptionalLong.of(file.length()),
+                MemoryContext.NO_LIMIT,
+                filter)) {
+            filter.update(TupleDomain.none());
+            assertThat(source.getNextSourcePage()).isNotNull();
+        }
+    }
+
     @Test
     public void testGetNestedMixedRepetitionColumnType()
     {
