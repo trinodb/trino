@@ -10,6 +10,8 @@ Policies are defined in OPA, and Trino checks access control privileges in OPA.
 * A running [OPA deployment](https://www.openpolicyagent.org/docs/latest/#running-opa)
 * Network connectivity from the Trino cluster to the OPA server
 
+The Rego examples in this guide require OPA 0.59.0 or later.
+
 With the requirements fulfilled, you can proceed to set up Trino and OPA with
 your desired access control configuration.
 
@@ -247,14 +249,12 @@ rego script:
 
 ```text
   package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
+  import rego.v1
 
   default allow := true
 
   table_resource := input.action.resource.table
-  is_admin {
+  is_admin if {
     input.context.identity.user == "admin"
   }
 
@@ -287,14 +287,12 @@ rego script:
 
 ```text
   package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
+  import rego.v1
 
   default allow := true
 
   column_resource := input.action.resource.column
-  is_admin {
+  is_admin if {
     input.context.identity.user == "admin"
   }
 
@@ -347,103 +345,20 @@ each containing the following data:
 For example, a policy configuring batch column masking may be defined by the
 following rego script:
 
-```text
-package trino
-import future.keywords.in
-import future.keywords.if
-import future.keywords.contains
-
-default allow := true
-
-batchColumnMasks contains {
-  "index": i,
-  "viewExpression": {
-    "expression": "NULL"
-  }
-} if {
-  some i
-  column_resource := input.action.filterResources[i]
-  column_resource.catalogName == "sample_catalog"
-  column_resource.schemaName == "sample_schema"
-  column_resource.tableName == "restricted_table"
-  column_resource.columnName == "user_phone"
-}
-
-
-batchColumnMasks contains {
-  "index": i,
-  "viewExpression": {
-    "expression": "'****' || substring(user_name, -3)",
-    "identity": "admin"
-  }
-} if {
-  some i
-  column_resource := input.action.filterResources[i]
-  column_resource.catalogName == "sample_catalog"
-  column_resource.schemaName == "sample_schema"
-  column_resource.tableName == "restricted_table"
-  column_resource.columnName == "user_name"
-}
+```{literalinclude} opa-batch-column-masking.rego
+:language: text
 ```
 
 A batch column masking request is similar to the following example:
 
-```json
-{
-    "context": {
-        "identity": {
-            "user": "foo",
-            "groups": ["some-group"]
-        },
-        "queryId": "20250718_081710_03427_trino",
-        "softwareStack": {
-            "trinoVersion": "434"
-        }
-    },
-    "action": {
-        "operation": "GetColumnMask",
-        "filterResources": [
-            {
-                "column": {
-                    "catalogName": "sample_catalog",
-                    "schemaName": "sample_schema",
-                    "tableName": "restricted_table",
-                    "columnName": "user_phone",
-                    "columnType": "VARCHAR"
-                }
-            },
-            {
-                "column": {
-                    "catalogName": "sample_catalog",
-                    "schemaName": "sample_schema",
-                    "tableName": "restricted_table",
-                    "columnName": "user_name",
-                    "columnType": "VARCHAR"
-                }
-            }
-        ]
-    }
-}
+```{literalinclude} opa-batch-column-masking-request.json
+:language: json
 ```
 
 The related OPA response is displayed in the following snippet:
 
-```json
-[
-    {
-        "index": 0,
-        "viewExpression": {
-            "expression": "NULL"
-        }
-    },
-    {
-        "index": 1,
-        "viewExpression": {
-            "expression": "'****' || substring(user_name, -3)",
-            "identity": "admin"
-        }
-    }
-]
+```{literalinclude} opa-batch-column-masking-response.json
+:language: json
 ```
 
 (opa-batch-mode)=
@@ -475,29 +390,26 @@ You can add batching support for policies that do not support it:
 ```text
 package foo
 
-import future.keywords.contains
+import rego.v1
 
 # ... rest of the policy ...
 # this assumes the non-batch response field is called "allow"
-batch contains i {
+batch contains i if {
+    input.action.operation != "FilterColumns"
     some i
     raw_resource := input.action.filterResources[i]
     allow with input.action.resource as raw_resource
 }
 
 # Corner case: filtering columns is done with a single table item, and many columns inside
-# We cannot use our normal logic in other parts of the policy as they are based on sets
-# and we need to retain order
-batch contains i {
-    some i
+# Check each column on its own, as a single-column table resource, matching the
+# requests sent when batch mode is not used, and return the column indices
+batch contains i if {
     input.action.operation == "FilterColumns"
     count(input.action.filterResources) == 1
     raw_resource := input.action.filterResources[0]
-    count(raw_resource["table"]["columns"]) > 0
-    new_resources := [
-        object.union(raw_resource, {"table": {"column": column_name}})
-        | column_name := raw_resource["table"]["columns"][_]
-    ]
-    allow with input.action.resource as new_resources[i]
+    some i, column_name in raw_resource.table.columns
+    resource := object.union(raw_resource, {"table": {"columns": [column_name]}})
+    allow with input.action.resource as resource
 }
 ```

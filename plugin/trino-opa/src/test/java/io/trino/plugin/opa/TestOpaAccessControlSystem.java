@@ -42,26 +42,25 @@ final class TestOpaAccessControlSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
-                import future.keywords.if
+                import rego.v1
 
                 default allow = false
-                allow {
+                allow if {
                   is_bob
                   can_be_accessed_by_bob
                 }
                 allow if is_admin
 
-                is_admin {
+                is_admin if {
                   input.context.identity.user == "admin"
                 }
-                is_bob {
+                is_bob if {
                   input.context.identity.user == "bob"
                 }
-                can_be_accessed_by_bob {
+                can_be_accessed_by_bob if {
                   input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
                 }
-                can_be_accessed_by_bob {
+                can_be_accessed_by_bob if {
                   input.action.operation in ["FilterCatalogs", "AccessCatalog"]
                   input.action.resource.catalog.name == "catalog_one"
                 }
@@ -81,10 +80,10 @@ final class TestOpaAccessControlSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
+                import rego.v1
                 default allow = false
 
-                allow {
+                allow if {
                     input.context.identity.user in ["someone", "admin"]
                 }
                 """);
@@ -106,33 +105,32 @@ final class TestOpaAccessControlSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
-                import future.keywords.if
+                import rego.v1
                 default allow = false
 
                 allow if is_admin
 
-                allow {
+                allow if {
                     is_bob
                     input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
                 }
 
-                is_bob {
+                is_bob if {
                     input.context.identity.user == "bob"
                 }
 
-                is_admin {
+                is_admin if {
                     input.context.identity.user == "admin"
                 }
 
-                batchAllow[i] {
+                batchAllow contains i if {
                     some i
                     is_bob
                     input.action.operation == "FilterCatalogs"
                     input.action.filterResources[i].catalog.name == "catalog_one"
                 }
 
-                batchAllow[i] {
+                batchAllow contains i if {
                     some i
                     input.action.filterResources[i]
                     is_admin
@@ -155,7 +153,7 @@ final class TestOpaAccessControlSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
+                import rego.v1
                 default allow = false
                 """);
         assertThatThrownBy(() -> runner.querySetOfStrings("bob", "SELECT version()"))
@@ -175,9 +173,9 @@ final class TestOpaAccessControlSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
+                import rego.v1
                 default allow = false
-                allow {
+                allow if {
                     input.context.identity.user == "bob"
                     input.action.operation in ["ImpersonateUser", "ExecuteFunction", "AccessCatalog", "ExecuteQuery"]
                 }

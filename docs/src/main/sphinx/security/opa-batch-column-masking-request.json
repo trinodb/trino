@@ -1,0 +1,35 @@
+{
+    "context": {
+        "identity": {
+            "user": "foo",
+            "groups": ["some-group"]
+        },
+        "queryId": "20250718_081710_03427_trino",
+        "softwareStack": {
+            "trinoVersion": "434"
+        }
+    },
+    "action": {
+        "operation": "GetColumnMask",
+        "filterResources": [
+            {
+                "column": {
+                    "catalogName": "sample_catalog",
+                    "schemaName": "sample_schema",
+                    "tableName": "restricted_table",
+                    "columnName": "user_phone",
+                    "columnType": "VARCHAR"
+                }
+            },
+            {
+                "column": {
+                    "catalogName": "sample_catalog",
+                    "schemaName": "sample_schema",
+                    "tableName": "restricted_table",
+                    "columnName": "user_name",
+                    "columnType": "VARCHAR"
+                }
+            }
+        ]
+    }
+}

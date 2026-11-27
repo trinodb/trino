@@ -1,0 +1,15 @@
+[
+    {
+        "index": 0,
+        "viewExpression": {
+            "expression": "NULL"
+        }
+    },
+    {
+        "index": 1,
+        "viewExpression": {
+            "expression": "'****' || substring(user_name, -3)",
+            "identity": "admin"
+        }
+    }
+]
