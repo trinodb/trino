@@ -173,6 +173,10 @@ public class TrinoConnection
 
         this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
 
+        if (uri.isLocalRedirectDisallowed()) {
+            logger.log(Level.WARNING, "Connection config disallowLocalRedirect is deprecated, please use restrictHosts.");
+        }
+
         this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         this.segmentHttpCallFactory = requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));

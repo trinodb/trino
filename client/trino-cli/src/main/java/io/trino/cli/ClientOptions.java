@@ -48,10 +48,12 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
+import static io.trino.client.uri.PropertyName.ALLOWED_HOSTS;
 import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
@@ -76,6 +78,7 @@ import static io.trino.client.uri.PropertyName.OAUTH2_SCOPE;
 import static io.trino.client.uri.PropertyName.OAUTH2_TOKEN_ENDPOINT;
 import static io.trino.client.uri.PropertyName.PASSWORD;
 import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
+import static io.trino.client.uri.PropertyName.RESTRICT_HOSTS;
 import static io.trino.client.uri.PropertyName.SCHEMA;
 import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
 import static io.trino.client.uri.PropertyName.SESSION_USER;
@@ -302,6 +305,14 @@ public class ClientOptions
     @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
     public Optional<HostAndPort> httpProxy;
 
+    @PropertyMapping(RESTRICT_HOSTS)
+    @Option(names = "--restrict-hosts", description = "Connect only to the server and the allowed hosts")
+    public boolean restrictHosts;
+
+    @PropertyMapping(ALLOWED_HOSTS)
+    @Option(names = "--allowed-hosts", paramLabel = "<hosts>", split = ",", description = "Hosts to connect to besides the server when --restrict-hosts is set, *.example.com matches subdomains")
+    public List<String> allowedHosts = ImmutableList.of();
+
     @PropertyMapping(TIMEOUT)
     @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
     public Duration clientRequestTimeout;
@@ -488,6 +499,15 @@ public class ClientOptions
         traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
+        builder.setRestrictHosts(restrictHosts);
+        Set<String> trimmedAllowedHosts = allowedHosts.stream()
+                .map(String::trim)
+                .filter(host -> !host.isEmpty())
+                .collect(toImmutableSet());
+        // An empty set still sets the property, which is invalid without restrictHosts
+        if (!trimmedAllowedHosts.isEmpty()) {
+            builder.setAllowedHosts(trimmedAllowedHosts);
+        }
         builder.setTimeZone(timeZone);
         builder.setDisableCompression(disableCompression);
         builder.setTimeout(clientRequestTimeout);

@@ -135,6 +135,13 @@ mode:
 
 * - Option
   - Description
+* - `--allowed-hosts`
+  - Comma-separated list of host patterns, besides the server, that the CLI can
+    connect to when `--restrict-hosts` is set. Patterns are case-insensitive
+    and cannot contain a port. A leading `*` matches one or more labels, so
+    `*.example.com` matches `a.example.com` and `a.b.example.com`, but not
+    `example.com`. Any other `*` matches exactly one label. Setting it without
+    `--restrict-hosts` fails.
 * - `--catalog`
   - Sets the default catalog. Optionally also use `--schema` to set the default
     schema. You can change the default catalog and default schema with[](/sql/use).
@@ -208,6 +215,13 @@ mode:
     authentication. You can set the `TRINO_PASSWORD` environment variable with
     the password value to avoid the prompt. For more information, see
     [](cli-username-password-auth).
+* - `--restrict-hosts`
+  - Connect only to the server and the hosts set with `--allowed-hosts`. A
+    redirect or a `nextUri` to any other host, or without TLS when the server
+    uses TLS, fails the query, so credentials and session headers are only
+    sent to these hosts. Spooled segments can also be downloaded from Amazon
+    S3, Google Cloud Storage, and Azure Storage.
+    The same as the `restrictHosts` [JDBC driver parameter](jdbc-parameter-reference).
 * - `--schema`
   - Sets the default schema. Must be combined with `--catalog`. You can change
     the default catalog and default schema with [](/sql/use).

@@ -23,6 +23,7 @@ import static java.util.function.Function.identity;
 public enum PropertyName
 {
     ACCESS_TOKEN("accessToken"),
+    ALLOWED_HOSTS("allowedHosts"),
     APPLICATION_NAME_PREFIX("applicationNamePrefix"),
     ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS("assumeLiteralNamesInMetadataCallsForNonConformingClients"),
     ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients"),
@@ -61,6 +62,7 @@ public enum PropertyName
     PASSWORD("password"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),
+    RESTRICT_HOSTS("restrictHosts"),
     ROLES("roles"),
     SCHEMA("schema"), // this is not actual property but part of the path
     SESSION_PROPERTIES("sessionProperties"),

@@ -13,6 +13,8 @@
  */
 package io.trino.client.uri;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.client.AllowedHostsInterceptor;
 import io.trino.client.ClientException;
 import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
@@ -23,13 +25,16 @@ import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 
 import java.io.File;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
 import static io.trino.client.OkHttpUtil.extraHeaders;
@@ -51,12 +56,39 @@ import static java.lang.Math.toIntExact;
 
 public class HttpClientFactory
 {
+    // Pre-signed URIs of spooled segments in the default STORAGE retrieval mode point to these hosts
+    private static final List<String> OBJECT_STORAGE_HOSTS = ImmutableList.of(
+            "s3.amazonaws.com",
+            "*.s3.amazonaws.com",
+            "s3.*.amazonaws.com",
+            "*.s3.*.amazonaws.com",
+            "s3.dualstack.*.amazonaws.com",
+            "*.s3.dualstack.*.amazonaws.com",
+            "s3-fips.*.amazonaws.com",
+            "*.s3-fips.*.amazonaws.com",
+            "s3-fips.dualstack.*.amazonaws.com",
+            "*.s3-fips.dualstack.*.amazonaws.com",
+            "*.s3-accelerate.amazonaws.com",
+            "*.s3-accelerate.dualstack.amazonaws.com",
+            "s3.*.amazonaws.com.cn",
+            "*.s3.*.amazonaws.com.cn",
+            "s3.dualstack.*.amazonaws.com.cn",
+            "*.s3.dualstack.*.amazonaws.com.cn",
+            "storage.googleapis.com",
+            "*.storage.googleapis.com",
+            "*.blob.core.windows.net",
+            "*.dfs.core.windows.net");
+
     private HttpClientFactory() {}
 
     public static OkHttpClient.Builder toHttpClientBuilder(TrinoUri uri, String userAgent)
     {
-        OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
+        OkHttpClient.Builder builder = baseClientBuilder(uri, userAgent);
         setupCookieJar(builder);
+
+        if (uri.isHostRestrictionEnabled()) {
+            builder.addNetworkInterceptor(allowedHostsInterceptor(uri, ImmutableList.of()));
+        }
 
         if (uri.hasPassword()) {
             if (!uri.isUseSecureConnection()) {
@@ -115,7 +147,7 @@ public class HttpClientFactory
                 throw new RuntimeException("TLS/SSL is required for authentication with client credentials");
             }
             ClientCredentialsAuthenticator clientCredentialsAuthenticator = new ClientCredentialsAuthenticator(
-                    builder.build(),
+                    tokenEndpointClient(builder, uri),
                     uri.getOauth2ClientId().get(),
                     uri.getOauth2ClientSecret().get(),
                     uri.getOauth2TokenEndpoint(),
@@ -159,6 +191,16 @@ public class HttpClientFactory
     }
 
     public static OkHttpClient.Builder unauthenticatedClientBuilder(TrinoUri uri, String userAgent)
+    {
+        OkHttpClient.Builder builder = baseClientBuilder(uri, userAgent);
+        // Only segments, which carry no credentials, can go to object storage, because anyone can create a matching host
+        if (uri.isHostRestrictionEnabled()) {
+            builder.addNetworkInterceptor(allowedHostsInterceptor(uri, OBJECT_STORAGE_HOSTS));
+        }
+        return builder;
+    }
+
+    private static OkHttpClient.Builder baseClientBuilder(TrinoUri uri, String userAgent)
     {
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         setupUserAgent(builder, userAgent);
@@ -210,6 +252,31 @@ public class HttpClientFactory
     protected static void setupUserAgent(OkHttpClient.Builder builder, String userAgent)
     {
         builder.addInterceptor(userAgent(userAgent));
+    }
+
+    private static AllowedHostsInterceptor allowedHostsInterceptor(TrinoUri uri, List<String> additionalHosts)
+    {
+        List<String> allowedHosts = ImmutableList.<String>builder()
+                .add(HttpUrl.get(uri.getHttpUri()).host())
+                .addAll(uri.getAllowedHosts())
+                .addAll(additionalHosts)
+                .build();
+        return new AllowedHostsInterceptor(allowedHosts, uri.isUseSecureConnection());
+    }
+
+    private static OkHttpClient tokenEndpointClient(OkHttpClient.Builder builder, TrinoUri uri)
+    {
+        OkHttpClient.Builder tokenEndpointClient = builder.build().newBuilder();
+        if (uri.isHostRestrictionEnabled()) {
+            // The token endpoint is allowed only for token requests, so it never receives the access token
+            List<String> tokenEndpointHost = uri.getOauth2TokenEndpoint()
+                    .map(endpoint -> HttpUrl.get(endpoint).host())
+                    .stream()
+                    .collect(toImmutableList());
+            tokenEndpointClient.networkInterceptors().removeIf(AllowedHostsInterceptor.class::isInstance);
+            tokenEndpointClient.addNetworkInterceptor(allowedHostsInterceptor(uri, tokenEndpointHost));
+        }
+        return tokenEndpointClient.build();
     }
 
     private static DnsResolver instantiateDnsResolver(Class<? extends DnsResolver> resolverClass, String context)

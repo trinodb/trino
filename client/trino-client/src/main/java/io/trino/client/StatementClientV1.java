@@ -407,7 +407,7 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
-        return executeRequest(request, "fetching next", e -> true);
+        return executeRequest(request, "fetching next", e -> !isHostNotAllowed(e));
     }
 
     public void heartbeat()
@@ -504,6 +504,7 @@ class StatementClientV1
             }
             catch (RuntimeException e) {
                 if (!isRetryable.apply(e)) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw e;
                 }
                 cause = e;
@@ -527,6 +528,11 @@ class StatementClientV1
             processResponse(response.getHeaders(), response.getValue());
             return true;
         }
+    }
+
+    private static boolean isHostNotAllowed(Throwable exception)
+    {
+        return getCausalChain(exception).stream().anyMatch(HostNotAllowedException.class::isInstance);
     }
 
     private boolean isTransient(Throwable exception)

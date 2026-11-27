@@ -360,6 +360,29 @@ public class TestClientOptions
     }
 
     @Test
+    public void testRestrictHosts()
+    {
+        Console console = createConsole("--restrict-hosts", "--allowed-hosts", "trino.example.com,*.example.net");
+
+        TrinoUri uri = console.clientOptions.getTrinoUri();
+        assertThat(uri.isHostRestrictionEnabled()).isTrue();
+        assertThat(uri.getAllowedHosts()).containsExactlyInAnyOrder("trino.example.com", "*.example.net");
+
+        uri = createConsole("--restrict-hosts", "--allowed-hosts", "trino.example.com, *.example.net,").clientOptions.getTrinoUri();
+        assertThat(uri.getAllowedHosts()).containsExactlyInAnyOrder("trino.example.com", "*.example.net");
+
+        assertThat(createConsole().clientOptions.getTrinoUri().isHostRestrictionEnabled()).isFalse();
+    }
+
+    @Test
+    public void testAllowedHostsRequireRestrictHosts()
+    {
+        Console console = createConsole("--allowed-hosts", "trino.example.com");
+        assertThatThrownBy(() -> console.clientOptions.getTrinoUri())
+                .hasMessageContaining("Connection property allowedHosts requires restrictHosts to be enabled");
+    }
+
+    @Test
     public void testThreePartPropertyName()
     {
         assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))

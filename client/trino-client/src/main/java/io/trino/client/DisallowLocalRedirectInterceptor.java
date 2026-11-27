@@ -24,6 +24,10 @@ import java.net.UnknownHostException;
 
 import static java.lang.String.format;
 
+/**
+ * @deprecated use {@link AllowedHostsInterceptor}
+ */
+@Deprecated
 public class DisallowLocalRedirectInterceptor
         implements Interceptor
 {
