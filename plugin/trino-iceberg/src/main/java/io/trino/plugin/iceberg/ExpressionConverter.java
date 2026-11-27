@@ -182,7 +182,9 @@ public final class ExpressionConverter
                 nonNull = floatingPoint.isNaNAllowed()
                         ? or(isNaN(columnName), nonNull)
                         : and(List.of(not(isNaN(columnName)), nonNull));
-                // Iceberg negated predicates may match null; null membership is handled separately.
+            }
+            if (domain.getValues() instanceof FloatingPointValueSet || !rangeExpressions.isEmpty()) {
+                // Iceberg orders null first, so range and negated predicates may match null; null membership is handled separately.
                 nonNull = and(List.of(not(isNull(columnName)), nonNull));
             }
             return or(nullExpression, nonNull);

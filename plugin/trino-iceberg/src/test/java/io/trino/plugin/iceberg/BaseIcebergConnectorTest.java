@@ -4423,6 +4423,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    void testPartitionPredicateExcludesNullPartition()
+    {
+        try (TestTable table = newTrinoTable("test_null_partition_predicate", "(id integer, region varchar) WITH (partitioning = ARRAY['region'])", ImmutableList.of("1, 'EU'", "2, 'US'", "3, NULL"))) {
+            assertQuery("SELECT id FROM " + table.getName() + " WHERE region <> 'US'", "VALUES 1");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE region <> 'US'", 1);
+            assertQuery("SELECT id FROM " + table.getName(), "VALUES 2, 3");
+        }
+        try (TestTable table = newTrinoTable("test_null_partition_predicate", "(id integer, ts timestamp(6) with time zone) WITH (partitioning = ARRAY['day(ts)'])", ImmutableList.of("1, TIMESTAMP '2024-06-01 10:00 UTC'", "2, TIMESTAMP '2023-01-01 10:00 UTC'", "3, NULL"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE ts < TIMESTAMP '2024-01-01 00:00 UTC'", 1);
+            assertQuery("SELECT id FROM " + table.getName(), "VALUES 1, 3");
+        }
+    }
+
+    @Test
     public void testMetadataDelete()
     {
         assertUpdate("CREATE TABLE test_metadata_delete (" +
