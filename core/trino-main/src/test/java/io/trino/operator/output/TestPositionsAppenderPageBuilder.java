@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -34,6 +36,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPositionsAppenderPageBuilder
 {
+    @Test
+    public void testRetainedSizeWithoutChannels()
+    {
+        PositionsAppenderPageBuilder builder = PositionsAppenderPageBuilder.withMaxPageSize(1024, List.of(), new PositionsAppenderFactory(new BlockTypeOperators()));
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(instanceSize(PositionsAppenderPageBuilder.class) + sizeOfObjectArray(0));
+        assertThat(builder.getSizeInBytes()).isZero();
+    }
+
     @Test
     public void testFullOnPositionCountLimit()
     {

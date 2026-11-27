@@ -259,7 +259,7 @@ public final class RowPositionsAppender
             return retainedSizeInBytes;
         }
 
-        long size = INSTANCE_SIZE + sizeOf(valueIsValid);
+        long size = INSTANCE_SIZE + sizeOf(fieldAppenders) + sizeOf(valueIsValid);
         for (UnnestingPositionsAppender field : fieldAppenders) {
             size += field.getRetainedSizeInBytes();
         }

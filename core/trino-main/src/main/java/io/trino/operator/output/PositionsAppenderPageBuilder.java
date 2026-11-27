@@ -25,10 +25,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class PositionsAppenderPageBuilder
 {
+    private static final int INSTANCE_SIZE = instanceSize(PositionsAppenderPageBuilder.class);
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
     @VisibleForTesting
     static final int MAX_POSITION_COUNT = PageProcessor.MAX_BATCH_SIZE * 4;
@@ -107,7 +110,7 @@ public final class PositionsAppenderPageBuilder
     {
         // We use a foreach loop instead of streams
         // as it has much better performance.
-        long retainedSizeInBytes = 0;
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(channelAppenders);
         for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
             retainedSizeInBytes += positionsAppender.getRetainedSizeInBytes();
         }

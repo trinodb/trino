@@ -48,6 +48,8 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
@@ -78,6 +80,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPositionsAppender
 {
     private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
+
+    @Test
+    public void testRowRetainedSizeIncludesFieldAppenderArray()
+    {
+        RowPositionsAppender row = RowPositionsAppender.createRowAppender(POSITIONS_APPENDER_FACTORY, anonymousRow(BIGINT, BIGINT), 8, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        long fieldSize = POSITIONS_APPENDER_FACTORY.create(BIGINT, 8, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).getRetainedSizeInBytes();
+        assertThat(row.getRetainedSizeInBytes()).isEqualTo(instanceSize(RowPositionsAppender.class) + sizeOfObjectArray(2) + 2 * fieldSize);
+    }
 
     @Test
     public void testMixedBlockTypes()
