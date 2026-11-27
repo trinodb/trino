@@ -39,6 +39,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +56,8 @@ final class TestExtractCommonConjunctFromCase
     private static final Expression MAY_FAIL = comparison(EQUAL, new Cast(new Reference(VARCHAR, "s"), BIGINT), new Constant(BIGINT, 1L));
     private static final Reference CONDITION = new Reference(BOOLEAN, "condition");
     private static final Reference CONDITION2 = new Reference(BOOLEAN, "condition2");
+
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
 
     @Test
     void extractsConjunctSharedByEveryBranch()
@@ -195,6 +198,6 @@ final class TestExtractCommonConjunctFromCase
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new ExtractCommonConjunctFromCase(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new ExtractCommonConjunctFromCase(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }

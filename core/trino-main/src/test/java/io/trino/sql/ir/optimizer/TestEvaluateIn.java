@@ -35,6 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateIn
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -58,6 +60,12 @@ public class TestEvaluateIn
                 .describedAs("empty list")
                 .isEqualTo(Optional.of(FALSE));
 
+        // TODO https://github.com/trinodb/trino/issues/31064 -- false is the right answer, since
+        //  nothing is a member of the empty set and no unknown is involved, so this rule is correct
+        //  and the check below fails. Both engines disagree with it: IrExpressionEvaluator returns
+        //  null for a null value regardless of the list, and InCodeGenerator does the same, because
+        //  its no-match branch takes wasNull from isIndeterminate(value) when there are no test
+        //  values. The cross-check cannot flag this one, as the two engines agree with each other.
         assertThat(optimize(
                 new In(new Constant(BIGINT, null), ImmutableList.of())))
                 .describedAs("null value, empty list")
@@ -90,6 +98,11 @@ public class TestEvaluateIn
     }
 
     private Optional<Expression> optimize(Expression expression)
+    {
+        return VERIFIER.verify(expression, apply(expression));
+    }
+
+    private Optional<Expression> apply(Expression expression)
     {
         return new EvaluateIn(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }

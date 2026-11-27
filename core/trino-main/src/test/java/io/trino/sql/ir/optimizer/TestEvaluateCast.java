@@ -33,6 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateCast
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     @Test
     void test()
     {
@@ -51,6 +53,6 @@ public class TestEvaluateCast
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCast(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new EvaluateCast(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
