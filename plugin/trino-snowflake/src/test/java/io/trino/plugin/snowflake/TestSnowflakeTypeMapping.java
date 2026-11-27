@@ -16,6 +16,7 @@ package io.trino.plugin.snowflake;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
@@ -48,6 +49,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -416,6 +418,52 @@ public class TestSnowflakeTypeMapping
                     "INSERT INTO " + table.getName() + " VALUES 'some value'",
                     "Underlying type that is mapped to VARCHAR is not supported for INSERT: .*");
         }
+    }
+
+    @Test
+    public void testVariant()
+    {
+        try (TestTable table = new TestTable(
+                TestingSnowflakeServer::execute,
+                "tpch.test_variant",
+                """
+                AS SELECT id, PARSE_JSON(value) v FROM (VALUES
+                    (1, '{"a": 1, "b": null, "c": undefined}'),
+                    (2, '[ 1, 2, null, 4, undefined, 6, , 8 ]'),
+                    (3, '{"x": [true, "text", {"y": 12.5}], "z": 1.5e3}'),
+                    (4, '"text"'),
+                    (5, '12345678901234567890'),
+                    (6, NULL)) t(id, value)
+                """)) {
+            assertQuery("SELECT DISTINCT typeof(v) FROM " + table.getName(), "VALUES 'variant'");
+            assertQuery(
+                    "SELECT id, json_format(CAST(v AS JSON)) FROM " + table.getName(),
+                    """
+                    VALUES
+                        (1, '{"a":1,"b":null,"c":null}'),
+                        (2, '[1,2,null,4,null,6,null,8]'),
+                        (3, '{"x":[true,"text",{"y":12.5}],"z":1500.0}'),
+                        (4, '"text"'),
+                        (5, '12345678901234567890'),
+                        (6, NULL)
+                    """);
+            assertThat(query("SELECT count(*) FROM %s GROUP BY v".formatted(table.getName())))
+                    .isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT count(DISTINCT v) FROM " + table.getName()))
+                    .isNotFullyPushedDown(AggregationNode.class);
+        }
+    }
+
+    @Test
+    public void testVariantQueryPassthrough()
+    {
+        assertQuery(
+                """
+                SELECT json_format(CAST(v AS JSON)) FROM TABLE(system.query(query => '
+                    SELECT PARSE_JSON(''[ 1, 2, null, 4, undefined, 6, , 8 ]'') v
+                    UNION ALL SELECT PARSE_JSON(''{"a": 1, "b": null, "c": undefined}'')'))
+                """,
+                "VALUES '[1,2,null,4,null,6,null,8]', '{\"a\":1,\"b\":null,\"c\":null}'");
     }
 
     @Test
