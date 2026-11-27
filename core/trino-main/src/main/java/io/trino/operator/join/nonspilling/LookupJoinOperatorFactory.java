@@ -14,6 +14,7 @@
 package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
@@ -48,6 +49,7 @@ public class LookupJoinOperatorFactory
     private final JoinType joinType;
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
+    private final boolean finishOnEmptyBuild;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends PartitionedLookupSourceFactory> joinBridgeManager;
@@ -62,6 +64,7 @@ public class LookupJoinOperatorFactory
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
             JoinOperatorType joinOperatorType,
+            boolean finishOnEmptyBuild,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorId = operatorId;
@@ -71,6 +74,7 @@ public class LookupJoinOperatorFactory
         this.joinType = requireNonNull(joinOperatorType.getType(), "joinType is null");
         this.outputSingleMatch = joinOperatorType.isOutputSingleMatch();
         this.waitForBuild = joinOperatorType.isWaitForBuild();
+        this.finishOnEmptyBuild = finishOnEmptyBuild;
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;
@@ -101,6 +105,7 @@ public class LookupJoinOperatorFactory
         joinType = other.joinType;
         outputSingleMatch = other.outputSingleMatch;
         waitForBuild = other.waitForBuild;
+        finishOnEmptyBuild = other.finishOnEmptyBuild;
         joinProbeFactory = other.joinProbeFactory;
         outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
@@ -136,6 +141,12 @@ public class LookupJoinOperatorFactory
     @Override
     public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
     {
+        throw new UnsupportedOperationException("sourcePagesFinished is required");
+    }
+
+    @Override
+    public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages, ListenableFuture<Void> sourcePagesFinished)
+    {
         checkState(!closed, "Factory is already closed");
         PartitionedLookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
 
@@ -145,11 +156,13 @@ public class LookupJoinOperatorFactory
                 joinType,
                 outputSingleMatch,
                 waitForBuild,
+                finishOnEmptyBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,
                 operatorContext,
-                sourcePages);
+                sourcePages,
+                sourcePagesFinished);
     }
 
     @Override

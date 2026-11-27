@@ -72,6 +72,7 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of(BIGINT);
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
+                false,
                 new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
@@ -108,6 +109,7 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
+                false,
                 new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
@@ -142,6 +144,7 @@ public class TestNestedLoopBuildOperator
         List<Type> buildTypes = ImmutableList.of();
         JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
+                false,
                 new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
@@ -162,6 +165,64 @@ public class TestNestedLoopBuildOperator
             assertThat(buildPages).hasSize(2);
             assertThat(buildPages.get(0).getPositionCount()).isEqualTo(PageProcessor.MAX_BATCH_SIZE);
             assertThat(buildPages.get(1).getPositionCount()).isEqualTo(100);
+        }
+    }
+
+    @Test
+    public void testNestedLoopBuildFinishesWhenProbeFinishes()
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        List<Type> buildTypes = ImmutableList.of(BIGINT);
+        JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
+                false,
+                true,
+                new NestedLoopJoinPagesSupplier(),
+                buildTypes);
+        nestedLoopJoinBridgeManager.incrementProbeFactoryCount();
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext)) {
+            NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
+
+            nestedLoopBuildOperator.addInput(new Page(3, createLongSequenceBlock(11, 14)));
+            assertThat(nestedLoopBuildOperator.needsInput()).isTrue();
+            assertThat(nestedLoopBuildOperator.isFinished()).isFalse();
+
+            nestedLoopJoinBridgeManager.probeOperatorFactoryClosed();
+
+            assertThat(nestedLoopBuildOperator.isFinished()).isTrue();
+            assertThat(nestedLoopBuildOperator.needsInput()).isFalse();
+            nestedLoopBuildOperator.finish();
+            assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isFalse();
+        }
+    }
+
+    @Test
+    public void testNestedLoopBuildWaitsForProbeWhenShortCircuitDisabled()
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        List<Type> buildTypes = ImmutableList.of(BIGINT);
+        JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
+                false,
+                false,
+                new NestedLoopJoinPagesSupplier(),
+                buildTypes);
+        nestedLoopJoinBridgeManager.incrementProbeFactoryCount();
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext)) {
+            NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
+
+            nestedLoopBuildOperator.addInput(new Page(3, createLongSequenceBlock(11, 14)));
+            nestedLoopJoinBridgeManager.probeOperatorFactoryClosed();
+
+            assertThat(nestedLoopBuildOperator.isFinished()).isFalse();
+            assertThat(nestedLoopBuildOperator.needsInput()).isTrue();
+            nestedLoopBuildOperator.finish();
+            assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
+            assertThat(nestedLoopBuildOperator.isFinished()).isTrue();
         }
     }
 

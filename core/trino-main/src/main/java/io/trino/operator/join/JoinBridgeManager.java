@@ -26,6 +26,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -37,29 +38,38 @@ public class JoinBridgeManager<T extends JoinBridge>
     {
         return new JoinBridgeManager<>(
                 false,
+                true,
                 factory,
                 factory.getOutputTypes());
     }
 
     private final List<Type> buildOutputTypes;
+    private final boolean buildNotNeededAfterProbe;
     private final T joinBridge;
     private final JoinLifecycle joinLifecycle;
 
     @GuardedBy("this")
     private boolean probeFactoriesFrozen;
 
+    /**
+     * @param buildNotNeededAfterProbe when set, the join bridge is destroyed as soon as all probe operators
+     *         finish, without waiting for the build to finish, unless the join is build-outer. Build operators then
+     *         stop consuming input.
+     */
     public JoinBridgeManager(
             boolean buildOuter,
+            boolean buildNotNeededAfterProbe,
             T joinBridge,
             List<Type> buildOutputTypes)
     {
         this.joinBridge = requireNonNull(joinBridge, "joinBridge is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
+        this.buildNotNeededAfterProbe = buildNotNeededAfterProbe && !buildOuter;
         // The probe reference count starts at 1 to act as a bootstrap reference that keeps
         // the bridge alive while probe operator factories are still being created. The
         // bootstrap reference is released on the first use of the bridge or any of its
         // lifecycle methods, at which point no more probe factories may be added.
-        this.joinLifecycle = new JoinLifecycle(joinBridge, 1, buildOuter ? 1 : 0);
+        this.joinLifecycle = new JoinLifecycle(joinBridge, 1, buildOuter ? 1 : 0, this.buildNotNeededAfterProbe);
     }
 
     private synchronized void freezeProbeFactoriesIfNecessary()
@@ -73,6 +83,22 @@ public class JoinBridgeManager<T extends JoinBridge>
     public List<Type> getBuildOutputTypes()
     {
         return buildOutputTypes;
+    }
+
+    /**
+     * Whether the build may stop before it finished, because all probe operators finished
+     */
+    public boolean isBuildNotNeededAfterProbe()
+    {
+        return buildNotNeededAfterProbe;
+    }
+
+    /**
+     * Completes once the join bridge is destroyed, as no operator reads the build anymore
+     */
+    public ListenableFuture<Void> whenDestroyed()
+    {
+        return nonCancellationPropagating(joinLifecycle.whenAllFinishes());
     }
 
     public synchronized void incrementProbeFactoryCount()
@@ -137,7 +163,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         private final ListenableFuture<Void> whenBuildAndProbeFinishes;
         private final ListenableFuture<Void> whenAllFinishes;
 
-        public JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
+        public JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount, boolean buildNotNeededAfterProbe)
         {
             // When all probe and lookup-outer operators finish, destroy the join bridge (freeing the memory)
             // * Each LookupOuterOperatorFactory count as 1
@@ -151,8 +177,21 @@ public class JoinBridgeManager<T extends JoinBridge>
             probeReferenceCount = new ReferenceCount(probeFactoryCount);
 
             whenBuildAndProbeFinishes = Futures.whenAllSucceed(joinBridge.whenBuildFinishes(), probeReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
-            whenAllFinishes = Futures.whenAllSucceed(whenBuildAndProbeFinishes, outerReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
+            if (buildNotNeededAfterProbe) {
+                // Without a build-outer side, nothing reads the build once all probe operators finish,
+                // even if the build has not finished yet
+                checkArgument(outerFactoryCount == 0, "Build-outer join needs the whole build");
+                whenAllFinishes = probeReferenceCount.getFreeFuture();
+            }
+            else {
+                whenAllFinishes = Futures.whenAllSucceed(whenBuildAndProbeFinishes, outerReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
+            }
             whenAllFinishes.addListener(joinBridge::destroy, directExecutor());
+        }
+
+        public ListenableFuture<Void> whenAllFinishes()
+        {
+            return whenAllFinishes;
         }
 
         public ListenableFuture<Void> whenBuildAndProbeFinishes()

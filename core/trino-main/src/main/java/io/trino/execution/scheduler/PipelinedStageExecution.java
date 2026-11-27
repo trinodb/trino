@@ -34,6 +34,7 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
@@ -392,6 +393,12 @@ public class PipelinedStageExecution
                 }
             }
         }
+
+        // a flushing or finished stage cancels its source stages, so their buffers need no update
+        State state = stateMachine.getState();
+        if (!taskStatus.abandonedRemoteSources().isEmpty() && state != FLUSHING && !state.isDone()) {
+            abandonOutputBuffers(taskStatus.taskId(), taskStatus.abandonedRemoteSources());
+        }
     }
 
     private synchronized boolean isStageFlushing()
@@ -502,6 +509,31 @@ public class PipelinedStageExecution
                 task.noMoreSplits(remoteSource.getId());
             }
         }
+    }
+
+    /**
+     * A task that stopped reading a remote source before it learned about all its source tasks never destroys
+     * its output buffers on the source tasks it does not know. Make all source tasks, including future ones, destroy them,
+     * so that they do not fill up and block the source tasks.
+     */
+    private synchronized void abandonOutputBuffers(TaskId taskId, Set<PlanNodeId> abandonedRemoteSources)
+    {
+        OutputBufferId outputBufferId = new OutputBufferId(taskId.partitionId());
+        exchangeSources.forEach((sourceFragment, remoteSource) -> {
+            if (!abandonedRemoteSources.contains(remoteSource.getId())) {
+                return;
+            }
+            PipelinedOutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
+            PipelinedOutputBuffers outputBuffers = outputBufferManager.getOutputBuffers();
+            outputBufferManager.abandonBuffer(outputBufferId);
+            PipelinedOutputBuffers newOutputBuffers = outputBufferManager.getOutputBuffers();
+            if (newOutputBuffers.equals(outputBuffers)) {
+                return;
+            }
+            for (RemoteTask sourceTask : sourceTasks.get(sourceFragment)) {
+                sourceTask.setOutputBuffers(newOutputBuffers);
+            }
+        });
     }
 
     private synchronized void updateSourceTasksOutputBuffers(Consumer<PipelinedOutputBufferManager> updater)

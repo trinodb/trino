@@ -231,7 +231,9 @@ class Query
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(session),
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                // the query output is read by a single consumer, so nothing waits for buffers it abandons
+                () -> {});
 
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 

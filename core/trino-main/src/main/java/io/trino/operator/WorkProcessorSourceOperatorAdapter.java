@@ -18,11 +18,13 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
+import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import static io.trino.SystemSessionProperties.isJoinShortCircuitEnabled;
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
@@ -37,6 +39,7 @@ public class WorkProcessorSourceOperatorAdapter
     private final WorkProcessorSourceOperator sourceOperator;
     private final WorkProcessor<Page> pages;
     private final SplitBuffer splitBuffer;
+    private final boolean finishWithoutSplits;
 
     private boolean operatorFinishing;
 
@@ -54,6 +57,7 @@ public class WorkProcessorSourceOperatorAdapter
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = sourceOperatorFactory.getSourceId();
         this.splitBuffer = new SplitBuffer();
+        this.finishWithoutSplits = isJoinShortCircuitEnabled(operatorContext.getSession());
         this.sourceOperator = sourceOperatorFactory
                 .create(
                         operatorContext,
@@ -75,6 +79,10 @@ public class WorkProcessorSourceOperatorAdapter
     public void addSplit(Split split)
     {
         if (operatorFinishing) {
+            return;
+        }
+        if (finishWithoutSplits && split.getConnectorSplit() instanceof EmptySplit) {
+            // only makes the scheduler create the driver; produces no pages
             return;
         }
 
@@ -139,6 +147,10 @@ public class WorkProcessorSourceOperatorAdapter
     @Override
     public boolean isFinished()
     {
+        if (finishWithoutSplits && !pages.isFinished() && splitBuffer.isFinishedWithoutSplits()) {
+            // nothing to read, so finish without waiting for the next operator to pull pages
+            pages.process();
+        }
         return pages.isFinished();
     }
 
@@ -216,6 +228,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
         private boolean noMoreSplits;
+        private boolean anySplitAdded;
 
         @Override
         public WorkProcessor.ProcessState<Split> process()
@@ -234,6 +247,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         void add(Split split)
         {
+            anySplitAdded = true;
             pendingSplits.add(split);
             blockedOnSplits.set(null);
         }
@@ -242,6 +256,11 @@ public class WorkProcessorSourceOperatorAdapter
         {
             noMoreSplits = true;
             blockedOnSplits.set(null);
+        }
+
+        boolean isFinishedWithoutSplits()
+        {
+            return noMoreSplits && !anySplitAdded;
         }
     }
 }

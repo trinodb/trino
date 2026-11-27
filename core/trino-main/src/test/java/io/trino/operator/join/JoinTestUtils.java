@@ -95,6 +95,7 @@ public final class JoinTestUtils
     {
         return spillingJoin(
                 innerJoin(outputSingleMatch, false),
+                true,
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,

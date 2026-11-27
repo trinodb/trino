@@ -107,6 +107,46 @@ public class TestLocalDynamicFilterConsumer
     }
 
     @Test
+    public void testAbandonCollection()
+    {
+        TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMap.of(new DynamicFilterId("123"), 0),
+                ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
+                ImmutableList.of(collector),
+                DataSize.of(100, KILOBYTE));
+        filter.setPartitionCount(2);
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L))));
+        assertThat(collector.isCollectionComplete()).isFalse();
+
+        filter.abandonCollection();
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), Domain.none(INTEGER)));
+
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 20L))));
+        filter.abandonCollection();
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), Domain.none(INTEGER)));
+    }
+
+    @Test
+    public void testAbandonCollectionAfterCollected()
+    {
+        TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMap.of(new DynamicFilterId("123"), 0),
+                ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
+                ImmutableList.of(collector),
+                DataSize.of(100, KILOBYTE));
+        filter.setPartitionCount(1);
+        filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L))));
+
+        filter.abandonCollection();
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L)));
+    }
+
+    @Test
     public void testMultiplePartitions()
     {
         TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();

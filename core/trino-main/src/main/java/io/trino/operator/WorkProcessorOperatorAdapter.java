@@ -94,7 +94,7 @@ public class WorkProcessorOperatorAdapter
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, WorkProcessorOperatorFactory workProcessorOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.workProcessorOperator = workProcessorOperatorFactory.create(operatorContext, pageBuffer.pages());
+        this.workProcessorOperator = workProcessorOperatorFactory.create(operatorContext, pageBuffer.pages(), pageBuffer.whenFinished());
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(createInfoSupplier(workProcessorOperator));
     }

@@ -53,6 +53,8 @@ public class NestedLoopJoinOperator
         private final JoinBridgeManager<NestedLoopJoinBridge> joinBridgeManager;
         private final List<Integer> probeChannels;
         private final List<Integer> buildChannels;
+        private final boolean finishOnEmptyBuild;
+        private final boolean waitForBuild;
         private boolean closed;
 
         public NestedLoopJoinOperatorFactory(
@@ -60,7 +62,9 @@ public class NestedLoopJoinOperator
                 PlanNodeId planNodeId,
                 JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager,
                 List<Integer> probeChannels,
-                List<Integer> buildChannels)
+                List<Integer> buildChannels,
+                boolean finishOnEmptyBuild,
+                boolean waitForBuild)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -68,6 +72,8 @@ public class NestedLoopJoinOperator
             joinBridgeManager.incrementProbeFactoryCount();
             this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
             this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
+            this.finishOnEmptyBuild = finishOnEmptyBuild;
+            this.waitForBuild = waitForBuild;
         }
 
         private NestedLoopJoinOperatorFactory(NestedLoopJoinOperatorFactory other)
@@ -80,6 +86,8 @@ public class NestedLoopJoinOperator
 
             this.probeChannels = ImmutableList.copyOf(other.probeChannels);
             this.buildChannels = ImmutableList.copyOf(other.buildChannels);
+            this.finishOnEmptyBuild = other.finishOnEmptyBuild;
+            this.waitForBuild = other.waitForBuild;
 
             // closed is intentionally not copied
             closed = false;
@@ -100,6 +108,8 @@ public class NestedLoopJoinOperator
                     nestedLoopJoinBridge,
                     probeChannels,
                     buildChannels,
+                    finishOnEmptyBuild,
+                    waitForBuild,
                     joinBridgeManager::probeOperatorClosed);
         }
 
@@ -128,6 +138,9 @@ public class NestedLoopJoinOperator
 
     private final int[] probeChannels;
     private final int[] buildChannels;
+    private final boolean finishOnEmptyBuild;
+    // when not set, the operator takes one probe page before the build is ready, so an empty probe finishes without waiting for the build
+    private final boolean waitForBuild;
     private List<Page> buildPages;
     private Page probePage;
     private Iterator<Page> buildPageIterator;
@@ -135,13 +148,19 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, List<Integer> probeChannels, List<Integer> buildChannels, Runnable afterClose)
+    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, List<Integer> probeChannels, List<Integer> buildChannels, boolean finishOnEmptyBuild, boolean waitForBuild, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
         blockedFutureView = asVoid(nestedLoopJoinPagesFuture);
         this.probeChannels = Ints.toArray(requireNonNull(probeChannels, "probeChannels is null"));
         this.buildChannels = Ints.toArray(requireNonNull(buildChannels, "buildChannels is null"));
+        this.finishOnEmptyBuild = finishOnEmptyBuild;
+        this.waitForBuild = waitForBuild;
+        if (finishOnEmptyBuild && !waitForBuild) {
+            // wake up the driver, which may be blocked on the probe input, once the build is ready
+            operatorContext.setFinishedFuture(blockedFutureView);
+        }
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
@@ -165,7 +184,11 @@ public class NestedLoopJoinOperator
     @Override
     public boolean isFinished()
     {
-        boolean finished = finishing && probePage == null;
+        if (closed) {
+            return true;
+        }
+        // an inner join with an empty build produces no output, so the rest of the probe is not needed
+        boolean finished = probePage == null && (finishing || isBuildEmpty());
 
         if (finished) {
             close();
@@ -176,7 +199,10 @@ public class NestedLoopJoinOperator
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        return blockedFutureView;
+        if (waitForBuild || probePage != null) {
+            return blockedFutureView;
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -186,13 +212,30 @@ public class NestedLoopJoinOperator
             return false;
         }
 
+        fetchBuildPages();
+        if (waitForBuild && buildPages == null) {
+            return false;
+        }
+        return !isBuildEmpty();
+    }
+
+    private void fetchBuildPages()
+    {
         if (buildPages == null) {
             Optional<NestedLoopJoinPages> nestedLoopJoinPages = tryGetFutureValue(nestedLoopJoinPagesFuture);
             if (nestedLoopJoinPages.isPresent()) {
                 buildPages = nestedLoopJoinPages.get().getPages();
             }
         }
-        return buildPages != null;
+    }
+
+    private boolean isBuildEmpty()
+    {
+        if (!finishOnEmptyBuild) {
+            return false;
+        }
+        fetchBuildPages();
+        return buildPages != null && buildPages.isEmpty();
     }
 
     @Override
@@ -200,13 +243,14 @@ public class NestedLoopJoinOperator
     {
         requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
-        checkState(buildPages != null, "Page source has not been built yet");
+        checkState(!waitForBuild || buildPages != null, "Page source has not been built yet");
         checkState(probePage == null, "Current page has not been completely processed yet");
         checkState(buildPageIterator == null || !buildPageIterator.hasNext(), "Current buildPageIterator has not been completely processed yet");
 
         if (page.getPositionCount() > 0) {
             probePage = page;
-            buildPageIterator = buildPages.iterator();
+            // set once the build is ready
+            buildPageIterator = null;
         }
     }
 
@@ -214,8 +258,15 @@ public class NestedLoopJoinOperator
     public Page getOutput()
     {
         // Either probe side or build side is not ready
-        if (probePage == null || buildPages == null) {
+        if (probePage == null) {
             return null;
+        }
+        fetchBuildPages();
+        if (buildPages == null) {
+            return null;
+        }
+        if (buildPageIterator == null) {
+            buildPageIterator = buildPages.iterator();
         }
 
         if (nestedLoopPageBuilder != null && nestedLoopPageBuilder.hasNext()) {

@@ -14,13 +14,16 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.buffer.OutputBufferStatus;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.net.URI;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,7 +57,9 @@ public record TaskStatus(
         Duration fullGcTime,
         long dynamicFiltersVersion,
         long queuedPartitionedSplitsWeight,
-        long runningPartitionedSplitsWeight)
+        long runningPartitionedSplitsWeight,
+        // remote sources the task stopped reading before it received all their locations
+        Set<PlanNodeId> abandonedRemoteSources)
 {
     /**
      * Version of task status that can be used to create an initial local task
@@ -96,6 +101,7 @@ public record TaskStatus(
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         requireNonNull(fullGcTime, "fullGcTime is null");
         checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
+        abandonedRemoteSources = ImmutableSet.copyOf(requireNonNull(abandonedRemoteSources, "abandonedRemoteSources is null"));
     }
 
     @Override
@@ -132,7 +138,8 @@ public record TaskStatus(
                 succinctDuration(0, MILLISECONDS),
                 INITIAL_DYNAMIC_FILTERS_VERSION,
                 0L,
-                0L);
+                0L,
+                ImmutableSet.of());
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -160,6 +167,7 @@ public record TaskStatus(
                 taskStatus.fullGcTime(),
                 taskStatus.dynamicFiltersVersion(),
                 taskStatus.queuedPartitionedSplitsWeight(),
-                taskStatus.runningPartitionedSplitsWeight());
+                taskStatus.runningPartitionedSplitsWeight(),
+                taskStatus.abandonedRemoteSources());
     }
 }

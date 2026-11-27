@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -124,6 +125,7 @@ public class FeaturesConfig
 
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
+    private boolean joinShortCircuitEnabled = true;
 
     private boolean columnarFilterEvaluationEnabled = true;
     private boolean adaptiveFilterReorderingEnabled = true;
@@ -506,6 +508,20 @@ public class FeaturesConfig
     public FeaturesConfig setForceSpillingJoin(boolean forceSpillingJoin)
     {
         this.forceSpillingJoin = forceSpillingJoin;
+        return this;
+    }
+
+    public boolean isJoinShortCircuitEnabled()
+    {
+        return joinShortCircuitEnabled;
+    }
+
+    @ConfigHidden
+    @Config("join-short-circuit-enabled")
+    @ConfigDescription("Stop reading one side of a join once the other side turns out to be empty")
+    public FeaturesConfig setJoinShortCircuitEnabled(boolean joinShortCircuitEnabled)
+    {
+        this.joinShortCircuitEnabled = joinShortCircuitEnabled;
         return this;
     }
 

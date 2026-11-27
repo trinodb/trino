@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +42,12 @@ public final class NestedLoopJoinPagesSupplier
         boolean wasSet = pagesFuture.set(nestedLoopJoinPages);
         checkState(wasSet, "pagesFuture already set");
         return pagesNoLongerNeeded;
+    }
+
+    @Override
+    public ListenableFuture<Void> whenPagesNoLongerNeeded()
+    {
+        return nonCancellationPropagating(pagesNoLongerNeeded);
     }
 
     @Override

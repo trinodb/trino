@@ -52,6 +52,12 @@ public class ScaledPipelinedOutputBufferManager
     }
 
     @Override
+    public synchronized void abandonBuffer(OutputBufferId bufferId)
+    {
+        outputBuffers = outputBuffers.withAbandonedBuffer(bufferId);
+    }
+
+    @Override
     public synchronized PipelinedOutputBuffers getOutputBuffers()
     {
         return outputBuffers;

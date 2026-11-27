@@ -220,6 +220,7 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT = "push_filter_into_values_max_row_count";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
+    public static final String JOIN_SHORT_CIRCUIT_ENABLED = "join_short_circuit_enabled";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
@@ -1139,6 +1140,11 @@ public final class SystemSessionProperties
                         "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
                         featuresConfig.isForceSpillingJoin(),
                         false),
+                booleanProperty(
+                        JOIN_SHORT_CIRCUIT_ENABLED,
+                        "Stop reading one side of a join once the other side turns out to be empty",
+                        featuresConfig.isJoinShortCircuitEnabled(),
+                        true),
                 booleanProperty(
                         COLUMNAR_FILTER_EVALUATION_ENABLED,
                         "Enables columnar evaluation of filters",
@@ -2063,6 +2069,11 @@ public final class SystemSessionProperties
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
+    }
+
+    public static boolean isJoinShortCircuitEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_SHORT_CIRCUIT_ENABLED, Boolean.class);
     }
 
     public static int getPagePartitioningBufferPoolSize(Session session)

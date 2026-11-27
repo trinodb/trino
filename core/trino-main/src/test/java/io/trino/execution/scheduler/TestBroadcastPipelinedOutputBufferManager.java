@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import org.junit.jupiter.api.Test;
@@ -20,9 +21,32 @@ import org.junit.jupiter.api.Test;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBroadcastPipelinedOutputBufferManager
 {
+    @Test
+    public void testAbandonBufferAfterNoMoreBuffers()
+    {
+        BroadcastPipelinedOutputBufferManager outputBufferManager = new BroadcastPipelinedOutputBufferManager();
+        outputBufferManager.addOutputBuffer(new OutputBufferId(0));
+        outputBufferManager.addOutputBuffer(new OutputBufferId(1));
+        outputBufferManager.noMoreBuffers();
+        PipelinedOutputBuffers outputBuffers = outputBufferManager.getOutputBuffers();
+
+        outputBufferManager.abandonBuffer(new OutputBufferId(1));
+        PipelinedOutputBuffers newOutputBuffers = outputBufferManager.getOutputBuffers();
+        assertThat(newOutputBuffers.isNoMoreBufferIds()).isTrue();
+        assertThat(newOutputBuffers.getBuffers()).isEqualTo(outputBuffers.getBuffers());
+        assertThat(newOutputBuffers.getAbandonedBufferIds()).containsExactly(new OutputBufferId(1));
+        outputBuffers.checkValidTransition(newOutputBuffers);
+
+        PipelinedOutputBuffers withoutAbandonedBuffer = new PipelinedOutputBuffers(newOutputBuffers.getVersion() + 1, BROADCAST, newOutputBuffers.getBuffers(), true, ImmutableSet.of());
+        assertThatThrownBy(() -> newOutputBuffers.checkValidTransition(withoutAbandonedBuffer))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("newOutputBuffers no longer contains abandoned buffers");
+    }
+
     @Test
     public void test()
     {

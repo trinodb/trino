@@ -52,7 +52,12 @@ public class NestedLoopBuildOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
-            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinBridgeManager.getJoinBridge());
+            NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
+            if (nestedLoopJoinBridgeManager.isBuildNotNeededAfterProbe()) {
+                // wake up the driver when the probe side finishes before the build does
+                operatorContext.setFinishedFuture(nestedLoopJoinBridge.whenPagesNoLongerNeeded());
+            }
+            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinBridge);
         }
 
         @Override
@@ -80,6 +85,8 @@ public class NestedLoopBuildOperator
     // Once finish is called, probeDoneWithPages will be set to a future that completes when the pages are no longer needed by the probe side.
     // When the pages are no longer needed, the isFinished method on this operator will return true.
     private Optional<ListenableFuture<Void>> probeDoneWithPages = Optional.empty();
+    // Completes when the probe side no longer needs the pages, possibly before this operator finishes building them
+    private final ListenableFuture<Void> pagesNoLongerNeeded;
 
     public NestedLoopBuildOperator(OperatorContext operatorContext, NestedLoopJoinBridge nestedLoopJoinBridge)
     {
@@ -87,6 +94,7 @@ public class NestedLoopBuildOperator
         this.nestedLoopJoinBridge = requireNonNull(nestedLoopJoinBridge, "nestedLoopJoinBridge is null");
         this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.pagesNoLongerNeeded = nestedLoopJoinBridge.whenPagesNoLongerNeeded();
     }
 
     @Override
@@ -101,6 +109,9 @@ public class NestedLoopBuildOperator
         if (probeDoneWithPages.isPresent()) {
             return;
         }
+        if (pagesNoLongerNeeded.isDone()) {
+            return;
+        }
 
         // nestedLoopJoinPagesBuilder and the built NestedLoopJoinPages will mostly share the same objects.
         // Extra allocation is minimal during build call. As a result, memory accounting is not updated here.
@@ -110,6 +121,9 @@ public class NestedLoopBuildOperator
     @Override
     public boolean isFinished()
     {
+        if (pagesNoLongerNeeded.isDone()) {
+            return true;
+        }
         return probeDoneWithPages.map(Future::isDone).orElse(false);
     }
 
@@ -122,16 +136,16 @@ public class NestedLoopBuildOperator
     @Override
     public boolean needsInput()
     {
-        return probeDoneWithPages.isEmpty();
+        return probeDoneWithPages.isEmpty() && !pagesNoLongerNeeded.isDone();
     }
 
     @Override
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
-        checkState(!isFinished(), "Operator is already finished");
+        checkState(probeDoneWithPages.isEmpty(), "Operator is already finished");
 
-        if (page.getPositionCount() == 0) {
+        if (page.getPositionCount() == 0 || pagesNoLongerNeeded.isDone()) {
             return;
         }
 

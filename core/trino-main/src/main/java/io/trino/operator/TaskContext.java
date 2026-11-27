@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -108,6 +110,8 @@ public class TaskContext
 
     private final MemoryTrackingContext taskMemoryContext;
     private final DynamicFiltersCollector dynamicFiltersCollector;
+    private final Runnable notifyStatusChanged;
+    private final Set<PlanNodeId> abandonedRemoteSources = ConcurrentHashMap.newKeySet();
 
     // The collector is shared for dynamic filters collected from coordinator
     // as well as from local build-side of replicated joins. It is also shared
@@ -169,6 +173,7 @@ public class TaskContext
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
+        this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
@@ -433,6 +438,22 @@ public class TaskContext
     public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
+    }
+
+    /**
+     * Records that the task stopped reading the remote source before it received all its locations,
+     * so that the coordinator can tell the source tasks to destroy the output buffers this task will never read.
+     */
+    public void remoteSourceAbandoned(PlanNodeId remoteSourceId)
+    {
+        if (abandonedRemoteSources.add(requireNonNull(remoteSourceId, "remoteSourceId is null"))) {
+            notifyStatusChanged.run();
+        }
+    }
+
+    public Set<PlanNodeId> getAbandonedRemoteSources()
+    {
+        return ImmutableSet.copyOf(abandonedRemoteSources);
     }
 
     public long getDynamicFiltersVersion()

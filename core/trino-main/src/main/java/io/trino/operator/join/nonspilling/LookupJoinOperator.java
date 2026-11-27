@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join.nonspilling;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.OperatorContext;
@@ -32,6 +33,10 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.operator.join.JoinType.INNER;
+import static io.trino.operator.join.JoinType.LOOKUP_OUTER;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,11 +59,13 @@ public class LookupJoinOperator
             JoinType joinType,
             boolean outputSingleMatch,
             boolean waitForBuild,
+            boolean finishOnEmptyBuild,
             PartitionedLookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
             OperatorContext operatorContext,
-            WorkProcessor<Page> sourcePages)
+            WorkProcessor<Page> sourcePages,
+            ListenableFuture<Void> sourcePagesFinished)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceFuture = lookupSourceFactory.createLookupSource();
@@ -71,10 +78,19 @@ public class LookupJoinOperator
                 joinProbeFactory,
                 lookupSourceFuture,
                 statisticsCounter);
-        WorkProcessor<Page> pages = sourcePages.transform(sourcePagesJoiner);
+        WorkProcessor<Page> probePages = sourcePages;
+        if (finishOnEmptyBuild && (joinType == INNER || joinType == LOOKUP_OUTER)) {
+            // no probe row matches an empty build, so stop reading the probe input
+            probePages = sourcePages.finishWhen(() -> lookupSourceFuture.isDone() && getDone(lookupSourceFuture).isEmpty());
+            // wake up the driver, which may be blocked on the probe input, once the build is ready
+            operatorContext.setFinishedFuture(transform(lookupSourceFuture, _ -> null, directExecutor()));
+        }
+        WorkProcessor<Page> pages = probePages.transform(sourcePagesJoiner);
         if (waitForBuild) {
-            // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceFuture, _ -> null, directExecutor()));
+            // wait for build side before fetching any probe pages, unless there are none and the join may short-circuit
+            ListenableFuture<Void> buildReady = transform(lookupSourceFuture, _ -> null, directExecutor());
+            ListenableFuture<Void> probeReady = finishOnEmptyBuild ? whenAnyComplete(ImmutableList.of(buildReady, sourcePagesFinished)) : buildReady;
+            pages = pages.blocking(() -> probeReady);
         }
         this.pages = pages;
     }

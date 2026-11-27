@@ -49,9 +49,8 @@ public class SpillingJoinProcessor
 {
     private final Runnable afterClose;
     private final OptionalInt lookupJoinsCount;
-    private final boolean waitForBuild;
+    private final ListenableFuture<Void> probeReady;
     private final LookupSourceFactory lookupSourceFactory;
-    private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
     private final SpillMetrics spillMetrics;
     private final PageJoinerFactory pageJoinerFactory;
     private final PageJoiner sourcePagesJoiner;
@@ -71,7 +70,7 @@ public class SpillingJoinProcessor
     public SpillingJoinProcessor(
             Runnable afterClose,
             OptionalInt lookupJoinsCount,
-            boolean waitForBuild,
+            ListenableFuture<Void> probeReady,
             LookupSourceFactory lookupSourceFactory,
             ListenableFuture<LookupSourceProvider> lookupSourceProvider,
             PartitioningSpillerFactory partitioningSpillerFactory,
@@ -81,13 +80,12 @@ public class SpillingJoinProcessor
     {
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
         this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
-        this.waitForBuild = waitForBuild;
+        this.probeReady = requireNonNull(probeReady, "probeReady is null");
         this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
-        this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
         this.spillMetrics = requireNonNull(spillMetrics, "spillMetrics is null");
         this.pageJoinerFactory = requireNonNull(pageJoinerFactory, "pageJoinerFactory is null");
         sourcePagesJoiner = pageJoinerFactory.getPageJoiner(
-                lookupSourceProvider,
+                requireNonNull(lookupSourceProvider, "lookupSourceProvider is null"),
                 Optional.of(partitioningSpillerFactory),
                 emptyIterator());
         joinedSourcePages = sourcePages.transform(sourcePagesJoiner);
@@ -116,10 +114,8 @@ public class SpillingJoinProcessor
     @Override
     public WorkProcessor.ProcessState<WorkProcessor<Page>> process()
     {
-        // wait for build side to be completed before fetching any probe data
-        // TODO: fix support for probe short-circuit: https://github.com/trinodb/trino/issues/3957
-        if (waitForBuild && !lookupSourceProvider.isDone()) {
-            return WorkProcessor.ProcessState.blocked(asVoid(lookupSourceProvider));
+        if (!probeReady.isDone()) {
+            return WorkProcessor.ProcessState.blocked(probeReady);
         }
 
         if (!joinedSourcePages.isFinished()) {

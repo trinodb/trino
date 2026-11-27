@@ -261,7 +261,8 @@ public class TestScaledWriterScheduler
                 Duration.valueOf("0s"),
                 0,
                 1,
-                1);
+                1,
+                ImmutableSet.of());
     }
 
     private static class TestingStageExecution

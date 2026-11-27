@@ -51,6 +51,27 @@ public class TestPartitionedPipelinedOutputBufferManager
         assertOutputBuffers(hashOutputBufferManager.getOutputBuffers());
     }
 
+    @Test
+    public void testAbandonBuffer()
+    {
+        PartitionedPipelinedOutputBufferManager hashOutputBufferManager = new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 4);
+        PipelinedOutputBuffers initialOutputBuffers = hashOutputBufferManager.getOutputBuffers();
+
+        hashOutputBufferManager.abandonBuffer(new OutputBufferId(2));
+        PipelinedOutputBuffers outputBuffers = hashOutputBufferManager.getOutputBuffers();
+        assertOutputBuffers(outputBuffers);
+        assertThat(outputBuffers.getVersion()).isEqualTo(initialOutputBuffers.getVersion() + 1);
+        assertThat(outputBuffers.getAbandonedBufferIds()).containsExactly(new OutputBufferId(2));
+        initialOutputBuffers.checkValidTransition(outputBuffers);
+
+        hashOutputBufferManager.abandonBuffer(new OutputBufferId(2));
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isSameAs(outputBuffers);
+
+        assertThatThrownBy(() -> outputBuffers.checkValidTransition(initialOutputBuffers))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("newOutputBuffers version is older");
+    }
+
     private static void assertOutputBuffers(PipelinedOutputBuffers outputBuffers)
     {
         assertThat(outputBuffers).isNotNull();

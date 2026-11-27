@@ -136,6 +136,10 @@ public class HashBuilderOperator
             PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge();
             verify(partitionIndex < lookupSourceFactory.partitions());
             partitionIndex++;
+            if (lookupSourceFactoryManager.isBuildNotNeededAfterProbe()) {
+                // wake up the driver when the probe side finishes before the build does
+                operatorContext.setFinishedFuture(lookupSourceFactory.isDestroyed());
+            }
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
