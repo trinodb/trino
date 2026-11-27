@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -26,6 +28,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.avro.file.DataFileStream;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
@@ -43,6 +50,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -551,6 +560,49 @@ public abstract class BaseIcebergSystemTables
             // Verify after DELETE we have both DATA manifests (content = 0) and DELETE manifests (content = 1)
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 0")).isEqualTo(2);
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 1")).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void testNullManifestPartitionSummaries()
+            throws Exception
+    {
+        assertNullManifestPartitionSummaries("manifests");
+    }
+
+    @Test
+    void testNullAllManifestPartitionSummaries()
+            throws Exception
+    {
+        assertNullManifestPartitionSummaries("all_manifests");
+    }
+
+    private void assertNullManifestPartitionSummaries(String suffix)
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_null_manifest_summaries", "(x) AS VALUES 1")) {
+            String manifestList = (String) computeScalar("SELECT manifest_list FROM \"" + table.getName() + "$snapshots\"");
+            TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (InputStream input = fileSystem.newInputFile(Location.of(manifestList)).newStream();
+                    DataFileStream<GenericData.Record> reader = new DataFileStream<>(input, new GenericDatumReader<>());
+                    DataFileWriter<GenericData.Record> writer = new DataFileWriter<>(new GenericDatumWriter<>(reader.getSchema()))) {
+                for (String key : reader.getMetaKeys()) {
+                    if (!key.startsWith("avro.")) {
+                        writer.setMeta(key, reader.getMeta(key));
+                    }
+                }
+                writer.create(reader.getSchema(), output);
+                while (reader.hasNext()) {
+                    GenericData.Record manifest = reader.next();
+                    manifest.put("partitions", null);
+                    writer.append(manifest);
+                }
+            }
+            fileSystem.newOutputFile(Location.of(manifestList)).createOrOverwrite(output.toByteArray());
+
+            assertThat(query("SELECT partition_summaries IS NULL, length > 0 FROM \"" + table.getName() + "$" + suffix + "\""))
+                    .matches("VALUES (true, true)");
         }
     }
 

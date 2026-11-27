@@ -85,6 +85,10 @@ public class AllManifestsTable
 
     private static void appendPartitionSummaries(ArrayBlockBuilder arrayBuilder, List<StructLike> partitionSummaries)
     {
+        if (partitionSummaries == null) {
+            arrayBuilder.appendNull();
+            return;
+        }
         arrayBuilder.buildEntry(elementBuilder -> {
             for (StructLike partitionSummary : partitionSummaries) {
                 ((RowBlockBuilder) elementBuilder).buildEntry(fieldBuilders -> {
