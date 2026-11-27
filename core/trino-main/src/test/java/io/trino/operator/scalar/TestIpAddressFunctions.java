@@ -316,6 +316,12 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'::1/128'", "IPADDRESS '2001::'"))
                 .isEqualTo(false);
 
+        // IPv6 addresses with the high bit set
+        assertThat(assertions.function("contains", "'fe80::/10'", "IPADDRESS 'fe80::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'fe80::/10'", "IPADDRESS 'ff00::1'"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/64'", "IPADDRESS '2001:abcd:ef01:2345::1'"))
                 .isEqualTo(true);
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/64'", "IPADDRESS '2001:abcd:ef01:2345::'"))
@@ -486,6 +492,44 @@ public class TestIpAddressFunctions
                 .hasMessage("Invalid network IP address");
         assertTrinoExceptionThrownBy(assertions.function("contains", "'2001:0DB8:0:CD3/60'", "IPADDRESS '2001:0DB8::CD30:0:0:0:0'")::evaluate)
                 .hasMessage("Invalid network IP address");
+    }
+
+    @Test
+    public void testIpAddressWithSubnetContains()
+    {
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/16'", "IPADDRESS '192.168.4.4'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/16'", "IPADDRESS '192.169.4.4'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/32'", "IPADDRESS '192.168.1.10'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '192.168.1.10/32'", "IPADDRESS '192.168.1.11'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '0.0.0.0/0'", "IPADDRESS '192.168.4.4'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '0.0.0.0/0'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/32'", "IPADDRESS '2001:db8:abcd::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/32'", "IPADDRESS '2001:db9::1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/128'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '2001:db8::1/128'", "IPADDRESS '2001:db8::2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::/0'", "IPADDRESS '2001:db8::1'"))
+                .isEqualTo(true);
+
+        // IPv4-mapped IPv6 values are normalized to IPv4 by IPADDRESS.
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::ffff:192.168.1.10/128'", "IPADDRESS '192.168.1.10'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "IPADDRESS_WITH_SUBNET '::ffff:192.168.1.10/128'", "IPADDRESS '::ffff:192.168.1.10'"))
+                .isEqualTo(true);
     }
 
     @Test

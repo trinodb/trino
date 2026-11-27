@@ -16,10 +16,11 @@ package io.trino.operator.scalar;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.StandardTypes;
+import io.trino.type.IpAddressType;
 
 import java.math.BigInteger;
 import java.net.Inet4Address;
@@ -27,6 +28,11 @@ import java.net.InetAddress;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.StandardTypes.BOOLEAN;
+import static io.trino.spi.type.StandardTypes.IPADDRESS;
+import static io.trino.spi.type.StandardTypes.IPADDRESS_WITH_SUBNET;
+import static io.trino.spi.type.StandardTypes.VARCHAR;
 
 public final class IpAddressFunctions
 {
@@ -36,8 +42,8 @@ public final class IpAddressFunctions
 
     @Description("Determines whether given IP address exists in the CIDR")
     @ScalarFunction
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean contains(@SqlType(StandardTypes.VARCHAR) Slice network, @SqlType(StandardTypes.IPADDRESS) Slice address)
+    @SqlType(BOOLEAN)
+    public static boolean contains(@SqlType(VARCHAR) Slice network, @SqlType(IPADDRESS) Slice address)
     {
         String cidr = network.toStringUtf8();
 
@@ -75,15 +81,55 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
         }
 
+        return contains(cidrBytes, prefixLength, address);
+    }
+
+    @Description("Determines whether given IP address exists in the subnet")
+    @ScalarFunction
+    @SqlType(BOOLEAN)
+    public static boolean contains(@SqlType(IPADDRESS_WITH_SUBNET) SqlRow subnet, @SqlType(IPADDRESS) Slice address)
+    {
+        Slice subnetAddress = IpAddressType.IPADDRESS.getSlice(subnet.getRawFieldBlock(0), subnet.getRawIndex());
+        long prefixLength = INTEGER.getLong(subnet.getRawFieldBlock(1), subnet.getRawIndex());
+        return contains(subnetAddress, (int) prefixLength, address);
+    }
+
+    private static boolean contains(Slice subnetAddress, int prefixLength, Slice address)
+    {
+        byte[] subnetBytes = subnetAddress.getBytes();
+        boolean ipv4 = isIpv4Mapped(subnetBytes) && prefixLength <= 32;
+        int maxPrefixLength = ipv4 ? 32 : 128;
+        if (prefixLength < 0 || prefixLength > maxPrefixLength) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length");
+        }
+
+        return contains(subnetBytes, prefixLength + (ipv4 ? 96 : 0), address);
+    }
+
+    private static boolean contains(byte[] subnetBytes, int prefixLength, Slice address)
+    {
         if (prefixLength == 0) {
             return true;
         }
 
-        byte[] ipAddress = address.getBytes();
-        BigInteger cidrPrefix = new BigInteger(cidrBytes).shiftRight(cidrBytes.length * Byte.SIZE - prefixLength);
-        BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(ipAddress.length * Byte.SIZE - prefixLength);
+        byte[] addressBytes = address.getBytes();
+        BigInteger subnetPrefix = new BigInteger(1, subnetBytes).shiftRight(subnetBytes.length * Byte.SIZE - prefixLength);
+        BigInteger addressPrefix = new BigInteger(1, addressBytes).shiftRight(addressBytes.length * Byte.SIZE - prefixLength);
 
-        return cidrPrefix.equals(addressPrefix);
+        return subnetPrefix.equals(addressPrefix);
+    }
+
+    private static boolean isIpv4Mapped(byte[] address)
+    {
+        if (address.length != 16) {
+            return false;
+        }
+        for (int i = 0; i < 10; i++) {
+            if (address[i] != 0) {
+                return false;
+            }
+        }
+        return address[10] == (byte) 0xFF && address[11] == (byte) 0xFF;
     }
 
     private static boolean isValidIpV6Cidr(int prefixLength)

@@ -275,6 +275,8 @@ import io.trino.type.DoubleOperators;
 import io.trino.type.HyperLogLogOperators;
 import io.trino.type.IntegerOperators;
 import io.trino.type.IpAddressOperators;
+import io.trino.type.IpAddressWithPortOperators;
+import io.trino.type.IpAddressWithSubnetOperators;
 import io.trino.type.LikeFunctions;
 import io.trino.type.NumberOperators;
 import io.trino.type.QuantileDigestOperators;
@@ -535,6 +537,8 @@ public final class SystemFunctionBundle
                 .scalars(QuantileDigestOperators.class)
                 .scalars(TDigestOperators.class)
                 .scalars(IpAddressOperators.class)
+                .scalars(IpAddressWithPortOperators.class)
+                .scalars(IpAddressWithSubnetOperators.class)
                 .scalars(IpAddressFunctions.class)
                 .scalars(UuidOperators.class)
                 .scalars(LikeFunctions.class)
