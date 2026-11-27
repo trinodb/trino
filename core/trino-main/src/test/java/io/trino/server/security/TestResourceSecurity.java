@@ -250,6 +250,10 @@ public class TestResourceSecurity
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
             assertPasswordAuthentication(httpServerInfo.getHttpsUri());
+            // metrics require management access by default
+            assertResponseCode(client, getMetricsLocation(httpServerInfo.getHttpsUri()), SC_UNAUTHORIZED);
+            assertResponseCode(client, getMetricsLocation(httpServerInfo.getHttpsUri()), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
+            assertResponseCode(client, getMetricsLocation(httpServerInfo.getHttpsUri()), SC_OK, MANAGEMENT_USER_LOGIN, MANAGEMENT_PASSWORD);
         }
     }
 
@@ -423,6 +427,31 @@ public class TestResourceSecurity
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertFixedManagementUser(httpServerInfo.getHttpUri(), true);
             assertFixedManagementUser(httpServerInfo.getHttpsUri(), false);
+        }
+    }
+
+    @Test
+    public void testMetricsAnonymousAccess()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .put("management.metrics.anonymous-access-enabled", "true")
+                        .buildOrThrow())
+                .setSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION)
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
+
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            assertOk(client, getMetricsLocation(httpServerInfo.getHttpUri()));
+            assertOk(client, getMetricsLocation(httpServerInfo.getHttpsUri()));
+            // other endpoints are not affected
+            assertAuthenticationDisabled(httpServerInfo.getHttpUri());
+            assertPasswordAuthentication(httpServerInfo.getHttpsUri());
         }
     }
 
@@ -1531,6 +1560,11 @@ public class TestResourceSecurity
     private static String getManagementLocation(URI baseUri)
     {
         return getLocation(baseUri, "/v1/thread");
+    }
+
+    private static String getMetricsLocation(URI baseUri)
+    {
+        return getLocation(baseUri, "/metrics");
     }
 
     private static String getAuthorizedUserLocation(URI baseUri)

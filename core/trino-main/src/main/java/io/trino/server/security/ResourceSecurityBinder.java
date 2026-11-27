@@ -49,6 +49,11 @@ public class ResourceSecurityBinder
         return this;
     }
 
+    public ResourceSecurityBinder publicResource(AnnotatedElement element)
+    {
+        return resourceSecurity(element, AccessType.PUBLIC);
+    }
+
     public ResourceSecurityBinder managementReadResource(AnnotatedElement element)
     {
         return resourceSecurity(element, AccessType.MANAGEMENT_READ);

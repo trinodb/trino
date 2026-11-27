@@ -32,7 +32,8 @@ public class TestSecurityConfig
                 .setAuthenticationTypes(ImmutableList.of("insecure"))
                 .setInsecureAuthenticationOverHttpAllowed(true)
                 .setFixedManagementUser(null)
-                .setFixedManagementUserForHttps(false));
+                .setFixedManagementUserForHttps(false)
+                .setMetricsAnonymousAccessEnabled(false));
     }
 
     @Test
@@ -43,13 +44,15 @@ public class TestSecurityConfig
                 .put("http-server.authentication.allow-insecure-over-http", "false")
                 .put("management.user", "management-user")
                 .put("management.user.https-enabled", "true")
+                .put("management.metrics.anonymous-access-enabled", "true")
                 .buildOrThrow();
 
         SecurityConfig expected = new SecurityConfig()
                 .setAuthenticationTypes(ImmutableList.of("KERBEROS", "PASSWORD"))
                 .setInsecureAuthenticationOverHttpAllowed(false)
                 .setFixedManagementUser("management-user")
-                .setFixedManagementUserForHttps(true);
+                .setFixedManagementUserForHttps(true)
+                .setMetricsAnonymousAccessEnabled(true);
 
         assertFullMapping(properties, expected);
     }
