@@ -53,6 +53,7 @@ This can be the ip or the FQDN, the url scheme (`http://`) is optional.
 | `pinot.max-rows-for-broker-queries`                    | No       | Max rows for a broker query can return, default is `50,000`.                                                                                                                                                                                                              |
 | `pinot.aggregation-pushdown.enabled`                   | No       | Push down aggregation queries, default is `true`.                                                                                                                                                                                                                         |
 | `pinot.count-distinct-pushdown.enabled`                | No       | Push down count distinct queries to Pinot, default is `true`.                                                                                                                                                                                                             |
+| `pinot.json-predicate-pushdown.enabled`                | No       | Push down JSON predicates to Pinot, default is `false`. The default is `false` because Pinot's `JSON_MATCH()` fails when the JSON column has no JSON index.                                                                                                              |
 | `pinot.target-segment-page-size`                       | No       | Max allowed page size for segment query, default is `1MB`.                                                                                                                                                                                                                |
 | `pinot.proxy.enabled`                                  | No       | Use Pinot Proxy for controller and broker requests, default is `false`.                                                                                                                                                                                                   |
 
@@ -230,6 +231,20 @@ A `count(distinct)` pushdown may cause Pinot to run a full table scan with
 significant performance impact. If you encounter this problem, you can disable
 it with the catalog property `pinot.count-distinct-pushdown.enabled` or the
 catalog session property `count_distinct_pushdown_enabled`.
+
+JSON predicate pushdown is disabled by default and can be enabled with the
+catalog property `pinot.json-predicate-pushdown.enabled` or the catalog session
+property `json_predicate_pushdown_enabled`. Pinot evaluates these predicates
+with `JSON_MATCH()`, which requires a JSON index on the column. The following
+expressions are pushed down, including when combined with `AND`, `OR` and
+`NOT`:
+
+- `json_extract_scalar(json, '$.selector') IS NULL`
+- `contains(ARRAY['string'], json_extract_scalar(json, '$.selector'))`
+- `contains(ARRAY[5], CAST(json_extract_scalar(json, '$.selector') AS INTEGER))`
+- `json_array_contains(json_extract(json, '$.selector'), 'string')`
+- `json_array_contains(json_extract(json, '$.selector'), 5)`
+- Any of the above compared with `true` or `false` using `=` or `!=`
 
 ```{include} pushdown-correctness-behavior.fragment
 ```

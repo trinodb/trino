@@ -34,6 +34,12 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.plugin.pinot.query.expression.RewriteBooleanComparison;
+import io.trino.plugin.pinot.query.expression.RewriteEquality;
+import io.trino.plugin.pinot.query.expression.RewriteJsonArrayContains;
+import io.trino.plugin.pinot.query.expression.RewriteJsonContains;
+import io.trino.plugin.pinot.query.expression.RewriteJsonExtractScalarIsNull;
+import io.trino.plugin.pinot.query.expression.RewriteLogicalExpression;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -51,7 +57,10 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
@@ -61,6 +70,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -73,6 +83,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -81,11 +92,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.base.expression.ConnectorExpressions.and;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.pinot.PinotSessionProperties.isJsonPredicatePushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -93,6 +110,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.joining;
 
 public class PinotMetadata
         implements ConnectorMetadata
@@ -107,6 +125,7 @@ public class PinotMetadata
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
+    private final ConnectorExpressionRewriter<String> filterExpressionRewriter;
     private final PinotClient pinotClient;
     private final PinotTypeConverter typeConverter;
 
@@ -133,6 +152,13 @@ public class PinotMetadata
                 }, executor));
 
         this.maxRowsPerBrokerQuery = pinotConfig.getMaxRowsForBrokerQueries();
+        this.filterExpressionRewriter = new ConnectorExpressionRewriter<>(ImmutableSet.of(
+                new RewriteLogicalExpression(),
+                new RewriteEquality(),
+                new RewriteBooleanComparison(),
+                new RewriteJsonExtractScalarIsNull(),
+                new RewriteJsonContains(),
+                new RewriteJsonArrayContains()));
         Function<String, String> identifierQuote = identity(); // TODO identifier quoting not needed here?
         this.implementCountDistinct = new ImplementCountDistinct(identifierQuote);
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -162,7 +188,7 @@ public class PinotMetadata
 
         if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty());
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
@@ -174,6 +200,7 @@ public class PinotMetadata
                 getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling(),
                 TupleDomain.all(),
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -289,7 +316,8 @@ public class PinotMetadata
                 handle.enableNullHandling(),
                 handle.constraint(),
                 OptionalLong.of(limit),
-                dynamicTable);
+                dynamicTable,
+                handle.constraintPql());
         boolean singleSplit = dynamicTable.isPresent();
         return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
     }
@@ -331,7 +359,37 @@ public class PinotMetadata
             remainingFilter = TupleDomain.withColumnDomains(unsupported);
         }
 
-        if (oldDomain.equals(newDomain)) {
+        ConnectorExpression remainingExpression = constraint.getExpression();
+        Optional<String> constraintPql = handle.constraintPql();
+        if (isJsonPredicatePushdownEnabled(session)) {
+            List<String> pushedConjuncts = new ArrayList<>();
+            List<ConnectorExpression> remainingConjuncts = new ArrayList<>();
+            for (ConnectorExpression conjunct : extractConjuncts(constraint.getExpression())) {
+                Optional<String> pushed = Optional.empty();
+                // Plain comparisons are already pushed down through the domain
+                if (!isColumnComparison(conjunct)) {
+                    pushed = filterExpressionRewriter.rewrite(session, conjunct, constraint.getAssignments());
+                }
+                // Pinot treats a missing JSON value as false, Trino as NULL. A single negation therefore
+                // makes the pushed predicate a superset of the Trino result, which Trino must filter again.
+                // More negations break that guarantee, so such predicates are not pushed down.
+                int negations = countNegations(conjunct);
+                if (pushed.isEmpty() || negations > 1) {
+                    remainingConjuncts.add(conjunct);
+                    continue;
+                }
+                pushedConjuncts.add(pushed.get());
+                if (negations == 1) {
+                    remainingConjuncts.add(conjunct);
+                }
+            }
+            if (!pushedConjuncts.isEmpty()) {
+                constraintPql = Optional.of(Stream.concat(handle.constraintPql().stream(), pushedConjuncts.stream()).collect(joining(" AND ")));
+                remainingExpression = and(remainingConjuncts);
+            }
+        }
+
+        if (oldDomain.equals(newDomain) && constraintPql.equals(handle.constraintPql())) {
             return Optional.empty();
         }
 
@@ -341,8 +399,41 @@ public class PinotMetadata
                 handle.enableNullHandling(),
                 newDomain,
                 handle.limit(),
-                handle.query());
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
+                handle.query(),
+                constraintPql);
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression, false));
+    }
+
+    private static int countNegations(ConnectorExpression expression)
+    {
+        if (!(expression instanceof Call call)) {
+            return 0;
+        }
+        int negations = 0;
+        FunctionName name = call.getFunctionName();
+        if (name.equals(NOT_FUNCTION_NAME)) {
+            negations++;
+        }
+        else if ((name.equals(EQUAL_OPERATOR_FUNCTION_NAME) || name.equals(NOT_EQUAL_OPERATOR_FUNCTION_NAME))
+                && call.getArguments().get(0) instanceof Call
+                && call.getArguments().get(1) instanceof Constant constant
+                && constant.getValue() instanceof Boolean value
+                && name.equals(EQUAL_OPERATOR_FUNCTION_NAME) != value) {
+            // comparison with a boolean is rewritten to NOT(...)
+            negations++;
+        }
+        for (ConnectorExpression argument : call.getArguments()) {
+            negations += countNegations(argument);
+        }
+        return negations;
+    }
+
+    private static boolean isColumnComparison(ConnectorExpression expression)
+    {
+        return expression instanceof Call call
+                && (call.getFunctionName().equals(EQUAL_OPERATOR_FUNCTION_NAME) || call.getFunctionName().equals(NOT_EQUAL_OPERATOR_FUNCTION_NAME))
+                && call.getArguments().get(0) instanceof Variable
+                && call.getArguments().get(1) instanceof Constant;
     }
 
     // IS NULL and IS NOT NULL are handled differently in Pinot, pushing down would lead to inconsistent results.
@@ -476,7 +567,8 @@ public class PinotMetadata
                 tableHandle.enableNullHandling(),
                 tableHandle.constraint(),
                 tableHandle.limit(),
-                Optional.of(dynamicTable));
+                Optional.of(dynamicTable),
+                tableHandle.constraintPql());
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }

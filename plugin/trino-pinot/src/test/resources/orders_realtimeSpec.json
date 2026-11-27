@@ -21,6 +21,7 @@
         "noDictionaryColumns": [],
         "aggregateMetrics": "false",
         "nullHandlingEnabled": "true",
+        "jsonIndexColumns": ["json"],
         "streamConfigs": {
             "streamType": "kafka",
             "stream.kafka.consumer.type": "lowLevel",
