@@ -36,6 +36,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 
 /**
  * Evaluates a constant IN expression
@@ -55,11 +56,21 @@ public class EvaluateIn
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In(Constant value, List<Expression> list))) {
+        if (!(expression instanceof In in) || !(in.value() instanceof Constant value)) {
             return Optional.empty();
         }
 
-        if (!list.stream().allMatch(Constant.class::isInstance)) {
+        if (in.valueList() instanceof Constant constant && constant.value() == null) {
+            return Optional.of(NULL_BOOLEAN);
+        }
+
+        Optional<List<Expression>> elements = extractArrayElements(in.valueList());
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Expression> list = elements.get();
+
+        if (!(in.valueList() instanceof Constant) && !list.stream().allMatch(Constant.class::isInstance)) {
             return Optional.empty();
         }
 

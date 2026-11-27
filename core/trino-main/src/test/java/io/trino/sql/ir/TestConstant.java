@@ -16,6 +16,8 @@ package io.trino.sql.ir;
 import io.trino.json.Json;
 import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.HashSet;
 import java.util.List;
@@ -28,19 +30,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestConstant
 {
-    @Test
-    void testExactJsonIdentity()
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void testExactJsonIdentity(int arrayDepth)
     {
         List<Constant> constants = List.of(
-                new Constant(JSON, fromText(utf8Slice("1"))),
-                new Constant(JSON, fromText(utf8Slice("1.0"))),
-                new Constant(JSON, fromText(utf8Slice("1e0"))),
-                new Constant(JSON, Json.unchecked(utf8Slice("1"))),
-                new Constant(JSON, Json.unchecked(utf8Slice(" 1"))));
+                        new Constant(JSON, fromText(utf8Slice("1"))),
+                        new Constant(JSON, fromText(utf8Slice("1.0"))),
+                        new Constant(JSON, fromText(utf8Slice("1e0"))),
+                        new Constant(JSON, Json.unchecked(utf8Slice("1"))),
+                        new Constant(JSON, Json.unchecked(utf8Slice(" 1")))).stream()
+                .map(constant -> wrapInArrays(constant, arrayDepth))
+                .toList();
         assertThat(new HashSet<>(constants)).hasSize(constants.size());
-        Constant copy = new Constant(JSON, fromText(utf8Slice("1")));
+        Constant copy = wrapInArrays(new Constant(JSON, fromText(utf8Slice("1"))), arrayDepth);
         assertThat(copy).isEqualTo(constants.getFirst());
         assertThat(copy.hashCode()).isEqualTo(constants.getFirst().hashCode());
+    }
+
+    private static Constant wrapInArrays(Constant constant, int depth)
+    {
+        for (int i = 0; i < depth; i++) {
+            constant = new Constant(new ArrayType(constant.type()), constant.getValueAsBlock());
+        }
+        return constant;
     }
 
     @Test

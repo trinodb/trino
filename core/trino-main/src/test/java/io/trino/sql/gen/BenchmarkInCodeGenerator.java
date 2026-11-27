@@ -30,6 +30,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -157,7 +158,7 @@ public class BenchmarkInCodeGenerator
             }
             inputPage = pageBuilder.build();
 
-            Expression filter = new In(colRef, valueList);
+            Expression filter = new In(colRef, new Array(colRef.type(), valueList));
             Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(trinoType, colName), 0);
 
             TestingFunctionResolution functions = new TestingFunctionResolution();

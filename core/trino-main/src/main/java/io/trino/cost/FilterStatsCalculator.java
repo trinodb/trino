@@ -67,6 +67,7 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.isConstantNull;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static java.lang.Double.NaN;
@@ -304,7 +305,11 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
-            List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+            Optional<List<Expression>> elements = extractArrayElements(node.valueList());
+            if (elements.isEmpty()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
+            List<PlanNodeStatsEstimate> equalityEstimates = elements.get().stream()
                     .map(inValue -> process(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 

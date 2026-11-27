@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -39,52 +40,52 @@ public class TestEvaluateIn
     void test()
     {
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of())))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("non-constant value")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Reference(BIGINT, "x")))))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "x"))))))
                 .describedAs("non-constant list")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of())))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("empty list")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of())))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("empty list")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, null), ImmutableList.of())))
+                new In(new Constant(BIGINT, null), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("null value, empty list")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, null), ImmutableList.of(new Constant(BIGINT, 1L)))))
+                new In(new Constant(BIGINT, null), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L))))))
                 .describedAs("null value")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 1L), ImmutableList.of(new Constant(BIGINT, 1L)))))
+                new In(new Constant(BIGINT, 1L), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L))))))
                 .describedAs("match")
                 .isEqualTo(Optional.of(TRUE));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Constant(BIGINT, 1L)))))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L))))))
                 .describedAs("no match")
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L)))))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L))))))
                 .describedAs("null item, no match")
                 .isEqualTo(Optional.of(NULL_BOOLEAN));
 
         assertThat(optimize(
-                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 0L)))))
+                new In(new Constant(BIGINT, 0L), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 0L))))))
                 .describedAs("null item, match")
                 .isEqualTo(Optional.of(TRUE));
     }

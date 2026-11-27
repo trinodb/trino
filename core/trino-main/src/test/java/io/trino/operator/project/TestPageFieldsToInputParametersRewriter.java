@@ -24,6 +24,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -92,7 +93,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 5L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Cast(call(MULTIPLY_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 10L)), INTEGER)), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Coalesce(call(MODULO_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Reference(BIGINT, "bigint0"))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new In(new Reference(BIGINT, "bigint0"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new In(new Reference(BIGINT, "bigint0"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L))))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(comparison(EQUAL, call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L)), new Constant(BIGINT, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(between(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L), new Constant(BIGINT, 10L))), 1);

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -62,75 +63,75 @@ public class TestSimplifyContinuousInValues
     void test()
     {
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 1L))))))
                 .describedAs("non-constant list")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of())))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("empty list")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, 1L)))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L))))))
                 .describedAs("single value list")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L)))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L))))))
                 .describedAs("null value, single value list")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))))
                 .describedAs("continuous values with null")
                 .isEqualTo(Optional.of(or(
                         between(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)),
                         NULL_BOOLEAN)));
 
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L))))))
                 .describedAs("non-null continuous values")
                 .isEqualTo(Optional.of(
                         between(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 3L))));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Constant(BIGINT, 1L),
                                 new Constant(BIGINT, 2L),
                                 new Constant(BIGINT, 2L),
-                                new Constant(BIGINT, 3L)))))
+                                new Constant(BIGINT, 3L))))))
                 .describedAs("repeated continuous values")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Constant(BIGINT, 1L),
                                 new Constant(BIGINT, 2L),
                                 new Constant(BIGINT, 4L),
-                                new Constant(BIGINT, 5L)))))
+                                new Constant(BIGINT, 5L))))))
                 .describedAs("discontinuous values")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(new Constant(BIGINT, Long.MAX_VALUE), new Constant(BIGINT, Long.MIN_VALUE)))))
+                        new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, Long.MAX_VALUE), new Constant(BIGINT, Long.MIN_VALUE))))))
                 .describedAs("overflow handling")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 3.0)))))
+                new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 3.0))))))
                 .describedAs("unsupported type")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(REAL, "x"),
-                        ImmutableList.of(
+                        new Array(REAL, ImmutableList.of(
                                 new Constant(REAL, Reals.toReal(1.0f)),
                                 new Constant(REAL, Reals.toReal(2.0f)),
-                                new Constant(REAL, Reals.toReal(3.0f))))))
+                                new Constant(REAL, Reals.toReal(3.0f)))))))
                 .describedAs("unsupported type")
                 .isEqualTo(Optional.empty());
     }
@@ -162,7 +163,7 @@ public class TestSimplifyContinuousInValues
             List<Expression> valuesList = IntStream.range(0, block.getPositionCount())
                     .mapToObj(i -> new Constant(type, type.getLong(block, i)))
                     .collect(toImmutableList());
-            In in = new In(new Reference(type, "x"), valuesList);
+            In in = new In(new Reference(type, "x"), new Array(type, valuesList));
             if (areRepresentationValuesContinuous) {
                 assertThat(optimize(in))
                         .isEqualTo(Optional.of(between(

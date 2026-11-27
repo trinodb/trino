@@ -24,6 +24,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -99,7 +100,7 @@ public class TestColumnarFilterCompiler
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
         Reference reference = new Reference(BIGINT, "$col_0");
         // Lists of 8+ values skip the lookupswitch path and take the set-field route
-        Expression in1 = new In(reference, ImmutableList.of(
+        Expression in1 = new In(reference, new Array(reference.type(), ImmutableList.of(
                 new Constant(BIGINT, 1L),
                 new Constant(BIGINT, 3L),
                 new Constant(BIGINT, 5L),
@@ -107,8 +108,8 @@ public class TestColumnarFilterCompiler
                 new Constant(BIGINT, 9L),
                 new Constant(BIGINT, 11L),
                 new Constant(BIGINT, 13L),
-                new Constant(BIGINT, 15L)));
-        Expression in2 = new In(reference, ImmutableList.of(
+                new Constant(BIGINT, 15L))));
+        Expression in2 = new In(reference, new Array(reference.type(), ImmutableList.of(
                 new Constant(BIGINT, 0L),
                 new Constant(BIGINT, 2L),
                 new Constant(BIGINT, 4L),
@@ -116,7 +117,7 @@ public class TestColumnarFilterCompiler
                 new Constant(BIGINT, 8L),
                 new Constant(BIGINT, 10L),
                 new Constant(BIGINT, 12L),
-                new Constant(BIGINT, 14L)));
+                new Constant(BIGINT, 14L))));
 
         ColumnarFilter filter1 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in1, layout, true).orElseThrow().get();
         ColumnarFilter filter2 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in2, layout, true).orElseThrow().get();
@@ -285,7 +286,7 @@ public class TestColumnarFilterCompiler
 
         Expression expression = new In(
                 new Reference(BIGINT, "$col_0"),
-                ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))));
         ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, expression, layout).orElseThrow().get();
 
         assertThat(filter.toString()).startsWith("ColumnarFilter{").contains("1").contains("2");
@@ -319,9 +320,9 @@ public class TestColumnarFilterCompiler
     {
         Expression expression = new In(
                 new Reference(BIGINT, "$col_0"),
-                Arrays.stream(values)
+                new Array(BIGINT, Arrays.stream(values)
                         .map(value -> (Expression) new Constant(BIGINT, value))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList())));
         return filterPositions(compiler, layout, expression);
     }
 
@@ -335,9 +336,9 @@ public class TestColumnarFilterCompiler
 
     private static In inExpression(Type type, Object... values)
     {
-        return new In(new Reference(type, "$col_0"), Arrays.stream(values)
+        return new In(new Reference(type, "$col_0"), new Array(type, Arrays.stream(values)
                 .<Expression>map(value -> new Constant(type, value))
-                .collect(toImmutableList()));
+                .collect(toImmutableList())));
     }
 
     private static void assertMatchCount(ColumnarFilter filter, Block block, int expected)

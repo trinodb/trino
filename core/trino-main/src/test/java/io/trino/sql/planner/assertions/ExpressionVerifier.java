@@ -43,6 +43,7 @@ import java.util.Objects;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -164,8 +165,15 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.value(), expected.value()) &&
-                process(actual.valueList(), expected.valueList());
+        if (!process(actual.value(), expected.value())) {
+            return false;
+        }
+        var actualElements = extractArrayElements(actual.valueList());
+        var expectedElements = extractArrayElements(expected.valueList());
+        if (actualElements.isPresent() && expectedElements.isPresent()) {
+            return process(actualElements.get(), expectedElements.get());
+        }
+        return process(actual.valueList(), expected.valueList());
     }
 
     @Override

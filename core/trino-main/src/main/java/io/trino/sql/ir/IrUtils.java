@@ -17,15 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 
+import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -35,9 +39,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -48,6 +54,35 @@ public final class IrUtils
     static void validateType(Type expected, Expression expression)
     {
         checkArgument(expected.equals(expression.type()), "Expected '%s' type but found '%s' for expression: %s", expected, expression.type(), expression);
+    }
+
+    /// Returns a read-only view of statically known array elements. A constant
+    /// block is decoded one position at a time as the view is accessed; neither
+    /// the expression nor the view retains the decoded constants. A null array
+    /// or an array produced at runtime has no statically known element view.
+    public static Optional<List<Expression>> extractArrayElements(Expression expression)
+    {
+        if (expression instanceof Array array) {
+            return Optional.of(array.elements());
+        }
+        if (expression instanceof Constant(ArrayType type, Block values)) {
+            return Optional.of(new AbstractList<>()
+            {
+                @Override
+                public Expression get(int index)
+                {
+                    checkIndex(index, size());
+                    return new Constant(type.getElementType(), readNativeValue(type.getElementType(), values, index));
+                }
+
+                @Override
+                public int size()
+                {
+                    return values.getPositionCount();
+                }
+            });
+        }
+        return Optional.empty();
     }
 
     public static List<Expression> extractConjuncts(Expression expression)

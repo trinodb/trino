@@ -23,6 +23,7 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -196,7 +197,7 @@ public final class ValueSetToExpression
             return processRange(charVarcharCoercion, type, range, reference);
         }
 
-        Expression excludedPointsExpression = not(metadata, charVarcharCoercion, new In(reference, excludedPoints));
+        Expression excludedPointsExpression = not(metadata, charVarcharCoercion, new In(reference, new Array(reference.type(), excludedPoints)));
         if (excludedPoints.size() == 1) {
             excludedPointsExpression = comparison(metadata, charVarcharCoercion, NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
@@ -261,7 +262,7 @@ public final class ValueSetToExpression
             disjuncts.add(comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(new In(reference, singleValues));
+            disjuncts.add(new In(reference, new Array(reference.type(), singleValues)));
         }
         return disjuncts;
     }
@@ -287,7 +288,7 @@ public final class ValueSetToExpression
         if (values.size() == 1) {
             return comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(values));
         }
-        return new In(reference, values);
+        return new In(reference, new Array(reference.type(), values));
     }
 
     private static boolean isBetween(Range range)

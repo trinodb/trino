@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -32,6 +33,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -64,7 +66,7 @@ public final class NormalizeOrExpressionRewriter
             ImmutableList.Builder<Expression> othersExpressionBuilder = ImmutableList.builder();
             groupDeterministicComparisonAndInPredicate(terms).forEach((expression, values) -> {
                 if (values.size() > 1) {
-                    inPredicateBuilder.add(new In(expression, mergeDeterministicToInListExpression(values)));
+                    inPredicateBuilder.add(new In(expression, new Array(expression.type(), mergeDeterministicToInListExpression(values))));
                     expressionToSkipBuilder.add(expression);
                 }
             });
@@ -79,7 +81,7 @@ public final class NormalizeOrExpressionRewriter
                         othersExpressionBuilder.add(expression);
                     }
                 }
-                else if (expression instanceof In in) {
+                else if (expression instanceof In in && extractArrayElements(in.valueList()).isPresent()) {
                     if (!expressionToSkip.contains(in.value())) {
                         othersExpressionBuilder.add(expression);
                     }
@@ -103,7 +105,7 @@ public final class NormalizeOrExpressionRewriter
                     expressionValues.add(right);
                 }
                 else if (expression instanceof In in) {
-                    expressionValues.addAll(in.valueList());
+                    expressionValues.addAll(extractArrayElements(in.valueList()).orElseThrow());
                 }
                 else {
                     throw new IllegalStateException("Unexpected expression: " + expression);
@@ -123,7 +125,7 @@ public final class NormalizeOrExpressionRewriter
                 if (matchComparison(expression) instanceof Comparison.Equal(Expression left, _)) {
                     expressionBuilder.put(left, expression);
                 }
-                else if (expression instanceof In in) {
+                else if (expression instanceof In in && extractArrayElements(in.valueList()).isPresent()) {
                     expressionBuilder.put(in.value(), in);
                 }
             }
