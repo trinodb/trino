@@ -161,13 +161,6 @@ public class ExpressionBytecodeCompiler
                 lets);
     }
 
-    private static final String TEMP_PREFIX = "$$TEMP$$";
-
-    public static Reference createTempReference(Variable variable, Type type)
-    {
-        return new Reference(type, TEMP_PREFIX + variable.getName());
-    }
-
     @VisibleForTesting
     class Visitor
             extends IrVisitor<BytecodeNode, Context>
@@ -234,9 +227,6 @@ public class ExpressionBytecodeCompiler
                 return new BytecodeBlock()
                         .append(generatorContext(context.scope(), context.lets()).wasNull().set(binding.wasNull()))
                         .append(binding.value());
-            }
-            if (node.name().startsWith(TEMP_PREFIX)) {
-                return context.scope().getTempVariable(node.name().substring(TEMP_PREFIX.length()));
             }
             return referenceCompiler.apply(node, context.scope());
         }

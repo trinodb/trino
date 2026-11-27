@@ -288,6 +288,139 @@ public class TestExtendedCase
     }
 
     @Test
+    public void testNullOperandDoesNotMatchUnknownPredicate()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a,
+                       CASE a
+                            WHEN 0 THEN 'zero'
+                            WHEN > 100 THEN 'big'
+                            WHEN BETWEEN 1 AND 10 THEN 'small'
+                            WHEN IS NULL THEN 'unknown'
+                            ELSE 'other'
+                       END
+                FROM UNNEST(ARRAY[0, 5, 50, 500, NULL]) t(a)
+                """))
+                .matches("VALUES (0, 'zero'), (5, 'small'), (50, 'other'), (500, 'big'), (NULL, 'unknown')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a
+                FROM UNNEST(ARRAY[5, NULL, 50]) t(a)
+                WHERE CASE a WHEN BETWEEN 1 AND 10 THEN true ELSE false END
+                """))
+                .matches("VALUES 5");
+
+        assertThat(assertions.query(
+                """
+                SELECT a,
+                       CASE a WHEN BETWEEN 1 AND 10 THEN 1 ELSE 0 END,
+                       CASE a WHEN NOT BETWEEN 1 AND 10 THEN 1 ELSE 0 END,
+                       CASE a WHEN BETWEEN SYMMETRIC 10 AND 1 THEN 1 ELSE 0 END,
+                       CASE a WHEN IN (1, 2) THEN 1 ELSE 0 END,
+                       CASE a WHEN NOT IN (1, 2) THEN 1 ELSE 0 END,
+                       CASE a WHEN IN (5, 50) THEN 1 ELSE 0 END,
+                       CASE a WHEN IS DISTINCT FROM 5 THEN 1 ELSE 0 END
+                FROM UNNEST(ARRAY[1, 5, 50, NULL]) t(a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 1, 0, 1, 1, 0, 0, 1),
+                            (5, 1, 0, 1, 0, 1, 1, 0),
+                            (50, 0, 1, 0, 0, 1, 1, 1),
+                            (NULL, 0, 0, 0, 0, 0, 0, 1)
+                        """);
+    }
+
+    @Test
+    public void testNullOperandOfObjectType()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT s,
+                       CASE s WHEN BETWEEN 'a' AND 'b' THEN 1 ELSE 0 END,
+                       CASE s WHEN NOT BETWEEN 'a' AND 'b' THEN 1 ELSE 0 END,
+                       CASE s WHEN LIKE 'a%' THEN 1 WHEN IS NULL THEN 2 ELSE 0 END
+                FROM UNNEST(ARRAY[VARCHAR 'abc', NULL, 'xyz']) t(s)
+                """))
+                .matches("VALUES (VARCHAR 'abc', 1, 0, 1), (NULL, 0, 0, 2), ('xyz', 0, 1, 0)");
+
+        assertThat(assertions.query(
+                """
+                SELECT d, CASE d WHEN BETWEEN 1 AND 10 THEN 1 ELSE 0 END
+                FROM UNNEST(ARRAY[DECIMAL '5.0000000000000000000000000000', NULL]) t(d)
+                """))
+                .matches("VALUES (DECIMAL '5.0000000000000000000000000000', 1), (NULL, 0)");
+    }
+
+    @Test
+    public void testNullInPredicate()
+    {
+        // The predicate can be unknown for a non-null operand, too
+        assertThat(assertions.query(
+                """
+                SELECT a, b,
+                       CASE a WHEN >= b THEN 1 ELSE 0 END,
+                       CASE a WHEN BETWEEN 1 AND b THEN 1 ELSE 0 END,
+                       CASE a WHEN NOT BETWEEN 10 AND b THEN 1 ELSE 0 END,
+                       CASE a WHEN BETWEEN SYMMETRIC 1 AND b THEN 1 ELSE 0 END,
+                       CASE a WHEN IN (1, b) THEN 1 ELSE 0 END
+                FROM (VALUES (1, 10), (10, 10), (1, NULL), (5, NULL), (NULL, 10), (NULL, -1), (NULL, NULL)) t(a, b)
+                WHERE rand() >= 0
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 10, 0, 1, 1, 1, 1),
+                            (10, 10, 1, 1, 0, 1, 1),
+                            (1, NULL, 0, 0, 1, 0, 1),
+                            (5, NULL, 0, 0, 1, 0, 0),
+                            (NULL, 10, 0, 0, 0, 0, 0),
+                            (NULL, -1, 0, 0, 0, 0, 0),
+                            (NULL, NULL, 0, 0, 0, 0, 0)
+                        """);
+    }
+
+    @Test
+    public void testNullOperandInNestedCase()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a, b,
+                       CASE a
+                            WHEN BETWEEN 1 AND CASE b WHEN BETWEEN 1 AND 10 THEN 1 WHEN IS NULL THEN 10 END THEN 1
+                            WHEN IS NULL THEN CASE b WHEN BETWEEN 1 AND 10 THEN 2 ELSE 3 END
+                            ELSE 4
+                       END
+                FROM (VALUES (5, 5), (5, NULL), (NULL, 5), (NULL, NULL)) t(a, b)
+                WHERE rand() >= 0
+                """))
+                .matches("VALUES (5, 5, 4), (5, NULL, 1), (NULL, 5, 2), (NULL, NULL, 3)");
+    }
+
+    @Test
+    public void testNullOperandWithTruePredicate()
+    {
+        // A comparison with ALL rows of an empty subquery is true even for a null operand
+        assertThat(assertions.query(
+                """
+                SELECT a, CASE a WHEN > ALL (SELECT 1 WHERE false) THEN 1 ELSE 0 END
+                FROM UNNEST(ARRAY[5, NULL]) t(a)
+                """))
+                .matches("VALUES (5, 1), (NULL, 1)");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, CASE a WHEN > ALL (SELECT x FROM (VALUES 1, 2) u(x) WHERE x > b) THEN 1 ELSE 0 END
+                FROM (VALUES (5, 0), (NULL, 0), (5, 10), (NULL, 10)) t(a, b)
+                WHERE rand() >= 0
+                """))
+                .matches("VALUES (5, 1), (NULL, 0), (5, 1), (NULL, 1)");
+    }
+
+    @Test
     public void testTypeReconciliation()
     {
         // The operand is evaluated once, so all clauses must agree on a single operand type. The
