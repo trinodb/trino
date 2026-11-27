@@ -27,7 +27,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -264,6 +266,11 @@ public class TestPositionsAppenderPageBuilder
         assertThat(flushedPage.get().getBlock(0) instanceof DictionaryBlock)
                 .as("result should be dictionary encoded")
                 .isTrue();
+
+        // Reusing the builder must not overwrite the ids in the flushed page.
+        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.of(1, 1, 0));
+        assertBlockEquals(VARCHAR, pageBuilder.build().getBlock(0), createStringsBlock("second", "second", "first"));
+        assertBlockEquals(VARCHAR, flushedPage.orElseThrow().getBlock(0), dictionaryBlock);
     }
 
     @Test

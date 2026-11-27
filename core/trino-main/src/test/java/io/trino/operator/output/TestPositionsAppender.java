@@ -48,6 +48,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
@@ -274,6 +275,42 @@ public class TestPositionsAppender
         assertThat(actual.getPositionCount()).isEqualTo(5);
         assertThat(actual).isInstanceOf(DictionaryBlock.class);
         assertThat(((DictionaryBlock) actual).getDictionary()).isEqualTo(dictionary);
+    }
+
+    @Test
+    public void testRetainedSizeWithoutDictionary()
+    {
+        var delegate = new TypedPositionsAppender(BIGINT, 10);
+        var appender = new UnnestingPositionsAppender(delegate, Optional.of(new BlockTypeOperators().getIdenticalOperator(BIGINT)));
+        int instanceSize = instanceSize(UnnestingPositionsAppender.class);
+        assertThat(appender.getRetainedSizeInBytes()).isEqualTo(instanceSize + delegate.getRetainedSizeInBytes());
+
+        ValueBlock value = createLongsBlock(11);
+        appender.appendRle(value, 3);
+        assertThat(appender.getRetainedSizeInBytes()).isEqualTo(instanceSize + delegate.getRetainedSizeInBytes() + value.getRetainedSizeInBytes());
+
+        appender.append(0, value);
+        assertThat(appender.getRetainedSizeInBytes()).isEqualTo(instanceSize + delegate.getRetainedSizeInBytes());
+    }
+
+    @Test
+    public void testReleaseDictionaryIdsOnResetAndFlatten()
+    {
+        var delegate = new TypedPositionsAppender(BIGINT, 10);
+        var appender = new UnnestingPositionsAppender(delegate, Optional.empty());
+        long emptySize = appender.getRetainedSizeInBytes();
+        Block source = dictionaryBlock(createLongsBlock(11, 22), new int[] {1, 0, 1});
+        appender.appendRange(source, 0, 3);
+        assertThat(appender.getRetainedSizeInBytes()).isGreaterThan(emptySize);
+
+        appender.reset();
+        assertThat(appender.getRetainedSizeInBytes()).isEqualTo(emptySize);
+        assertThat(appender.getSizeInBytes()).isZero();
+
+        appender.append(positions(0, 2, 1), source);
+        appender.flattenPendingDictionary();
+        assertThat(appender.getRetainedSizeInBytes()).isEqualTo(instanceSize(UnnestingPositionsAppender.class) + delegate.getRetainedSizeInBytes());
+        assertBlockEquals(BIGINT, appender.build(), createLongsBlock(22, 22, 11));
     }
 
     @Test

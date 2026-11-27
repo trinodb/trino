@@ -58,6 +58,8 @@ public final class UnnestingPositionsAppender
     @Nullable
     private ValueBlock dictionary;
     private double averageDictionaryEntrySizeInBytes;
+    private int initialDictionaryEntryCount = 1024;
+    @Nullable
     private DictionaryIdsBuilder dictionaryIdsBuilder;
 
     @Nullable
@@ -67,7 +69,6 @@ public final class UnnestingPositionsAppender
     public UnnestingPositionsAppender(PositionsAppender delegate, Optional<BlockPositionIsIdentical> identicalOperator)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.dictionaryIdsBuilder = new DictionaryIdsBuilder(1024);
         this.identicalOperator = identicalOperator.orElse(null);
     }
 
@@ -203,6 +204,7 @@ public final class UnnestingPositionsAppender
     {
         state = State.DICTIONARY;
         this.dictionary = dictionary;
+        dictionaryIdsBuilder = new DictionaryIdsBuilder(initialDictionaryEntryCount);
         // computed once per dictionary because the flattened size is estimated on every fullness check
         this.averageDictionaryEntrySizeInBytes = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
     }
@@ -212,9 +214,7 @@ public final class UnnestingPositionsAppender
         if (state == State.DICTIONARY) {
             int[] dictionaryIds = dictionaryIdsBuilder.getDictionaryIds();
             delegate.append(IntArrayList.wrap(dictionaryIds, dictionaryIdsBuilder.size()), dictionary);
-            dictionary = null;
-            averageDictionaryEntrySizeInBytes = 0;
-            dictionaryIdsBuilder = dictionaryIdsBuilder.newBuilderLike();
+            resetDictionary();
         }
         else if (state == State.RLE) {
             delegate.appendRle(rleValue, rlePositionCount);
@@ -240,19 +240,27 @@ public final class UnnestingPositionsAppender
     public void reset()
     {
         state = State.UNINITIALIZED;
-        dictionary = null;
-        averageDictionaryEntrySizeInBytes = 0;
-        dictionaryIdsBuilder = dictionaryIdsBuilder.newBuilderLike();
+        resetDictionary();
         rleValue = null;
         rlePositionCount = 0;
         delegate.reset();
+    }
+
+    private void resetDictionary()
+    {
+        if (dictionaryIdsBuilder != null) {
+            initialDictionaryEntryCount = max(initialDictionaryEntryCount, calculateBlockResetSize(dictionaryIdsBuilder.size()));
+            dictionaryIdsBuilder = null;
+            dictionary = null;
+            averageDictionaryEntrySizeInBytes = 0;
+        }
     }
 
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
                 delegate.getRetainedSizeInBytes() +
-                dictionaryIdsBuilder.getRetainedSizeInBytes() +
+                (dictionaryIdsBuilder != null ? dictionaryIdsBuilder.getRetainedSizeInBytes() : 0) +
                 (rleValue != null ? rleValue.getRetainedSizeInBytes() : 0);
     }
 
@@ -260,7 +268,7 @@ public final class UnnestingPositionsAppender
     {
         return delegate.getSizeInBytes() +
                 // dictionary size is not included due to the expense of the calculation, but we can account for the ids size
-                (dictionaryIdsBuilder.size() * (long) Integer.BYTES) +
+                (dictionaryIdsBuilder != null ? dictionaryIdsBuilder.size() * (long) Integer.BYTES : 0) +
                 (rleValue != null ? rleValue.getSizeInBytes() : 0);
     }
 
@@ -320,7 +328,7 @@ public final class UnnestingPositionsAppender
         public DictionaryIdsBuilder(int initialEntryCount)
         {
             this.initialEntryCount = initialEntryCount;
-            this.dictionaryIds = new int[0];
+            this.dictionaryIds = IntArrays.EMPTY_ARRAY;
         }
 
         public int[] getDictionaryIds()
@@ -365,14 +373,6 @@ public final class UnnestingPositionsAppender
             int rawIdsOffset = block.getRawIdsOffset();
             System.arraycopy(rawIds, rawIdsOffset + offset, dictionaryIds, size, length);
             size += length;
-        }
-
-        public DictionaryIdsBuilder newBuilderLike()
-        {
-            if (size == 0) {
-                return this;
-            }
-            return new DictionaryIdsBuilder(max(calculateBlockResetSize(size), initialEntryCount));
         }
 
         private void ensureCapacity(int capacity)
