@@ -63,6 +63,8 @@ import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY_PASSWORD;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY_USER;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
 import static io.trino.client.uri.PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH;
 import static io.trino.client.uri.PropertyName.KERBEROS_KEYTAB_PATH;
@@ -302,6 +304,14 @@ public class ClientOptions
     @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
     public Optional<HostAndPort> httpProxy;
 
+    @PropertyMapping(HTTP_PROXY_PASSWORD)
+    @Option(names = "--http-proxy-password", paramLabel = "<password>", description = "Password for HTTP proxy authentication")
+    public Optional<String> httpProxyPassword;
+
+    @PropertyMapping(HTTP_PROXY_USER)
+    @Option(names = "--http-proxy-user", paramLabel = "<user>", description = "Username for HTTP proxy authentication")
+    public Optional<String> httpProxyUser;
+
     @PropertyMapping(TIMEOUT)
     @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
     public Duration clientRequestTimeout;
@@ -488,6 +498,8 @@ public class ClientOptions
         traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
+        httpProxyPassword.ifPresent(builder::setHttpProxyPassword);
+        httpProxyUser.ifPresent(builder::setHttpProxyUser);
         builder.setTimeZone(timeZone);
         builder.setDisableCompression(disableCompression);
         builder.setTimeout(clientRequestTimeout);

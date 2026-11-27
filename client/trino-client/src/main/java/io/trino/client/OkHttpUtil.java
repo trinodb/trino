@@ -29,6 +29,7 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Response;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
@@ -79,6 +80,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class OkHttpUtil
 {
+    private static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
+
     // Mac KeyStore. See JDK documentation for Apple Provider.
     private static final String KEYSTORE_MACOS = "KeychainStore";
 
@@ -150,7 +153,35 @@ public final class OkHttpUtil
 
     public static void setupHttpProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> httpProxy)
     {
+        setupHttpProxy(clientBuilder, httpProxy, Optional.empty(), Optional.empty());
+    }
+
+    public static void setupHttpProxy(
+            OkHttpClient.Builder clientBuilder,
+            Optional<HostAndPort> httpProxy,
+            Optional<String> proxyUser,
+            Optional<String> proxyPassword)
+    {
         setupProxy(clientBuilder, httpProxy, HTTP);
+        if (proxyUser.isEmpty() && proxyPassword.isEmpty()) {
+            return;
+        }
+        checkArgument(httpProxy.isPresent(), "HTTP proxy credentials require an HTTP proxy");
+        checkArgument(proxyUser.isPresent() && proxyPassword.isPresent(), "HTTP proxy credentials must include both user and password");
+        String user = proxyUser.orElseThrow();
+        String password = proxyPassword.orElseThrow();
+        clientBuilder.proxyAuthenticator((route, response) -> proxyAuthorization(response, user, password));
+    }
+
+    private static Request proxyAuthorization(Response response, String user, String password)
+    {
+        if (response.request().header(PROXY_AUTHORIZATION) != null) {
+            // A rejected credential must stop the proxy retry loop.
+            return null;
+        }
+        return response.request().newBuilder()
+                .header(PROXY_AUTHORIZATION, Credentials.basic(user, password))
+                .build();
     }
 
     public static void setupProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> proxy, Proxy.Type type)

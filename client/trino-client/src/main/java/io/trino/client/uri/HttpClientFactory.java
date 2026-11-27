@@ -163,7 +163,7 @@ public class HttpClientFactory
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         setupUserAgent(builder, userAgent);
         setupSocksProxy(builder, uri.getSocksProxy());
-        setupHttpProxy(builder, uri.getHttpProxy());
+        setupHttpProxy(builder, uri.getHttpProxy(), uri.getHttpProxyUser(), uri.getHttpProxyPassword());
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
 

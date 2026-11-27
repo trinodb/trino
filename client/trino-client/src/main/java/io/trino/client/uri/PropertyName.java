@@ -44,6 +44,8 @@ public enum PropertyName
     HOSTNAME_IN_CERTIFICATE("hostnameInCertificate"),
     HTTP_LOGGING_LEVEL("httpLoggingLevel"),
     HTTP_PROXY("httpProxy"),
+    HTTP_PROXY_PASSWORD("httpProxyPassword"),
+    HTTP_PROXY_USER("httpProxyUser"),
     KERBEROS_CONFIG_PATH("KerberosConfigPath"),
     KERBEROS_CONSTRAINED_DELEGATION("KerberosConstrainedDelegation"),
     KERBEROS_CREDENTIAL_CACHE_PATH("KerberosCredentialCachePath"),
