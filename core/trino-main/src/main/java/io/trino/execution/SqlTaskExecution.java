@@ -525,7 +525,7 @@ public class SqlTaskExecution
         return noMoreSplits.build();
     }
 
-    private synchronized void checkTaskCompletion()
+    synchronized void checkTaskCompletion()
     {
         TaskState taskState = taskStateMachine.getState();
         if (taskState.isDone()) {

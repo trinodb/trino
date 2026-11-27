@@ -631,6 +631,13 @@ public class SqlTask
         log.debug("Aborting task %s output %s", taskId, bufferId);
         outputBuffer.destroy(bufferId);
 
+        // Complete fully drained tasks before acknowledging result destruction, since the consumer can then cancel its sources.
+        // The output buffer's asynchronous completion notification may not have run yet.
+        SqlTaskExecution execution = taskHolderReference.get().getTaskExecution();
+        if (execution != null) {
+            execution.checkTaskCompletion();
+        }
+
         return getTaskInfo();
     }
 
