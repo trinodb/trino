@@ -46,6 +46,7 @@ ARTIFACTS = {
     'hudi':  ('trino-hudi', 'zip'),
     'iceberg':  ('trino-iceberg', 'zip'),
     'ignite':  ('trino-ignite', 'zip'),
+    'inference':  ('trino-inference', 'zip'),
     'jmx':  ('trino-jmx', 'zip'),
     'kafka':  ('trino-kafka', 'zip'),
     'kafka-event-listener':  ('trino-kafka-event-listener', 'zip'),

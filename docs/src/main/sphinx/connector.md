@@ -23,6 +23,7 @@ Hive            <connector/hive>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
 Ignite          <connector/ignite>
+Inference       <connector/inference>
 JMX             <connector/jmx>
 Kafka           <connector/kafka>
 Lakehouse       <connector/lakehouse>

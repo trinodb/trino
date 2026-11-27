@@ -136,6 +136,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/inference">
+        <artifact id="${project.groupId}:trino-inference:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/jmx">
         <artifact id="${project.groupId}:trino-jmx:zip:${project.version}">
             <unpack />
