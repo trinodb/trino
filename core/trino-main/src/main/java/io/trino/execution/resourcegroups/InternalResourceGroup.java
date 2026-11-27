@@ -55,6 +55,7 @@ import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getQueryPriority;
 import static io.trino.execution.resourcegroups.ResourceUsage.ZERO;
 import static io.trino.server.QueryStateInfo.createQueryStateInfo;
+import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_QUEUE;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_RUN;
@@ -92,6 +93,10 @@ public class InternalResourceGroup
     // =============
     @GuardedBy("root")
     private long softMemoryLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long hardMemoryLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private int hardMemoryLimitCount;
     @GuardedBy("root")
     private int softConcurrencyLimit;
     @GuardedBy("root")
@@ -136,6 +141,8 @@ public class InternalResourceGroup
     // CPU, memory and physical data input usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
     private ResourceUsage cachedResourceUsage = ZERO;
+    // Reuse the candidate across passes to avoid allocating it under the root lock.
+    private final LargestMemoryQuery largestMemoryQuery;
     @GuardedBy("root")
     private long lastStartNanos;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
@@ -156,11 +163,13 @@ public class InternalResourceGroup
             id = new ResourceGroupId(parent.get().id, name);
             root = parent.get().root;
             resourceUsageStagingInProgress = root.resourceUsageStagingInProgress;
+            largestMemoryQuery = root.largestMemoryQuery;
         }
         else {
             id = new ResourceGroupId(name);
             root = this;
             resourceUsageStagingInProgress = new AtomicBoolean();
+            largestMemoryQuery = new LargestMemoryQuery();
         }
     }
 
@@ -173,6 +182,7 @@ public class InternalResourceGroup
                     schedulingPolicy,
                     schedulingWeight,
                     succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(hardMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     succinctBytes(hardPhysicalDataScanLimitBytes),
@@ -200,6 +210,7 @@ public class InternalResourceGroup
                     schedulingPolicy,
                     schedulingWeight,
                     succinctBytes(softMemoryLimitBytes),
+                    succinctBytes(hardMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
                     succinctBytes(hardPhysicalDataScanLimitBytes),
@@ -335,6 +346,37 @@ public class InternalResourceGroup
         synchronized (root) {
             boolean oldCanRun = canRunMore();
             this.softMemoryLimitBytes = limit;
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
+            }
+        }
+    }
+
+    @Managed
+    @Override
+    public long getHardMemoryLimitBytes()
+    {
+        synchronized (root) {
+            return hardMemoryLimitBytes;
+        }
+    }
+
+    @Override
+    public void setHardMemoryLimitBytes(long limit)
+    {
+        checkArgument(limit >= 0, "Hard memory limit is negative");
+        synchronized (root) {
+            if (hardMemoryLimitBytes == limit) {
+                return;
+            }
+            boolean oldCanRun = canRunMore();
+            if (limit == Long.MAX_VALUE || hardMemoryLimitBytes == Long.MAX_VALUE) {
+                int delta = limit == Long.MAX_VALUE ? -1 : 1;
+                for (InternalResourceGroup group = this; group != null; group = group.parent.orElse(null)) {
+                    group.hardMemoryLimitCount += delta;
+                }
+            }
+            hardMemoryLimitBytes = limit;
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
@@ -930,6 +972,41 @@ public class InternalResourceGroup
         }
     }
 
+    void enforceHardMemoryLimits()
+    {
+        synchronized (root) {
+            // Admission and enforcement use the same snapshot from the resource usage refresh.
+            enforceHardMemoryLimitsInternal();
+        }
+    }
+
+    private boolean enforceHardMemoryLimitsInternal()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to enforce hard memory limits");
+        if (hardMemoryLimitCount == 0 || cachedResourceUsage.memoryUsageBytes() == 0) {
+            return false;
+        }
+        if (cachedResourceUsage.memoryUsageBytes() > hardMemoryLimitBytes) {
+            largestMemoryQuery.scan(this);
+            ManagedQueryExecution query = largestMemoryQuery.take();
+            // If the victim already completed, wait for its memory to be removed from the snapshot.
+            if (query != null && !query.isDone()) {
+                query.fail(new TrinoException(CLUSTER_OUT_OF_MEMORY,
+                        format("Resource group '%s' exceeded hard memory limit %s (usage: %s)",
+                                id,
+                                succinctBytes(hardMemoryLimitBytes),
+                                succinctBytes(cachedResourceUsage.memoryUsageBytes()))));
+            }
+            return true;
+        }
+        for (InternalResourceGroup subGroup : dirtySubGroups) {
+            if (subGroup.enforceHardMemoryLimitsInternal()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void internalGenerateQuotas(long elapsedSeconds)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate quotas");
@@ -1076,7 +1153,10 @@ public class InternalResourceGroup
             long cpuUsageMillis = cachedResourceUsage.cpuUsageMillis();
             long memoryUsageBytes = cachedResourceUsage.memoryUsageBytes();
             long physicalInputDataUsageBytes = cachedResourceUsage.physicalInputDataUsageBytes();
-            if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes) || (physicalInputDataUsageBytes >= hardPhysicalDataScanLimitBytes)) {
+            if ((cpuUsageMillis >= hardCpuLimitMillis) ||
+                    (memoryUsageBytes > softMemoryLimitBytes) ||
+                    (memoryUsageBytes > hardMemoryLimitBytes) ||
+                    (physicalInputDataUsageBytes >= hardPhysicalDataScanLimitBytes)) {
                 return false;
             }
 
@@ -1136,6 +1216,43 @@ public class InternalResourceGroup
     public int hashCode()
     {
         return Objects.hash(id);
+    }
+
+    private static final class LargestMemoryQuery
+            implements BiConsumer<ManagedQueryExecution, StagedResourceUsage>
+    {
+        private ManagedQueryExecution query;
+        private long bytes;
+
+        public void scan(InternalResourceGroup group)
+        {
+            checkState(Thread.holdsLock(group.root), "Must hold lock to scan running queries");
+            if (group.cachedResourceUsage.memoryUsageBytes() <= bytes) {
+                return;
+            }
+            group.runningQueries.forEach(this);
+            for (InternalResourceGroup subGroup : group.dirtySubGroups) {
+                scan(subGroup);
+            }
+        }
+
+        @Override
+        public void accept(ManagedQueryExecution query, StagedResourceUsage usage)
+        {
+            long memoryBytes = usage.current().memoryUsageBytes();
+            if (memoryBytes > bytes) {
+                this.query = query;
+                bytes = memoryBytes;
+            }
+        }
+
+        public ManagedQueryExecution take()
+        {
+            ManagedQueryExecution result = query;
+            query = null;
+            bytes = 0;
+            return result;
+        }
     }
 
     private record StagedResourceUsage(ResourceUsage current, ResourceUsage staged)

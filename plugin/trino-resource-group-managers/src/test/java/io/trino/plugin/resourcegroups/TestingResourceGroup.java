@@ -26,6 +26,7 @@ public class TestingResourceGroup
 {
     private final ResourceGroupId id;
     private long softMemoryLimitBytes;
+    private long hardMemoryLimitBytes = Long.MAX_VALUE;
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long cpuQuotaGenerationRate;
@@ -60,6 +61,18 @@ public class TestingResourceGroup
     public void setSoftMemoryLimitBytes(long limit)
     {
         softMemoryLimitBytes = limit;
+    }
+
+    @Override
+    public long getHardMemoryLimitBytes()
+    {
+        return hardMemoryLimitBytes;
+    }
+
+    @Override
+    public void setHardMemoryLimitBytes(long limit)
+    {
+        hardMemoryLimitBytes = limit;
     }
 
     @Override

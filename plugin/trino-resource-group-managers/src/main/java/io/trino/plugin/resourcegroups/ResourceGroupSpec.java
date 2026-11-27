@@ -41,6 +41,7 @@ public class ResourceGroupSpec
     private final ResourceGroupNameTemplate name;
     private final Optional<DataSize> softMemoryLimit;
     private final OptionalDouble softMemoryLimitFraction;
+    private final Optional<DataSize> hardMemoryLimit;
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
@@ -56,6 +57,7 @@ public class ResourceGroupSpec
     public ResourceGroupSpec(
             @JsonProperty("name") ResourceGroupNameTemplate name,
             @JsonProperty("softMemoryLimit") Optional<String> softMemoryLimit,
+            @JsonProperty("hardMemoryLimit") Optional<DataSize> hardMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") Optional<Integer> hardConcurrencyLimit,
@@ -72,6 +74,7 @@ public class ResourceGroupSpec
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.name = requireNonNull(name, "name is null");
+        this.hardMemoryLimit = requireNonNull(hardMemoryLimit, "hardMemoryLimit is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
@@ -120,6 +123,11 @@ public class ResourceGroupSpec
     public OptionalDouble getSoftMemoryLimitFraction()
     {
         return softMemoryLimitFraction;
+    }
+
+    public Optional<DataSize> getHardMemoryLimit()
+    {
+        return hardMemoryLimit;
     }
 
     public int getMaxQueued()
@@ -189,6 +197,7 @@ public class ResourceGroupSpec
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
                 softMemoryLimitFraction.equals(that.softMemoryLimitFraction) &&
+                hardMemoryLimit.equals(that.hardMemoryLimit) &&
                 maxQueued == that.maxQueued &&
                 softConcurrencyLimit.equals(that.softConcurrencyLimit) &&
                 hardConcurrencyLimit == that.hardConcurrencyLimit &&
@@ -210,6 +219,7 @@ public class ResourceGroupSpec
         return (name.equals(other.name) &&
                 softMemoryLimit.equals(other.softMemoryLimit) &&
                 softMemoryLimitFraction.equals(other.softMemoryLimitFraction) &&
+                hardMemoryLimit.equals(other.hardMemoryLimit) &&
                 maxQueued == other.maxQueued &&
                 softConcurrencyLimit.equals(other.softConcurrencyLimit) &&
                 hardConcurrencyLimit == other.hardConcurrencyLimit &&
@@ -227,6 +237,7 @@ public class ResourceGroupSpec
         return Objects.hash(
                 name,
                 softMemoryLimit,
+                hardMemoryLimit,
                 maxQueued,
                 softConcurrencyLimit,
                 hardConcurrencyLimit,
@@ -246,6 +257,7 @@ public class ResourceGroupSpec
                 .add("name", name)
                 .add("softMemoryLimit", softMemoryLimit)
                 .add("softMemoryLimitFraction", softMemoryLimitFraction)
+                .add("hardMemoryLimit", hardMemoryLimit)
                 .add("maxQueued", maxQueued)
                 .add("softConcurrencyLimit", softConcurrencyLimit)
                 .add("hardConcurrencyLimit", hardConcurrencyLimit)
