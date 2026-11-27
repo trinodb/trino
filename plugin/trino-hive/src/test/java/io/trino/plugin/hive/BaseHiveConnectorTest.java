@@ -77,6 +77,9 @@ import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
@@ -129,6 +132,7 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRAR
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
@@ -6287,16 +6291,18 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    @Test
-    public void testBucketedSelect()
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    public void testBucketedSelect(int bucketingVersion)
     {
+        String table = "test_bucketed_select_" + bucketingVersion;
         try {
             assertUpdate(
                     """
-                    CREATE TABLE test_bucketed_select
-                    WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS
+                    CREATE TABLE %s
+                    WITH (bucket_count = 13, bucketed_by = ARRAY['key1'], bucketing_version = %s) AS
                     SELECT orderkey key1, comment value1 FROM orders
-                    """,
+                    """.formatted(table, bucketingVersion),
                     15000);
             Session planWithTableNodePartitioning = Session.builder(getSession())
                     .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
@@ -6306,24 +6312,66 @@ public abstract class BaseHiveConnectorTest
                     .build();
 
             // a basic scan should not use a partitioned read as it is not helpful to the query
-            @Language("SQL") String query = "SELECT value1 FROM test_bucketed_select WHERE key1 < 10";
+            @Language("SQL") String query = "SELECT value1 FROM %s WHERE key1 < 10".formatted(table);
             @Language("SQL") String expectedQuery = "SELECT comment FROM orders WHERE orderkey < 10";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertNoReadPartitioning("key1"));
 
             // aggregation on key1 should not require a remote exchange
-            query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
+            query = "SELECT count(value1) FROM %s GROUP BY key1".formatted(table);
             expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
 
             // join on key1 should not require a remote exchange
-            query = "SELECT key1 FROM test_bucketed_select JOIN test_bucketed_select USING (key1)";
+            query = "SELECT key1 FROM %s JOIN %s USING (key1)".formatted(table, table);
             expectedQuery = "SELECT a.orderkey FROM orders a JOIN orders USING (orderkey)";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DOUBLE, 1", "DOUBLE, 2", "REAL, 1", "REAL, 2"})
+    public void testBucketedJoinWithSignedZeros(String keyType, int bucketingVersion)
+    {
+        Session partitionedJoin = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                .build();
+
+        String table = "test_bucketed_signed_zeros_" + randomNameSuffix();
+        assertUpdate(
+                """
+                CREATE TABLE %s
+                WITH (format = 'ORC', bucketed_by = ARRAY['k'], bucket_count = 32, bucketing_version = %s)
+                AS SELECT * FROM (VALUES (1, %s '-0.0'), (2, %s '0.0')) t(id, k)
+                """.formatted(table, bucketingVersion, keyType, keyType),
+                2);
+        try {
+            assertQuery("SELECT count(DISTINCT \"$bucket\") FROM " + table, bucketingVersion == 1 ? "SELECT 1" : "SELECT 2");
+            @Language("SQL") String join = "SELECT l.id, r.id FROM %s l JOIN %s r ON l.k = r.k".formatted(table, table);
+            List<MaterializedRow> expected = resultBuilder(INTEGER, INTEGER)
+                    .row(1, 1)
+                    .row(1, 2)
+                    .row(2, 1)
+                    .row(2, 2)
+                    .build()
+                    .getMaterializedRows();
+            for (boolean useTablePartitioning : List.of(false, true)) {
+                Session session = Session.builder(partitionedJoin)
+                        .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, Boolean.toString(useTablePartitioning))
+                        .build();
+                MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(session, join);
+                assertEqualsIgnoreOrder(result.result().getMaterializedRows(), expected);
+                assertRemoteExchangesCount(session, useTablePartitioning && bucketingVersion == 1 ? 0 : 2)
+                        .accept(result.queryPlan().orElseThrow());
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + table);
         }
     }
 
