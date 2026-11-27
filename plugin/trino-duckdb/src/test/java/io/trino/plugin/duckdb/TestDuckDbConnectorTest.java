@@ -21,11 +21,15 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 
+import static io.trino.plugin.duckdb.DuckDbClientModule.SECURITY_CONNECTION_PROPERTIES;
 import static io.trino.plugin.duckdb.TestingDuckDb.TPCH_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -47,6 +51,7 @@ final class TestDuckDbConnectorTest
     {
         duckDb = closeAfterClass(new TestingDuckDb());
         return DuckDbQueryRunner.builder(duckDb)
+                .addConnectorProperty("duckdb.query-passthrough.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -226,8 +231,17 @@ final class TestDuckDbConnectorTest
     {
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE " + TPCH_SCHEMA + ".numbers(n INTEGER)'))"))
-                .failure().hasMessageContaining("Parser Error: syntax error at or near \"CREATE\"");
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
+    }
+
+    @Test
+    @Override // Override because the expected error message is different
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
     }
 
     @Test
@@ -237,9 +251,69 @@ final class TestDuckDbConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
-                    .failure().hasMessageContaining("Parser Error: syntax error at or near \"INTO\"");
+                    .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
+    }
+
+    @Test
+    @Override // Override because the expected error message is different
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+    }
+
+    @Test
+    void testNativeQueryMultipleStatements()
+    {
+        String tableName = "test_native_query_multiple_statements" + randomNameSuffix();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s.%s AS SELECT 1 x; SELECT 1'))".formatted(TPCH_SCHEMA, tableName)))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT 1; SELECT 2'))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => ''))"))
+                .failure().hasMessageContaining("Query not supported: only a single SELECT statement is allowed");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    @Test
+    void testNativeQueryCannotAccessHost()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_text(''/etc/passwd'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_csv(''/etc/passwd'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM read_csv(''https://example.com/data.csv'')'))"))
+                .failure().hasMessageContaining("file system operations are disabled by configuration");
+        for (Entry<String, String> setting : SECURITY_CONNECTION_PROPERTIES.entrySet()) {
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT current_setting(''%s'')'))".formatted(setting.getKey())))
+                    .matches("VALUES " + setting.getValue());
+        }
+    }
+
+    @Test
+    void testExecuteProcedureCannotAccessHost(@TempDir Path directory)
+    {
+        String tableName = "test_execute_read_file" + randomNameSuffix();
+        assertQueryFails("CALL system.execute('CREATE TABLE %s.%s AS SELECT * FROM read_text(''/etc/passwd'')')".formatted(TPCH_SCHEMA, tableName), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertQueryFails("CALL system.execute('CREATE TABLE %s.%s AS SELECT * FROM read_csv(''https://example.com/data.csv'')')".formatted(TPCH_SCHEMA, tableName), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+
+        Path exportFile = directory.resolve("export.csv");
+        assertQueryFails("CALL system.execute('COPY (SELECT 1) TO ''%s''')".formatted(exportFile), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(exportFile).doesNotExist();
+
+        Path attachFile = directory.resolve("attached.db");
+        assertQueryFails("CALL system.execute('ATTACH ''%s'' AS attached')".formatted(attachFile), "(?s).*file system operations are disabled by configuration.*");
+        assertThat(attachFile).doesNotExist();
+
+        assertQueryFails("CALL system.execute('INSTALL httpfs')", "(?s).*disabled.*");
+        assertQueryFails("CALL system.execute('LOAD httpfs')", "(?s).*Loading external extensions is disabled through configuration.*");
+        assertQueryFails("CALL system.execute('SET enable_external_access = true')", "(?s).*the configuration has been locked.*");
+        assertQueryFails("CALL system.execute('RESET enable_external_access')", "(?s).*the configuration has been locked.*");
+        assertQueryFails("CALL system.execute('SET lock_configuration = false')", "(?s).*the configuration has been locked.*");
     }
 
     @Test

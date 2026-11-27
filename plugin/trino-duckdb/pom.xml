@@ -50,6 +50,11 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.duckdb</groupId>
             <artifactId>duckdb_jdbc</artifactId>
             <version>2.0.0.1</version>
@@ -89,6 +94,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

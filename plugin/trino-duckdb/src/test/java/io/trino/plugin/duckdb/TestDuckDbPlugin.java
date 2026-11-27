@@ -20,6 +20,7 @@ import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestDuckDbPlugin
 {
@@ -31,6 +32,37 @@ final class TestDuckDbPlugin
         factory.create(
                         "test",
                         ImmutableMap.of("connection-url", "jdbc:duckdb:"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    void testSecurityOptionInConnectionUrlRejected()
+    {
+        ConnectorFactory factory = getOnlyElement(new DuckDbPlugin().getConnectorFactories());
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of("connection-url", "jdbc:duckdb:;threads=1;enable_external_access=true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("DuckDB security options cannot be set in connection-url");
+    }
+
+    @Test
+    void testMissingConnectionUrl()
+    {
+        ConnectorFactory factory = getOnlyElement(new DuckDbPlugin().getConnectorFactories());
+        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of(), new TestingConnectorContext()))
+                .hasMessageContaining("connection-url")
+                .hasMessageContaining("must not be null");
+    }
+
+    @Test
+    void testOtherOptionsInConnectionUrlAllowed()
+    {
+        ConnectorFactory factory = getOnlyElement(new DuckDbPlugin().getConnectorFactories());
+        factory.create(
+                        "test",
+                        ImmutableMap.of("connection-url", "jdbc:duckdb:;threads=1;;memory_limit=1GB"),
                         new TestingConnectorContext())
                 .shutdown();
     }
