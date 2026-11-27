@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
@@ -36,21 +37,36 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ITERATIVE_PREDICATE_PUSHDOWN_ENABLED;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.KdbTreeType.KDB_TREE;
@@ -67,6 +83,8 @@ import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -78,6 +96,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -115,7 +134,74 @@ public class TestSpatialJoinPlanning
         planTester.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON.toStringUtf8()));
         planTester.executeStatement("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
         planTester.executeStatement("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
+        planTester.executeStatement("CREATE TABLE spatial_predicates (a, c) AS VALUES (21e0, BIGINT '21')");
         return planTester;
+    }
+
+    @Test
+    public void testPredicateThroughNestedSpatialJoin()
+    {
+        for (boolean iterativePredicatePushdown : new boolean[] {true, false}) {
+            for (boolean dynamicFiltering : new boolean[] {true, false}) {
+                assertSpatialPredicatePushdown(iterativePredicatePushdown, dynamicFiltering, "INNER", "r1.c", true);
+                assertSpatialPredicatePushdown(iterativePredicatePushdown, dynamicFiltering, "INNER", "r2.c", true);
+                assertSpatialPredicatePushdown(iterativePredicatePushdown, dynamicFiltering, "LEFT", "r1.c", true);
+            }
+        }
+    }
+
+    @Test
+    public void testPredicateEnforcedByNestedSpatialJoinFilter()
+    {
+        for (boolean iterativePredicatePushdown : new boolean[] {true, false}) {
+            for (boolean dynamicFiltering : new boolean[] {true, false}) {
+                assertSpatialPredicatePushdown(iterativePredicatePushdown, dynamicFiltering, "INNER", "COALESCE(r1.c, r2.c)", false);
+            }
+        }
+    }
+
+    private void assertSpatialPredicatePushdown(boolean iterativePredicatePushdown, boolean dynamicFiltering, String joinType, String projection, boolean pushedToProjectedInput)
+    {
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(ITERATIVE_PREDICATE_PUSHDOWN_ENABLED, Boolean.toString(iterativePredicatePushdown))
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(dynamicFiltering))
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+        String sql =
+                """
+                SELECT l.a, r.b
+                FROM (SELECT a FROM spatial_predicates WHERE a > 10.0) l
+                JOIN (
+                    SELECT CAST(%s AS DOUBLE) b
+                    FROM spatial_predicates r1 %s JOIN spatial_predicates r2
+                        ON ST_Distance(ST_Point(r1.a, r1.a), ST_Point(r2.a, r2.a)) < 5.0
+                ) r ON l.a = r.b
+                """.formatted(projection, joinType);
+        String description = "%s with iterative=%s dynamicFiltering=%s".formatted(sql, iterativePredicatePushdown, dynamicFiltering);
+        getPlanTester().inTransaction(session, transactionSession -> {
+            PlanOptimizersStatsCollector statsCollector = createPlanOptimizersStatsCollector();
+            Plan plan = getPlanTester().createPlan(transactionSession, sql, getPlanTester().getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, statsCollector);
+            // Rules that keep reversing each other apply far more often than this small query needs
+            assertThat(statsCollector.getTopRuleStats(Integer.MAX_VALUE))
+                    .allSatisfy(rule -> assertThat(rule.applied()).as("applications of %s for %s", rule.rule(), description).isLessThanOrEqualTo(100));
+            assertThat(searchFrom(plan.getRoot()).where(node -> node instanceof JoinNode).count()).as(description).isEqualTo(1);
+            SpatialJoinNode join = (SpatialJoinNode) searchFrom(plan.getRoot()).where(node -> node instanceof SpatialJoinNode).findOnlyElement();
+            assertThat(join.getType()).as(description).isEqualTo(SpatialJoinNode.Type.valueOf(joinType));
+            if (pushedToProjectedInput) {
+                // The bound l.a > 10 reaches the input of the spatial join that provides the projected c
+                PlanNode input = projection.startsWith("r2") ? join.getRight() : join.getLeft();
+                Set<Symbol> projected = input.getOutputSymbols().stream()
+                        .filter(symbol -> symbol.name().startsWith("c"))
+                        .collect(toImmutableSet());
+                assertThat(searchFrom(input)
+                        .where(node -> node instanceof FilterNode filter && !Collections.disjoint(extractUnique(filter.getPredicate()), projected))
+                        .findAll())
+                        .as("filter on the projected input for %s", description)
+                        .isNotEmpty();
+            }
+            return null;
+        });
     }
 
     @Test

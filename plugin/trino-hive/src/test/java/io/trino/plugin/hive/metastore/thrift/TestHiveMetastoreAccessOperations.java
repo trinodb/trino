@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ITERATIVE_PREDICATE_PUSHDOWN_ENABLED;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.ALTER_PARTITION;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
@@ -269,12 +270,42 @@ public class TestHiveMetastoreAccessOperations
                         .add(GET_TABLE)
                         .addCopies(GET_PARTITIONS_BY_NAMES, 5)
                         .add(GET_PARTITION_COLUMN_STATISTICS)
-                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .add(GET_PARTITION_NAMES_BY_FILTER)
                         .build());
 
         assertQuerySucceeds("CALL system.flush_metadata_cache()");
         assertMetastoreInvocations(
                 session,
+                sql,
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .add(GET_PARTITIONS_BY_NAMES)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
+                        .add(GET_PARTITION_NAMES_BY_FILTER)
+                        .build());
+
+        // The legacy implementation also pushes the supplier key range inferred through the join into the
+        // partitioned scan, and applying that filter lists the partition names a second time. The iterative
+        // rules find the range already implied by the partition values in the scan's effective predicate.
+        Session legacy = Session.builder(session)
+                .setSystemProperty(ITERATIVE_PREDICATE_PUSHDOWN_ENABLED, "false")
+                .build();
+        assertQuerySucceeds("CALL system.flush_metadata_cache()");
+        assertMetastoreInvocations(
+                Session.builder(legacy)
+                        .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                        .build(),
+                sql,
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .addCopies(GET_PARTITIONS_BY_NAMES, 5)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
+                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .build());
+
+        assertQuerySucceeds("CALL system.flush_metadata_cache()");
+        assertMetastoreInvocations(
+                legacy,
                 sql,
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)

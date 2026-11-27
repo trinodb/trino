@@ -227,13 +227,12 @@ public class TestSubqueries
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("cast_a", expression(new Cast(new Reference(INTEGER, "a"), createDecimalType(11, 1)))),
-                                                        any(
-                                                                rowNumber(
-                                                                        rowBuilder -> rowBuilder
-                                                                                .maxRowCountPerPartition(Optional.of(1))
-                                                                                .partitionBy(ImmutableList.of("a")),
-                                                                        anyTree(
-                                                                                values("a"))))))))));
+                                                        rowNumber(
+                                                                rowBuilder -> rowBuilder
+                                                                        .maxRowCountPerPartition(Optional.of(1))
+                                                                        .partitionBy(ImmutableList.of("a")),
+                                                                anyTree(
+                                                                        values("a")))))))));
 
         // subquery symbol is equal to constant expression
         assertions.assertQueryAndPlan(

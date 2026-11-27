@@ -88,13 +88,13 @@ public class TestSqlServerJdbcConnectionAccesses
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 5, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 4, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 4, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 4, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 4, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 6, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 9, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 10, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 8, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.columns", 1041, Optional.empty());
@@ -108,7 +108,7 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("DROP TABLE copy_of_nation", 2, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
-        assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
+        assertJdbcConnections("SHOW STATS FOR nation", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_sqlserver'", 1041, Optional.empty());
     }
 
