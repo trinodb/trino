@@ -23,9 +23,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.Long.BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,19 +58,65 @@ final class TestArrayBlockBuilder
         assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
-    // TODO we should systematically test Block::getRetainedSizeInBytes()
     @Test
     public void testRetainedSizeInBytes()
     {
-        int expectedEntries = 1000;
-        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedEntries);
-        long initialRetainedSize = arrayBlockBuilder.getRetainedSizeInBytes();
-        for (int i = 0; i < expectedEntries; i++) {
-            int value = i;
-            arrayBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, value));
-        }
-        assertThat(arrayBlockBuilder.getRetainedSizeInBytes())
-                .isGreaterThanOrEqualTo(expectedEntries * BYTES + instanceSize(LongArrayBlockBuilder.class) + initialRetainedSize);
+        BlockBuilderStatus status = new PageBuilderStatus(1024).createBlockBuilderStatus();
+        BlockBuilder elements = BIGINT.createBlockBuilder(status, 1);
+        ArrayBlockBuilder builder = new ArrayBlockBuilder(elements, status, 1);
+        long baseSize = instanceSize(ArrayBlockBuilder.class) + BlockBuilderStatus.INSTANCE_SIZE;
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(baseSize + elements.getRetainedSizeInBytes());
+
+        builder.appendNull();
+        ArrayBlock block = (ArrayBlock) builder.buildValueBlock();
+        assertThat(builder.getRetainedSizeInBytes())
+                .isEqualTo(baseSize + elements.getRetainedSizeInBytes() + sizeOf(block.getRawOffsets()) + sizeOf(block.getRawValueIsValid()));
+
+        builder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 123));
+        block = (ArrayBlock) builder.build();
+        assertThat(builder.getRetainedSizeInBytes())
+                .isEqualTo(baseSize + elements.getRetainedSizeInBytes() + sizeOf(block.getRawOffsets()) + sizeOf(block.getRawValueIsValid()));
+    }
+
+    @Test
+    public void testEmptyBlockOffsets()
+    {
+        ArrayBlockBuilder builder = new ArrayBlockBuilder(BIGINT, null, 8);
+        long initialSize = builder.getRetainedSizeInBytes();
+        builder.buildEntry();
+        assertThatThrownBy(builder::buildValueBlock).isInstanceOf(IllegalStateException.class);
+        builder.resetTo(0);
+        assertThat(builder.build().getPositionCount()).isZero();
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(initialSize);
+
+        int[] offsets = ((ArrayBlock) builder.buildValueBlock()).getRawOffsets();
+        assertThat(offsets).containsExactly(0);
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(initialSize + sizeOf(offsets));
+        assertThat(((ArrayBlock) builder.buildValueBlock()).getRawOffsets()).isSameAs(offsets);
+
+        BlockBuilder other = builder.newBlockBuilderLike(null);
+        assertThat(other.getRetainedSizeInBytes()).isEqualTo(initialSize);
+        assertThat(((ArrayBlock) other.buildValueBlock()).getRawOffsets()).isNotSameAs(offsets);
+
+        builder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 123));
+        assertThat(((ArrayBlock) builder.build()).getRawOffsets()).hasSize(9).startsWith(0, 1);
+    }
+
+    @Test
+    public void testAppendRangeRejectsInvalidRange()
+    {
+        ValueBlock source = blockFromValues(List.of(List.of(), List.of("keep"), List.of("outside"))).getRegion(0, 2);
+        BlockBuilder builder = createBlockBuilder();
+        BlockBuilder other = createBlockBuilder();
+
+        assertThatThrownBy(() -> builder.appendRange(source, 1, -1)).isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> builder.appendRange(source, 2, 1)).isInstanceOf(IndexOutOfBoundsException.class);
+        assertThat(builder.getPositionCount()).isZero();
+
+        builder.appendRange(source, 0, 2);
+        other.appendRange(source, 1, 1);
+        assertThat(blockToValues(builder.buildValueBlock())).containsExactly(List.of(), List.of("keep"));
+        assertThat(blockToValues(other.buildValueBlock())).containsExactly(List.of("keep"));
     }
 
     @Test
