@@ -96,8 +96,6 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
-                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
-                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 2)
                         .build());
 
@@ -122,8 +120,6 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("BlobCache.get", DATA), 5)
-                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
-                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 5)
                         .build());
     }
@@ -148,8 +144,6 @@ public class TestIcebergMemoryCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_select_with_filter WHERE col_name = 1",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
-                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
                         .add(new CacheOperation("BlobCache.get", MANIFEST))
                         .add(new CacheOperation("BlobCache.get", DATA))
                         .build());
@@ -175,8 +169,6 @@ public class TestIcebergMemoryCacheFileOperations
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("BlobCache.get", METADATA_JSON), 2)
-                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 4)
                         .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 4)
                         .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
                         .build());

@@ -20,6 +20,7 @@ import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -63,9 +64,10 @@ public abstract class AbstractMetastoreTableOperations
             String table,
             Optional<String> owner,
             Optional<String> location,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
     {
-        super(fileIo, session, database, table, owner, location, encryptionManagerFactory);
+        super(fileIo, session, database, table, owner, location, encryptionManagerFactory, tableMetadataCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
 

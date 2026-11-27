@@ -19,6 +19,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
@@ -37,6 +38,7 @@ public class HiveMetastoreTableOperationsProvider
     private final ThriftMetastoreFactory thriftMetastoreFactory;
     private final boolean lockingEnabled;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final TableMetadataCache tableMetadataCache;
 
     @Inject
     public HiveMetastoreTableOperationsProvider(
@@ -44,13 +46,15 @@ public class HiveMetastoreTableOperationsProvider
             ForwardingFileIoFactory fileIoFactory,
             ThriftMetastoreFactory thriftMetastoreFactory,
             IcebergHiveCatalogConfig metastoreConfig,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            TableMetadataCache tableMetadataCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
         this.lockingEnabled = metastoreConfig.getLockingEnabled();
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.tableMetadataCache = requireNonNull(tableMetadataCache, "tableMetadataCache is null");
     }
 
     @Override
@@ -72,6 +76,7 @@ public class HiveMetastoreTableOperationsProvider
                 table,
                 owner,
                 location,
-                encryptionManagerFactory);
+                encryptionManagerFactory,
+                tableMetadataCache);
     }
 }

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.FlociS3AndGlue;
@@ -27,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
@@ -55,6 +57,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.Duration.ZERO;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -79,6 +82,7 @@ public class TestTrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TestTrinoGlueCatalog.class);
     private FlociS3AndGlue floci;
+    private final TableMetadataCache tableMetadataCache = new TableMetadataCache(DataSize.of(10, MEGABYTE));
 
     @BeforeAll
     public void startFloci()
@@ -90,6 +94,12 @@ public class TestTrinoGlueCatalog
     public void stopFloci()
     {
         floci.close();
+    }
+
+    @Override
+    protected boolean supportsSharedTableMetadata()
+    {
+        return true;
     }
 
     @Override
@@ -124,7 +134,8 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         new GlueMetastoreStats(),
                         glueClient,
-                        ENCRYPTION_MANAGER_FACTORY),
+                        ENCRYPTION_MANAGER_FACTORY,
+                        tableMetadataCache),
                 "test",
                 new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 useSystemSecurity,
@@ -132,7 +143,8 @@ public class TestTrinoGlueCatalog
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                tableMetadataCache);
     }
 
     /**
@@ -274,7 +286,8 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         new GlueMetastoreStats(),
                         glueClient,
-                        ENCRYPTION_MANAGER_FACTORY),
+                        ENCRYPTION_MANAGER_FACTORY,
+                        TableMetadataCache.disabled()),
                 "test",
                 new StatsRecordingGlueClient(glueClient, new GlueMetastoreStats()),
                 false,
@@ -282,7 +295,8 @@ public class TestTrinoGlueCatalog
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                TableMetadataCache.disabled());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

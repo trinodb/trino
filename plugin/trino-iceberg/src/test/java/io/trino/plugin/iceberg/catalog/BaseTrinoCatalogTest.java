@@ -48,6 +48,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseTrinoCatalogTest
 {
@@ -267,6 +269,56 @@ public abstract class BaseTrinoCatalogTest
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Test
+    public void testTableMetadataSharedAcrossCatalogs()
+            throws Exception
+    {
+        if (!supportsSharedTableMetadata()) {
+            abort("Parsed table metadata is not shared across catalogs");
+        }
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        String namespace = "test_shared_table_metadata_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, "table_name");
+        try {
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            schemaTableName,
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, schemaTableName)),
+                            ImmutableMap.of())
+                    .commitTransaction();
+
+            // Each catalog instance serves one transaction
+            TableMetadata first = createTrinoCatalog(false).loadTable(SESSION, schemaTableName).operations().current();
+            TableMetadata second = createTrinoCatalog(false).loadTable(SESSION, schemaTableName).operations().current();
+            assertThat(second).isSameAs(first);
+
+            // A commit writes a new metadata file, which later transactions load instead of the shared copy
+            createTrinoCatalog(false).loadTable(SESSION, schemaTableName).newFastAppend().commit();
+            TableMetadata afterCommit = createTrinoCatalog(false).loadTable(SESSION, schemaTableName).operations().current();
+            assertThat(afterCommit.metadataFileLocation()).isNotEqualTo(first.metadataFileLocation());
+            assertThat(afterCommit.snapshots()).hasSize(first.snapshots().size() + 1);
+
+            catalog.dropTable(SESSION, schemaTableName);
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace);
+            }
+        }
+    }
+
+    protected boolean supportsSharedTableMetadata()
+    {
+        return false;
     }
 
     @Test
