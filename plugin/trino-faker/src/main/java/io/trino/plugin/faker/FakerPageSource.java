@@ -29,6 +29,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
@@ -175,6 +176,7 @@ class FakerPageSource
     private long completedRows;
 
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
 
     private boolean closed;
 
@@ -183,7 +185,8 @@ class FakerPageSource
             long seed,
             List<FakerColumnHandle> columns,
             long rowOffset,
-            long limit)
+            long limit,
+            MemoryContext memoryContext)
     {
         this.locale = requireNonNull(locale, "locale is null");
         List<Type> types = requireNonNull(columns, "columns is null")
@@ -203,6 +206,8 @@ class FakerPageSource
                 .map(column -> seededColumnGenerator(seed, column))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        updateMemoryUsage();
     }
 
     private static double expectedValueCount(Type type)
@@ -346,22 +351,24 @@ class FakerPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
+            updateMemoryUsage();
             return SourcePage.create(page);
         }
 
+        updateMemoryUsage();
         return null;
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
     public void close()
     {
+        // The page builder remains retained; its reservation is released by the context's owner.
         closed = true;
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
     }
 
     private ColumnGenerator sequenceWriter(FakerColumnHandle handle)
