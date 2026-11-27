@@ -46,7 +46,8 @@ public class RowBlockBuilder
     @Nullable
     private long[] valueIsValid;
     private final BlockBuilder[] fieldBlockBuilders;
-    private final List<BlockBuilder> fieldBlockBuildersList;
+    @Nullable
+    private List<BlockBuilder> fieldBlockBuildersList;
 
     private boolean currentEntryOpened;
     private boolean hasNullRow;
@@ -67,7 +68,6 @@ public class RowBlockBuilder
         this.positionCapacity = positionCapacity;
         this.valueIsValid = valueIsValid;
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
-        this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
     }
 
     private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
@@ -116,6 +116,9 @@ public class RowBlockBuilder
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
 
+        if (fieldBlockBuildersList == null) {
+            fieldBlockBuildersList = List.of(fieldBlockBuilders);
+        }
         currentEntryOpened = true;
         builder.build(fieldBlockBuildersList);
         entryAdded(false);

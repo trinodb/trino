@@ -146,6 +146,23 @@ final class TestRowBlockBuilder
         assertThatThrownBy(multipleEntryBuilder::build).isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void testBuildEntryReusesImmutableFieldList()
+    {
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(BIGINT, BOOLEAN), null, 2);
+        List<List<BlockBuilder>> fieldLists = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            blockBuilder.buildEntry(fields -> {
+                fieldLists.add(fields);
+                fields.forEach(BlockBuilder::appendNull);
+            });
+        }
+
+        List<BlockBuilder> fields = fieldLists.getFirst();
+        assertThat(fieldLists.getLast()).isSameAs(fields);
+        assertThatThrownBy(() -> fields.set(0, fields.get(1))).isInstanceOf(UnsupportedOperationException.class);
+    }
+
     private static BlockBuilder blockBuilder()
     {
         return new RowBlockBuilder(ImmutableList.of(BIGINT), null, 10);
