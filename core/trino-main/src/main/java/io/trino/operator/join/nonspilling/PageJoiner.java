@@ -39,6 +39,7 @@ import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
 import static io.trino.operator.WorkProcessor.TransformationState.yielded;
 import static io.trino.operator.join.JoinType.FULL_OUTER;
+import static io.trino.operator.join.JoinType.INNER;
 import static io.trino.operator.join.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +52,7 @@ public class PageJoiner
     private final DriverYieldSignal yieldSignal;
     private final LookupJoinPageBuilder pageBuilder;
     private final boolean probeOnOuterSide;
+    private final boolean innerJoin;
     private final boolean outputSingleMatch;
 
     @Nullable
@@ -60,6 +62,7 @@ public class PageJoiner
     private long joinPosition = -1;
     private int joinSourcePositions;
     private boolean currentProbePositionProducedRow;
+    private boolean singleMatchWithoutFilter;
 
     public PageJoiner(
             OperatorContext operatorContext,
@@ -79,6 +82,7 @@ public class PageJoiner
 
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
+        innerJoin = joinType == INNER;
     }
 
     @Override
@@ -105,6 +109,7 @@ public class PageJoiner
 
             lookupSource = requireNonNull(getDone(lookupSourceFuture));
             statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
+            singleMatchWithoutFilter = lookupSource.isSingleMatchWithoutFilter();
         }
         if (probe == null) {
             probe = joinProbeFactory.createJoinProbe(probePage, lookupSource);
@@ -136,6 +141,10 @@ public class PageJoiner
 
     private void processProbe(LookupSource lookupSource)
     {
+        if (innerJoin && singleMatchWithoutFilter && !probe.areProbeJoinChannelsRunLengthEncoded()) {
+            processSingleMatches(lookupSource);
+            return;
+        }
         do {
             if (probe.getPosition() >= 0) {
                 if (!joinCurrentPosition(lookupSource, yieldSignal)) {
@@ -156,6 +165,23 @@ public class PageJoiner
             }
         }
         while (!yieldSignal.isSet());
+    }
+
+    private void processSingleMatches(LookupSource lookupSource)
+    {
+        while (!yieldSignal.isSet() && probe.advanceNextPosition()) {
+            long position = probe.getCurrentJoinPosition();
+            if (position >= 0) {
+                pageBuilder.appendRow(probe, lookupSource, position);
+                statisticsCounter.recordProbe(1);
+            }
+            else {
+                statisticsCounter.recordProbe(0);
+            }
+            if (pageBuilder.isFull()) {
+                return;
+            }
+        }
     }
 
     /**

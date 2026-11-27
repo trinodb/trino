@@ -31,6 +31,7 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorInfo;
+import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.nonspilling.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.nonspilling.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
@@ -56,6 +57,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -74,6 +76,7 @@ import static io.trino.operator.join.nonspilling.JoinTestUtils.instantiateBuildD
 import static io.trino.operator.join.nonspilling.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -143,6 +146,66 @@ public class TestHashJoinOperator
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true);
+    }
+
+    @Test
+    public void testInnerJoinWithCompositeKeys()
+            throws Exception
+    {
+        for (boolean parallelBuild : new boolean[] {false, true}) {
+            for (boolean duplicates : new boolean[] {false, true}) {
+                for (boolean filtered : new boolean[] {false, true}) {
+                    testInnerJoinWithCompositeKeys(parallelBuild, duplicates, filtered);
+                }
+            }
+        }
+    }
+
+    private void testInnerJoinWithCompositeKeys(boolean parallelBuild, boolean duplicates, boolean filtered)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        RowPagesBuilder buildPages = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                .row("a", 1L, 10L)
+                .row("a", 2L, 20L)
+                .row("b", 1L, 30L)
+                .row(null, 1L, 40L)
+                .row("a", null, 50L);
+        if (duplicates) {
+            buildPages.pageBreak().row("a", 1L, 60L);
+        }
+        Optional<InternalJoinFilterFunction> filter = Optional.empty();
+        if (filtered) {
+            filter = Optional.of(new TestInternalJoinFilterFunction((_, _, position, page) -> BIGINT.getLong(page.getBlock(1), position) == 1));
+        }
+        BuildSideSetup buildSideSetup = setupBuildSide(partitionFunctionProvider, parallelBuild, taskContext, buildPages, Ints.asList(0, 1), filter);
+        RowPagesBuilder probePages = rowPagesBuilder(VARCHAR, BIGINT, BIGINT)
+                .row("a", 1L, 101L)
+                .row("a", 3L, 103L)
+                .row("a", null, 104L)
+                .row("b", 1L, 105L)
+                .row(null, 1L, 106L)
+                .pageBreak()
+                .row("a", 2L, 102L);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(buildSideSetup.getLookupSourceFactoryManager(), probePages, Ints.asList(0, 1), filtered);
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        buildLookupSource(executor, buildSideSetup);
+        try (LookupSource source = getFutureValue(buildSideSetup.getLookupSourceFactoryManager().getJoinBridge().createLookupSource())) {
+            assertThat(source.isSingleMatchWithoutFilter()).isEqualTo(!duplicates && !filtered);
+        }
+
+        MaterializedResult.Builder expected = MaterializedResult.resultBuilder(concat(probePages.getTypes(), buildPages.getTypes()))
+                .row("a", 1L, 101L, "a", 1L, 10L)
+                .row("b", 1L, 105L, "b", 1L, 30L);
+        if (duplicates) {
+            expected.row("a", 1L, 101L, "a", 1L, 60L);
+        }
+        if (!filtered) {
+            expected.row("a", 2L, 102L, "a", 2L, 20L);
+        }
+        MaterializedResult expectedResult = expected.build();
+        List<Page> output = toPages(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probePages.build(), true, true);
+        assertEqualsIgnoreOrder(toMaterializedResult(expectedResult.getTypes(), output), expectedResult);
     }
 
     @Test

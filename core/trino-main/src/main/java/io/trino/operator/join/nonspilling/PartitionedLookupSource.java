@@ -91,6 +91,7 @@ public class PartitionedLookupSource
     private final int shiftSize;
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
+    private final boolean singleMatchWithoutFilter;
 
     private boolean closed;
 
@@ -102,9 +103,16 @@ public class PartitionedLookupSource
         // the hash channels are always packed in a page without extra columns
         this.partitionGenerator = new LocalPartitionGenerator(createPagePrefixHashGenerator(hashChannelTypes, hashCompiler), lookupSources.size());
 
+        singleMatchWithoutFilter = Arrays.stream(this.lookupSources).allMatch(LookupSource::isSingleMatchWithoutFilter);
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
         this.outerPositionTracker = outerPositionTracker.orElse(null);
+    }
+
+    @Override
+    public boolean isSingleMatchWithoutFilter()
+    {
+        return singleMatchWithoutFilter;
     }
 
     @Override
