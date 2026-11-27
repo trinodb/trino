@@ -339,10 +339,10 @@ public class ClientOptions
     @Option(names = "--max-queued-rows", paramLabel = "<maxQueuedRows>", description = "Maximum number of rows to queue before blocking the query (default: ${DEFAULT-VALUE})")
     public int maxQueuedRows = 50_000;
 
-    @Option(names = "--agent-max-rows", paramLabel = "<rows>", description = "Maximum number of rows the AGENT output format prints in full; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
+    @Option(names = "--agent-max-rows", paramLabel = "<rows>", description = "Maximum number of rows the AGENT output format prints. A larger result is cut in the middle, and a query is stopped early only if no limit was raised; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
     public int agentMaxRows = AgentLimits.DEFAULT_MAX_ROWS;
 
-    @Option(names = "--agent-max-bytes", paramLabel = "<bytes>", description = "Maximum size of the rows the AGENT output format prints in full; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
+    @Option(names = "--agent-max-bytes", paramLabel = "<bytes>", description = "Maximum size of the rows the AGENT output format prints. A larger result is cut in the middle, and a query is stopped early only if no limit was raised; 0 or less for unlimited (default: ${DEFAULT-VALUE})")
     public int agentMaxBytes = AgentLimits.DEFAULT_MAX_BYTES;
 
     @Option(names = "--agent-max-cell-width", paramLabel = "<characters>", description = "Maximum width of a value in the AGENT output format; 0 or less for unlimited (default: ${DEFAULT-VALUE})")

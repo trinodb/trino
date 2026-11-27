@@ -49,4 +49,12 @@ public final class AgentLimits
     {
         return maxCellWidth;
     }
+
+    /**
+     * Whether the row and byte limits are set and no higher than the defaults. A higher limit, or none, is a request for more output.
+     */
+    public boolean withinDefaults()
+    {
+        return maxRows > 0 && maxRows <= DEFAULT_MAX_ROWS && maxBytes > 0 && maxBytes <= DEFAULT_MAX_BYTES;
+    }
 }
