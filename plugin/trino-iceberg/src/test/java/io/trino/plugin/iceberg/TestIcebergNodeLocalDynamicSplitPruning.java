@@ -189,7 +189,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            ImmutableList.of()),
                     transaction);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
@@ -251,7 +252,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            ImmutableList.of()),
                     transaction);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
@@ -365,7 +367,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            ImmutableList.of()),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
@@ -524,7 +527,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            ImmutableList.of()),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably

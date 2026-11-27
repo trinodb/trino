@@ -77,6 +77,8 @@ public class IcebergRestCatalogConfig
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
     private boolean serverAssignedTableLocationEnabled;
+    private boolean referencedByEnabled;
+    private boolean referencedByAllowIncompleteChain;
     private boolean metricsReportingEnabled = true;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
@@ -278,6 +280,38 @@ public class IcebergRestCatalogConfig
     {
         this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
         return this;
+    }
+
+    public boolean isReferencedByEnabled()
+    {
+        return referencedByEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.referenced-by-enabled")
+    @ConfigDescription("Send the views through which a table is read to the REST catalog when loading the table")
+    public IcebergRestCatalogConfig setReferencedByEnabled(boolean referencedByEnabled)
+    {
+        this.referencedByEnabled = referencedByEnabled;
+        return this;
+    }
+
+    public boolean isReferencedByAllowIncompleteChain()
+    {
+        return referencedByAllowIncompleteChain;
+    }
+
+    @Config("iceberg.rest-catalog.referenced-by-allow-incomplete-chain")
+    @ConfigDescription("Allow loading a table through DEFINER views of other catalogs, which are not sent to the REST catalog")
+    public IcebergRestCatalogConfig setReferencedByAllowIncompleteChain(boolean referencedByAllowIncompleteChain)
+    {
+        this.referencedByAllowIncompleteChain = referencedByAllowIncompleteChain;
+        return this;
+    }
+
+    @AssertTrue(message = "iceberg.rest-catalog.referenced-by-allow-incomplete-chain requires iceberg.rest-catalog.referenced-by-enabled")
+    public boolean isReferencedByAllowIncompleteChainValid()
+    {
+        return !referencedByAllowIncompleteChain || referencedByEnabled;
     }
 
     public boolean isMetricsReportingEnabled()

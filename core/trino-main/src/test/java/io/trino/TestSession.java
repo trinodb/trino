@@ -117,4 +117,37 @@ public class TestSession
         assertThat(viewSession.getTraceToken()).isEqualTo(traceToken);
         assertThat(viewSession.getStart()).isEqualTo(start);
     }
+
+    @Test
+    public void testInvokerIdentityIsKeptAcrossViewSessions()
+    {
+        Identity invoker = Identity.ofUser("invoker");
+        Session session = Session.builder(testSessionBuilder().build())
+                .setIdentity(invoker)
+                .build();
+        assertThat(session.getInvokerIdentity()).isEqualTo(invoker);
+
+        Session outerViewSession = session.createViewSessionKeepingInvokerIdentity(Optional.empty(), Optional.empty(), Identity.ofUser("outer_owner"), ImmutableList.of());
+        Session innerViewSession = outerViewSession.createViewSessionKeepingInvokerIdentity(Optional.empty(), Optional.empty(), Identity.ofUser("inner_owner"), ImmutableList.of());
+
+        assertThat(innerViewSession.getIdentity().getUser()).isEqualTo("inner_owner");
+        assertThat(innerViewSession.getInvokerIdentity()).isEqualTo(invoker);
+        assertThat(innerViewSession.withIdentity(invoker).getInvokerIdentity()).isEqualTo(invoker);
+    }
+
+    @Test
+    public void testCreateViewSessionDoesNotKeepInvokerIdentity()
+    {
+        Identity invoker = Identity.ofUser("invoker");
+        Identity filterIdentity = Identity.ofUser("filter_owner");
+        Session session = Session.builder(testSessionBuilder().build())
+                .setIdentity(invoker)
+                .build();
+        Session viewSession = session.createViewSessionKeepingInvokerIdentity(Optional.empty(), Optional.empty(), Identity.ofUser("view_owner"), ImmutableList.of());
+
+        Session expressionSession = viewSession.createViewSession(Optional.empty(), Optional.empty(), filterIdentity, ImmutableList.of());
+
+        assertThat(expressionSession.getIdentity()).isEqualTo(filterIdentity);
+        assertThat(expressionSession.getInvokerIdentity()).isEqualTo(filterIdentity);
+    }
 }
