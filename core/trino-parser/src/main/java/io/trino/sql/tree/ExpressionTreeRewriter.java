@@ -1042,10 +1042,13 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
+                Optional<Expression> defaultValue = field.getDefaultValue().map(value -> rewrite(value, context.get()));
+
                 @SuppressWarnings("OptionalEquality")
                 boolean nameRewritten = name != field.getName();
-                if (dataType != field.getType() || nameRewritten) {
-                    rewritten.add(new RowDataType.Field(field.getLocation().orElseThrow(), name, dataType));
+                boolean defaultRewritten = !defaultValue.equals(field.getDefaultValue());
+                if (dataType != field.getType() || nameRewritten || defaultRewritten) {
+                    rewritten.add(new RowDataType.Field(field.getLocation().orElseThrow(), name, dataType, defaultValue));
                 }
                 else {
                     rewritten.add(field);

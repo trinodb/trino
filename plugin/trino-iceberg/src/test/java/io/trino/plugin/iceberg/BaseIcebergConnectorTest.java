@@ -315,6 +315,19 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     @Override
+    public void testCreateTableWithRowFieldDefault()
+    {
+        if (formatVersion < 3) {
+            String tableName = "test_row_field_default_" + randomNameSuffix();
+            assertQueryFails("CREATE TABLE " + tableName + " (info ROW(a int DEFAULT 1))", "Default column values are not supported for Iceberg table format version < 3");
+            return;
+        }
+
+        super.testCreateTableWithRowFieldDefault();
+    }
+
+    @Test
+    @Override
     public void testCreateTableWithDefaultColumn()
     {
         if (formatVersion < 3) {

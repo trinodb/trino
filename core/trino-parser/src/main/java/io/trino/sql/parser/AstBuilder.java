@@ -3870,7 +3870,8 @@ class AstBuilder
         return new RowDataType.Field(
                 getLocation(context),
                 visitIfPresent(context.identifier(), Identifier.class),
-                (DataType) visit(context.type()));
+                (DataType) visit(context.type()),
+                visitIfPresent(context.literal(), Expression.class));
     }
 
     @Override

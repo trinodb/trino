@@ -27,10 +27,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
@@ -88,9 +90,6 @@ public class DropDefaultValueTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         QualifiedName field = statement.getColumnName();
-        if (field.getOriginalParts().size() != 1) {
-            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
-        }
         String columnName = field.getOriginalParts().getFirst().getValue();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
@@ -102,11 +101,20 @@ public class DropDefaultValueTask
         if (columnMetadata.isHidden()) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify hidden column");
         }
-        if (columnMetadata.getDefaultValue().isEmpty()) {
-            throw semanticException(GENERIC_USER_ERROR, statement, "Column '%s' does not have a default value", columnName);
-        }
         if (!metadata.getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
             throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
+        }
+        if (field.getOriginalParts().size() > 1) {
+            List<String> fieldPath = field.getOriginalParts().stream().skip(1).map(Identifier::getValue).collect(toImmutableList());
+            NestedFieldResolver.ResolvedField resolved = NestedFieldResolver.resolve(statement, columnName, columnMetadata.getType(), fieldPath);
+            if (!columnMetadata.getFieldDefaults().containsKey(resolved.path())) {
+                throw semanticException(GENERIC_USER_ERROR, statement, "Field '%s' does not have a default value", field);
+            }
+            metadata.dropFieldDefaultValue(session, tableHandle, columnHandle, resolved.path());
+            return immediateVoidFuture();
+        }
+        if (columnMetadata.getDefaultValue().isEmpty()) {
+            throw semanticException(GENERIC_USER_ERROR, statement, "Column '%s' does not have a default value", columnName);
         }
 
         metadata.dropDefaultValue(session, tableHandle, columnHandle);

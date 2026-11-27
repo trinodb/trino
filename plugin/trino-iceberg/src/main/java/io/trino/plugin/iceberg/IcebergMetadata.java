@@ -300,6 +300,8 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNum
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnHandle;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.applyFieldDefaults;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.collectFieldDefaults;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.toIcebergLiteral;
@@ -1230,11 +1232,13 @@ public class IcebergMetadata
 
         // Look up write-default from the table schema
         Optional<String> defaultValue = Optional.empty();
+        Map<List<String>, String> fieldDefaults = Map.of();
         if (!column.isMetadataColumn()) {
             Schema tableSchema = SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson());
             NestedField field = tableSchema.findField(column.getId());
             if (field != null) {
                 defaultValue = formatIcebergDefaultAsSql(field.writeDefault(), field.type());
+                fieldDefaults = collectFieldDefaults(field.type());
             }
         }
 
@@ -1246,6 +1250,7 @@ public class IcebergMetadata
                 .setComment(column.getComment())
                 .setHidden(column.isMetadataColumn())
                 .setDefaultValue(defaultValue)
+                .setFieldDefaults(fieldDefaults)
                 .build();
     }
 
@@ -3017,7 +3022,7 @@ public class IcebergMetadata
         AtomicInteger nextFieldId = new AtomicInteger(icebergTable.schema().highestFieldId() + 2);
         try {
             UpdateSchema updateSchema = icebergTable.updateSchema();
-            org.apache.iceberg.types.Type icebergType = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
+            org.apache.iceberg.types.Type icebergType = applyFieldDefaults(toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getType(), column.getFieldDefaults());
 
             // Handle default value if present
             Literal<?> defaultLiteral = column.getDefaultValue()
@@ -3093,9 +3098,59 @@ public class IcebergMetadata
     }
 
     @Override
-    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, boolean ignoreExisting)
+    public void setFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        checkDefaultValueCompatibility(formatVersion(icebergTable), true);
+
+        NestedField field = findNestedField(icebergTable, (IcebergColumnHandle) column, fieldPath);
+        io.trino.spi.type.Type trinoType = toTrinoType(field.type(), typeManager);
+        Object parsed = parseDefaultValue(defaultValue, trinoType);
+        Literal<?> defaultLiteral = toIcebergLiteral(parsed, field.type());
+        updateFieldDefault(icebergTable, icebergTable.schema().findColumnName(field.fieldId()), defaultLiteral, "set");
+    }
+
+    @Override
+    public void dropFieldDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        checkDefaultValueCompatibility(formatVersion(icebergTable), true);
+
+        NestedField field = findNestedField(icebergTable, (IcebergColumnHandle) column, fieldPath);
+        updateFieldDefault(icebergTable, icebergTable.schema().findColumnName(field.fieldId()), null, "drop");
+    }
+
+    private static NestedField findNestedField(Table icebergTable, IcebergColumnHandle column, List<String> fieldPath)
+    {
+        // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
+        String name = String.join(".", ImmutableList.<String>builder().add(column.getName()).addAll(fieldPath).build());
+        NestedField field = icebergTable.schema().caseInsensitiveFindField(name);
+        if (field == null) {
+            throw new TrinoException(COLUMN_NOT_FOUND, "Field '%s' does not exist".formatted(name));
+        }
+        return field;
+    }
+
+    private static void updateFieldDefault(Table icebergTable, String name, Literal<?> defaultLiteral, String action)
+    {
+        try {
+            icebergTable.updateSchema()
+                    .updateColumnDefault(name, defaultLiteral)
+                    .commit();
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(NOT_SUPPORTED, "Failed to %s default value: ".formatted(action) + requireNonNullElse(e.getMessage(), e), e);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to %s default value: ".formatted(action) + requireNonNullElse(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, Optional<String> defaultValue, boolean ignoreExisting)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        checkDefaultValueCompatibility(formatVersion(icebergTable), defaultValue.isPresent());
         NestedField parent = icebergTable.schema().caseInsensitiveFindField(String.join(".", parentPath));
         String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
 
@@ -3108,8 +3163,15 @@ public class IcebergMetadata
         }
 
         try {
+            org.apache.iceberg.types.Type icebergType = toIcebergTypeForNewColumn(type, new AtomicInteger()); // Iceberg library assigns fresh id internally
+            Literal<?> defaultLiteral = defaultValue
+                    .map(value -> {
+                        Object parsed = parseDefaultValue(value, type);
+                        return parsed == null ? null : toIcebergLiteral(parsed, icebergType);
+                    })
+                    .orElse(null);
             icebergTable.updateSchema()
-                    .addColumn(caseSensitiveParentName, fieldName, toIcebergTypeForNewColumn(type, new AtomicInteger())) // Iceberg library assigns fresh id internally
+                    .addColumn(caseSensitiveParentName, fieldName, icebergType, null, defaultLiteral)
                     .commit();
         }
         catch (UnsupportedOperationException e) {
@@ -4877,7 +4939,7 @@ public class IcebergMetadata
 
     private static void checkDefaultValueCompatibility(int formatVersion, ColumnMetadata column)
     {
-        checkDefaultValueCompatibility(formatVersion, column.getDefaultValue().isPresent());
+        checkDefaultValueCompatibility(formatVersion, column.getDefaultValue().isPresent() || !column.getFieldDefaults().isEmpty());
     }
 
     private static void checkDefaultValueCompatibility(int formatVersion, boolean defaultValuePresent)

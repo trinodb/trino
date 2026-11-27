@@ -51,6 +51,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.FieldDefaultValues.analyzeFieldDefaults;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -64,6 +65,8 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.extractFieldDefaults;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.stripFieldDefaults;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -122,10 +125,15 @@ public class AddColumnTask
         ColumnPosition position = statement.getPosition().orElse(new ColumnPosition.Last());
         Type type;
         try {
-            type = plannerContext.getTypeManager().getType(toTypeDescriptor(element.getType()));
+            type = plannerContext.getTypeManager().getType(toTypeDescriptor(stripFieldDefaults(element.getType())));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
+        }
+
+        Map<List<String>, Expression> fieldDefaults = extractFieldDefaults(element.getType());
+        if (!fieldDefaults.isEmpty() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
+            throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support default value for fields of column name '%s'", catalogHandle, columnName);
         }
 
         if (element.getName().getParts().size() == 1) {
@@ -166,6 +174,7 @@ public class AddColumnTask
                     .setName(columnName.getValue())
                     .setType(supportedType)
                     .setDefaultValue(element.getDefaultValue().map(Expression::toString))
+                    .setFieldDefaults(analyzeFieldDefaults(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, fieldDefaults))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
@@ -224,12 +233,21 @@ public class AddColumnTask
                 }
                 throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Field '%s' already exists", fieldName);
             }
+            if (!fieldDefaults.isEmpty() && element.getDefaultValue().isPresent()) {
+                throw semanticException(NOT_SUPPORTED, element, "Default value cannot be specified both on the field and inside its row type");
+            }
+            Type supportedFieldType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
+            if (element.getDefaultValue().isPresent() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
+                throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
+            }
+            element.getDefaultValue().ifPresent(value -> analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedFieldType, value));
             plannerContext.getMetadata().addField(
                     session,
                     tableHandle,
                     parentPath,
                     fieldName,
-                    getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type),
+                    supportedFieldType,
+                    element.getDefaultValue().map(Expression::toString),
                     statement.isColumnNotExists());
         }
 

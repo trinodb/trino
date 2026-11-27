@@ -543,11 +543,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting)
     {
         Span span = startSpan("addField", tableHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, defaultValue, ignoreExisting);
         }
     }
 
@@ -611,6 +611,24 @@ public class TracingMetadata
         Span span = startSpan("dropField", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.dropField(session, tableHandle, column, fieldPath);
+        }
+    }
+
+    @Override
+    public void setFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, String defaultValue)
+    {
+        Span span = startSpan("setFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setFieldDefaultValue(session, tableHandle, column, fieldPath, defaultValue);
+        }
+    }
+
+    @Override
+    public void dropFieldDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        Span span = startSpan("dropFieldDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropFieldDefaultValue(session, tableHandle, column, fieldPath);
         }
     }
 

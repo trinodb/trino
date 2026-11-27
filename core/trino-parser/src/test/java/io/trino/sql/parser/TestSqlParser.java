@@ -206,6 +206,7 @@ import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
@@ -3596,6 +3597,20 @@ public class TestSqlParser
         assertThatThrownBy(() -> SQL_PARSER.createStatement("CREATE TABLE foo (a VARCHAR DEFAULT CURRENT_USER)"))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line 1:37: mismatched input 'CURRENT_USER'.*");
+    }
+
+    @Test
+    void testRowFieldWithDefault()
+    {
+        assertThat(expression("CAST(x AS ROW(a BIGINT DEFAULT 1, b VARCHAR))"))
+                .isInstanceOfSatisfying(Cast.class, cast -> {
+                    RowDataType row = (RowDataType) cast.getType();
+                    assertThat(row.getFields().get(0).getDefaultValue()).hasValue(new LongLiteral(location(1, 33), "1"));
+                    assertThat(row.getFields().get(1).getDefaultValue()).isEmpty();
+                });
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("CAST(x AS ROW(BIGINT DEFAULT 1))"))
+                .isInstanceOf(ParsingException.class);
     }
 
     @Test

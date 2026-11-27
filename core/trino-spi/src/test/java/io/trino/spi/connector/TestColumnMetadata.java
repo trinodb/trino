@@ -18,6 +18,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -38,6 +39,7 @@ public class TestColumnMetadata
                 INTEGER,
                 Optional.empty(),
                 Optional.of("1"),
+                ImmutableMap.of(List.of("a", "b"), "2"),
                 false,
                 Optional.of("test_comment"),
                 Optional.of("test_extra_info"),
@@ -48,6 +50,7 @@ public class TestColumnMetadata
 
         assertThat(buildColumnMetadata).isEqualTo(originColumnMetadata);
         assertThat(buildColumnMetadata.getDefaultValue()).isEqualTo(originColumnMetadata.getDefaultValue());
+        assertThat(buildColumnMetadata.getFieldDefaults()).isEqualTo(originColumnMetadata.getFieldDefaults());
         assertThat(buildColumnMetadata.getProperties()).isEqualTo(originColumnMetadata.getProperties());
     }
 
