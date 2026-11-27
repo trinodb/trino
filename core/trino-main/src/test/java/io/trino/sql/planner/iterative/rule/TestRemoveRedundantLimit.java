@@ -29,8 +29,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestRemoveRedundantLimit
         extends BaseRuleTest
@@ -60,6 +63,19 @@ public class TestRemoveRedundantLimit
                             10,
                             ImmutableList.of(c),
                             p.values(5, c));
+                })
+                .matches(
+                        sort(
+                                ImmutableList.of(sort("c", ASCENDING, FIRST)),
+                                values("c")));
+
+        tester().assertThat(new RemoveRedundantLimit())
+                .on(p -> {
+                    Symbol c = p.symbol("c", BIGINT);
+                    return p.limit(
+                            10,
+                            ImmutableList.of(c),
+                            p.values(1, c));
                 })
                 .matches(values("c"));
     }
