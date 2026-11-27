@@ -14,6 +14,8 @@
 package io.trino.spi.predicate;
 
 import io.airlift.slice.Slices;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -37,10 +39,14 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 /**
@@ -66,10 +72,10 @@ public class BenchmarkValueSetCopyOf
         @Param({"10", "100", "1000", "10000", "50000"})
         public int size;
 
-        @Param({"BIGINT", "INTEGER", "DATE", "VARCHAR", "DOUBLE", "DECIMAL"})
+        @Param({"BIGINT", "INTEGER", "DATE", "VARCHAR", "DOUBLE", "DECIMAL", "LONG_DECIMAL", "CHAR", "TIMESTAMP", "TIMESTAMP_TZ"})
         public String typeName;
 
-        @Param({"RANDOM", "SORTED", "REVERSE_SORTED", "FEW_DISTINCT"})
+        @Param({"RANDOM", "SORTED", "REVERSE_SORTED", "FEW_DISTINCT", "ALL_EQUAL"})
         public String pattern;
 
         private Type type;
@@ -87,6 +93,10 @@ public class BenchmarkValueSetCopyOf
                 case "VARCHAR" -> VARCHAR;
                 case "DOUBLE" -> DOUBLE;
                 case "DECIMAL" -> createDecimalType(10, 2);
+                case "LONG_DECIMAL" -> createDecimalType(30, 2);
+                case "CHAR" -> createCharType(30);
+                case "TIMESTAMP" -> TIMESTAMP_NANOS;
+                case "TIMESTAMP_TZ" -> TIMESTAMP_TZ_MILLIS;
                 default -> throw new IllegalArgumentException("Unsupported type: " + typeName);
             };
 
@@ -106,6 +116,7 @@ public class BenchmarkValueSetCopyOf
                     values.addAll(ascending(distinctValues));
                     Collections.reverse(values);
                 }
+                case "ALL_EQUAL" -> values.addAll(Collections.nCopies(size, distinctValues.getFirst()));
                 case "FEW_DISTINCT" -> {
                     for (int i = 0; i < size; i++) {
                         values.add(distinctValues.get(random.nextInt(distinctValues.size())));
@@ -126,7 +137,10 @@ public class BenchmarkValueSetCopyOf
         {
             return switch (typeName) {
                 case "BIGINT", "INTEGER", "DATE", "DECIMAL" -> number;
-                case "VARCHAR" -> Slices.utf8Slice("value-" + number);
+                case "LONG_DECIMAL" -> Int128.valueOf(number);
+                case "VARCHAR", "CHAR" -> Slices.utf8Slice("value-" + number);
+                case "TIMESTAMP" -> new LongTimestamp(number, 123_000);
+                case "TIMESTAMP_TZ" -> packDateTimeWithZone(number, "UTC");
                 case "DOUBLE" -> number / 8.0;
                 default -> throw new IllegalArgumentException("Unsupported type: " + typeName);
             };
@@ -136,8 +150,8 @@ public class BenchmarkValueSetCopyOf
     @Test
     public void test()
     {
-        for (String typeName : List.of("BIGINT", "INTEGER", "DATE", "VARCHAR", "DOUBLE", "DECIMAL")) {
-            for (String pattern : List.of("RANDOM", "SORTED", "REVERSE_SORTED", "FEW_DISTINCT")) {
+        for (String typeName : List.of("BIGINT", "INTEGER", "DATE", "VARCHAR", "DOUBLE", "DECIMAL", "LONG_DECIMAL", "CHAR", "TIMESTAMP", "TIMESTAMP_TZ")) {
+            for (String pattern : List.of("RANDOM", "SORTED", "REVERSE_SORTED", "FEW_DISTINCT", "ALL_EQUAL")) {
                 Data data = new Data();
                 data.size = 100;
                 data.typeName = typeName;
