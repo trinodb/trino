@@ -23,6 +23,7 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.util.ArrayList;
@@ -31,9 +32,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.fromGlueTable;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
+import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getViewTableInput;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -127,5 +130,66 @@ public class TestGlueIcebergUtil
                             rejectedColumnContent.replace("\n", "\\n").replace("\r", "\\r").replace("\0", "\\0"))
                     .isFalse();
         }
+    }
+
+    @Test
+    public void testColumnsOfCurrentSchemaAreMarkedCurrent()
+    {
+        Schema originalSchema = new Schema(ImmutableList.of(
+                Types.NestedField.required(1, "id", Types.LongType.get()),
+                Types.NestedField.optional(2, "dropped", Types.StringType.get()),
+                Types.NestedField.optional(3, "value", Types.StringType.get())));
+        TableMetadata originalMetadata = newTableMetadata(
+                originalSchema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                "s3://test-bucket/test-table",
+                ImmutableMap.of(FORMAT_VERSION, "2"));
+        Schema currentSchema = new Schema(ImmutableList.of(
+                Types.NestedField.required(1, "id", Types.LongType.get()),
+                Types.NestedField.optional(3, "renamed", Types.StringType.get()),
+                Types.NestedField.optional(4, "added", Types.IntegerType.get())));
+        TableMetadata metadata = originalMetadata.updateSchema(currentSchema);
+
+        TableInput tableInput = getTableInput(
+                TESTING_TYPE_MANAGER,
+                "test_table",
+                Optional.empty(),
+                metadata,
+                metadata.location(),
+                "s3://test-bucket/test-table/metadata/00002.metadata.json",
+                ImmutableMap.of(),
+                true);
+
+        assertThat(tableInput.storageDescriptor().columns())
+                .extracting(Column::name)
+                .containsExactly("id", "renamed", "added");
+        assertThat(tableInput.storageDescriptor().columns())
+                .allSatisfy(column -> assertThat(column.parameters()).containsEntry("iceberg.field.current", "true"));
+    }
+
+    @Test
+    public void testViewTableInputIsReadableByHiveMetastoreClient()
+    {
+        TableInput viewInput = getViewTableInput(
+                "test_view",
+                "/* Presto View: e30= */",
+                "owner",
+                ImmutableMap.of("presto_view", "true", "trino_created_by", "Trino Iceberg connector"));
+
+        assertThat(viewInput.storageDescriptor()).isNotNull();
+        assertThat(viewInput.storageDescriptor().serdeInfo()).isNotNull();
+
+        Table glueTable = Table.builder()
+                .name(viewInput.name())
+                .databaseName("test_schema")
+                .tableType(viewInput.tableType())
+                .viewOriginalText(viewInput.viewOriginalText())
+                .viewExpandedText(viewInput.viewExpandedText())
+                .owner(viewInput.owner())
+                .parameters(viewInput.parameters())
+                .storageDescriptor(viewInput.storageDescriptor())
+                .build();
+        assertThat(fromGlueTable(glueTable, "test_schema").getTableName()).isEqualTo("test_view");
     }
 }

@@ -23,6 +23,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
@@ -67,6 +68,8 @@ public final class GlueIcebergUtil
     private static final int GLUE_COLUMN_PARAMETER_LENGTH_LIMIT = 512000;
     // Column comment pattern per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_Column.html as of this writing)
     private static final Pattern GLUE_COLUMN_COMMENT_PATTERN = Pattern.compile("[\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*");
+    // Column parameter used by the Iceberg Glue catalog to mark the columns of the current schema. Athena requires it on every column to reuse query results.
+    private static final String COLUMN_ICEBERG_FIELD_CURRENT_PROPERTY = "iceberg.field.current";
 
     public static TableInput getTableInput(
             TypeManager typeManager,
@@ -145,6 +148,7 @@ public final class GlueIcebergUtil
                     .comment(icebergColumn.doc());
 
             ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+            parameters.put(COLUMN_ICEBERG_FIELD_CURRENT_PROPERTY, "true");
             if (icebergColumn.isRequired()) {
                 parameters.put(COLUMN_TRINO_NOT_NULL_PROPERTY, "true");
             }
@@ -209,6 +213,8 @@ public final class GlueIcebergUtil
                 .tableType(VIRTUAL_VIEW.name())
                 .viewOriginalText(viewOriginalText)
                 .viewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
+                // Athena cannot read a Glue view without a storage descriptor, and the Hive connector requires its SerDeInfo
+                .storageDescriptor(StorageDescriptor.builder().serdeInfo(SerDeInfo.builder().build()).build())
                 .owner(owner)
                 .parameters(parameters)
                 .build();
