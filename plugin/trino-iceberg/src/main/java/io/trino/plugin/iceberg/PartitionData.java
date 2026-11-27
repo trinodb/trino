@@ -197,7 +197,7 @@ public class PartitionData
                         createDecimalType(decimalType.precision(), decimalType.scale()));
             }
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-            case VARIANT, GEOMETRY, GEOGRAPHY, UNKNOWN, LIST, MAP, STRUCT -> throw new UnsupportedOperationException("Type not supported as partition column: " + type);
+            case VARIANT, GEOMETRY, GEOGRAPHY, FILE, UNKNOWN, LIST, MAP, STRUCT -> throw new UnsupportedOperationException("Type not supported as partition column: " + type);
         };
     }
 

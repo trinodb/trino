@@ -38,7 +38,6 @@ import io.trino.plugin.iceberg.TrinoOrcDataSource;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes;
-import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.mapping.MappingUtil;
@@ -157,7 +156,7 @@ public final class OrcMetrics
             ColumnStatistics orcColumnStats = columnStatistics.get().get(orcColumnId);
             int icebergId = getIcebergId(orcColumn);
             Types.NestedField icebergField = icebergSchema.findField(icebergId);
-            MetricsModes.MetricsMode metricsMode = MetricsUtil.metricsMode(icebergSchema, metricsConfig, icebergId);
+            MetricsModes.MetricsMode metricsMode = metricsConfig.columnMode(icebergId);
             if (metricsMode.equals(MetricsModes.None.get())) {
                 continue;
             }

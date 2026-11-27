@@ -22,7 +22,6 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.MetricsModes.MetricsMode;
-import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.mapping.NameMapping;
@@ -109,7 +108,7 @@ public final class ParquetUtil
 
                 increment(columnSizes, fieldId, column.getTotalSize());
 
-                MetricsMode metricsMode = MetricsUtil.metricsMode(fileSchema, metricsConfig, fieldId);
+                MetricsMode metricsMode = metricsConfig.columnMode(fieldId);
                 if (metricsMode == MetricsModes.None.get()) {
                     continue;
                 }
@@ -144,7 +143,7 @@ public final class ParquetUtil
             upperBounds.remove(fieldId);
         }
 
-        updateFromFieldMetrics(fieldMetricsMap, metricsConfig, fileSchema, lowerBounds, upperBounds);
+        updateFromFieldMetrics(fieldMetricsMap, metricsConfig, lowerBounds, upperBounds);
 
         return new Metrics(
                 rowCount,
@@ -159,7 +158,6 @@ public final class ParquetUtil
     private static void updateFromFieldMetrics(
             Map<Integer, FieldMetrics<?>> idToFieldMetricsMap,
             MetricsConfig metricsConfig,
-            Schema schema,
             Map<Integer, Literal<?>> lowerBounds,
             Map<Integer, Literal<?>> upperBounds)
     {
@@ -169,7 +167,7 @@ public final class ParquetUtil
                         entry -> {
                             int fieldId = entry.getKey();
                             FieldMetrics<?> metrics = entry.getValue();
-                            MetricsMode metricsMode = MetricsUtil.metricsMode(schema, metricsConfig, fieldId);
+                            MetricsMode metricsMode = metricsConfig.columnMode(fieldId);
 
                             // only check for MetricsModes.None, since we don't truncate float/double values.
                             if (metricsMode != MetricsModes.None.get()) {
