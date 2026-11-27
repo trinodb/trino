@@ -6,7 +6,8 @@ This single connector allows you to query and write data seamlessly, regardless 
 whether it's in Iceberg, Delta Lake, or Hudi table formats, or traditional Hive tables.
 
 This connector offers flexible connectivity to popular metastore services including
-AWS Glue and Hive Metastore. For data storage, it supports a wide range of options
+AWS Glue, Hive Metastore, and the Lakehouse Hive catalog. For data storage, it
+supports a wide range of options
 including cloud storage services such as AWS S3, S3-compatible storage,
 Google Cloud Storage (GCS), and Azure Blob Storage, as well as HDFS installations.
 
@@ -28,7 +29,8 @@ properties as appropriate:
 connector.name=lakehouse
 ```
 
-You must configure an [AWS Glue or a Hive metastore](/object-storage/metastores).
+You must configure an [AWS Glue metastore, a Hive metastore, or a Lakehouse Hive
+catalog](/object-storage/metastores).
 The `hive.metastore` property will also configure the Iceberg catalog.
 Do not specify `iceberg.catalog.type`.
 

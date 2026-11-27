@@ -20,8 +20,9 @@ the `hive.metastore` configuration property to define the type of metastore to
 use. Iceberg catalogs instead use the `iceberg.catalog.type` configuration
 property to define the type of metastore to use.
 
-Additional configuration properties specific to the Thrift and Glue Metastores
-are also available. They are discussed later in this topic.
+Additional configuration properties specific to the Thrift metastore, the Glue
+catalog, and the Lakehouse Hive catalog are also available. They are discussed
+later in this topic.
 
 :::{list-table} General metastore configuration properties
 :widths: 35, 50, 15
@@ -32,8 +33,9 @@ are also available. They are discussed later in this topic.
   - Default
 * - `hive.metastore`
   - The type of Hive metastore to use. Trino currently supports the default Hive
-    Thrift metastore (`thrift`), and the AWS Glue Catalog (`glue`) as metadata
-    sources. You must use this for all object storage catalogs except Iceberg.
+    Thrift metastore (`thrift`), the AWS Glue Catalog (`glue`), and the Lakehouse
+    Hive catalog (`lakehouse`) as metadata sources. You must use this for all
+    object storage catalogs except Iceberg. See {ref}`hive-lakehouse-metastore`.
   - `thrift`
 * - `iceberg.catalog.type`
   - The Iceberg table format manages most metadata in metadata files in the
@@ -453,6 +455,103 @@ described with the following additional property:
     `system.metadata.table_comments` queries.
   - `true`
   :::
+
+(hive-lakehouse-metastore)=
+## Lakehouse runtime catalog Hive configuration properties
+
+The Hive, Delta Lake, Hudi, and Lakehouse connectors can read tables that are registered in a
+Hive catalog in the [Lakehouse runtime catalog](https://docs.cloud.google.com/lakehouse/docs/about-lakehouse-catalogs). To use this Hive
+catalog, set `hive.metastore` to `lakehouse` in your catalog properties file and
+set the following properties:
+
+:::{list-table} Lakehouse Hive catalog configuration properties
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property Name
+  - Description
+  - Default
+* - `hive.metastore.lakehouse.project-id`
+  - ID of the Google Cloud project that owns the Lakehouse Hive catalog. This
+    property is required.
+  -
+* - `hive.metastore.lakehouse.catalog-id`
+  - ID of the Lakehouse Hive catalog to read the metadata from. This property is
+    required.
+  -
+* - `hive.metastore.lakehouse.google-json-key`
+  - Google Cloud service account key in JSON format, used to authenticate with
+    the Lakehouse Hive catalog. Optional, and not to be set together with
+    `hive.metastore.lakehouse.google-json-key-file-path`. Separate from the
+    `gcs.json-key` property, which authenticates access to GCS for table data.
+  -
+* - `hive.metastore.lakehouse.google-json-key-file-path`
+  - Path to a file containing a Google Cloud service account key in JSON format,
+    used to authenticate with the Lakehouse Hive catalog. Optional, and not to be
+    set together with `hive.metastore.lakehouse.google-json-key`. Separate from
+    the `gcs.json-key-file-path` property, which authenticates access to GCS for
+    table data.
+  -
+* - `hive.metastore.lakehouse.request-timeout`
+  - Maximum [duration](prop-type-duration) to wait for a single request to
+    Lakehouse. The request fails when the timeout expires.
+  - `1m`
+:::
+
+The following example shows a catalog properties file that uses a Lakehouse Hive
+catalog:
+
+```properties
+connector.name=hive
+hive.metastore=lakehouse
+hive.metastore.lakehouse.project-id=example-project-id
+hive.metastore.lakehouse.catalog-id=example-catalog
+fs.gcs.enabled=true
+gcs.auth-type=APPLICATION_DEFAULT
+```
+
+`hive.metastore.lakehouse.google-json-key` and
+`hive.metastore.lakehouse.google-json-key-file-path` authenticate with the
+Lakehouse Hive catalog itself, and are independent from `gcs.json-key` and
+`gcs.json-key-file-path`, which authenticate GCS access for table data. If you
+set neither property, Trino uses Google
+[Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
+and looks for them when the first query needs the metastore. A catalog loads
+even if no Application Default Credentials are available, and queries on it
+fail until you provide them.
+
+If the project or the catalog that you configure does not exist, listing the
+schemas fails with an error. The error message includes the reason that Lakehouse
+returned.
+
+Trino reads table data directly from the storage location of each table.
+Configure the [Google Cloud Storage file
+system](/object-storage/file-system-gcs) to access the storage locations of your
+tables. The file system uses its own credentials, separate from the credentials
+of the metastore. The preceding example sets no service account key for the
+metastore and sets `gcs.auth-type` to `APPLICATION_DEFAULT`, so both use
+Application Default Credentials.
+
+The Lakehouse Hive catalog integration has the following limitations:
+
+* The Lakehouse Hive catalog is read-only. You can list schemas and tables,
+  describe tables, and query data. Statements fail if they create schemas or
+  create, rename, or drop tables. For example, `CREATE SCHEMA` and
+  `CREATE TABLE` fail with a `NOT_SUPPORTED` error.
+* With the Hive connector, statements that write data, such as `INSERT`, also
+  fail.
+* The Delta Lake connector writes table data and the transaction log to object
+  storage and does not change the Lakehouse Hive catalog for these writes.
+  Statements that change only the data or the transaction log of an existing
+  table succeed. For example, `INSERT`, `UPDATE`, `DELETE`, `MERGE`,
+  `ALTER TABLE ... ADD COLUMN`, and `COMMENT ON TABLE` succeed. To make a Delta Lake
+  catalog read-only, set `delta.security` to `read-only`. See
+  {ref}`delta-lake-authorization`.
+* Trino does not read table or column statistics from the Lakehouse Hive catalog.
+* The Lakehouse Hive catalog does not contain Iceberg tables because the
+  Lakehouse runtime catalog rejects registering Iceberg tables in a Hive catalog.
+  To access Iceberg tables in the Lakehouse runtime catalog, use an Iceberg REST
+  catalog. See {ref}`iceberg-rest-catalog`.
 
 ## Iceberg-specific metastores
 

@@ -49,6 +49,22 @@ final class TestLakehousePlugin
                 "delta.object-store-layout.enabled", "true"));
     }
 
+    @Test
+    void testLakehouseMetastore()
+    {
+        Plugin plugin = new LakehousePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "lakehouse",
+                                "hive.metastore.lakehouse.project-id", "example-project",
+                                "hive.metastore.lakehouse.catalog-id", "example-catalog",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
     private static void assertCreateConnector(Map<String, String> config)
     {
         Plugin plugin = new LakehousePlugin();

@@ -19,9 +19,13 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -99,6 +103,108 @@ public class TestHivePlugin
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+    }
+
+    @Test
+    public void testLakehouseMetastore()
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "lakehouse",
+                                "hive.metastore.lakehouse.project-id", "example-project",
+                                "hive.metastore.lakehouse.catalog-id", "example-catalog",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "lakehouse",
+                        "hive.metastore.lakehouse.project-id", "example-project",
+                        "hive.metastore.lakehouse.catalog-id", "example-catalog",
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "lakehouse",
+                        "hive.metastore.lakehouse.project-id", "example-project",
+                        "hive.metastore.lakehouse.catalog-id", "example-catalog",
+                        "hive.hide-delta-lake-tables", "true",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Hiding Delta Lake tables is not supported");
+    }
+
+    @Test
+    public void testLakehouseMetastoreWithSeparateCredentials(@TempDir Path tempDir)
+            throws Exception
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+        // GCS file system access eagerly parses the service account key, so it must point to an actual, well-formed key
+        Path gcsKeyFilePath = createFakeServiceAccountKeyFile(tempDir);
+
+        // The metastore key is separate from the file system key
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore", "lakehouse")
+                                .put("hive.metastore.lakehouse.project-id", "example-project")
+                                .put("hive.metastore.lakehouse.catalog-id", "example-catalog")
+                                .put("hive.metastore.lakehouse.google-json-key", Files.readString(gcsKeyFilePath))
+                                .put("fs.gcs.enabled", "true")
+                                .put("gcs.json-key-file-path", gcsKeyFilePath.toString())
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        // The metastore key does not require credentials for the file system
+        factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("hive.metastore", "lakehouse")
+                                .put("hive.metastore.lakehouse.project-id", "example-project")
+                                .put("hive.metastore.lakehouse.catalog-id", "example-catalog")
+                                .put("hive.metastore.lakehouse.google-json-key-file-path", gcsKeyFilePath.toString())
+                                .put("fs.gcs.enabled", "true")
+                                .put("gcs.auth-type", "APPLICATION_DEFAULT")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    private static Path createFakeServiceAccountKeyFile(Path directory)
+            throws Exception
+    {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        byte[] privateKey = keyPairGenerator.generateKeyPair().getPrivate().getEncoded();
+        String privateKeyPem = "-----BEGIN PRIVATE KEY-----\\n" +
+                Base64.getMimeEncoder(64, "\n".getBytes(UTF_8)).encodeToString(privateKey).replace("\n", "\\n") +
+                "\\n-----END PRIVATE KEY-----\\n";
+        String json =
+                """
+                {
+                  "type": "service_account",
+                  "client_id": "123456789",
+                  "client_email": "test@test-project.iam.gserviceaccount.com",
+                  "private_key_id": "test-key-id",
+                  "private_key": "%s"
+                }
+                """.formatted(privateKeyPem);
+
+        Path keyFile = directory.resolve("gcs-service-account.json");
+        Files.writeString(keyFile, json);
+        return keyFile;
     }
 
     @Test
