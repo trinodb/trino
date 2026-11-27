@@ -817,12 +817,15 @@ public class MongoSession
                 throw new TableNotFoundException(new SchemaTableName(schemaName, tableName), format("Table '%s.%s' not found", schemaName, tableName), null);
             }
             Document metadata = new Document(TABLE_NAME_KEY, tableName);
-            metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
+            List<Document> fields = guessTableFields(schemaName, tableName);
+            metadata.append(FIELDS_KEY, fields);
             if (!indexExists(schema)) {
                 schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
             }
 
-            schema.insertOne(metadata);
+            if (!fields.isEmpty()) {
+                schema.insertOne(metadata);
+            }
 
             return metadata;
         }
