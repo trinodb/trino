@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.ComparisonOperator;
@@ -36,6 +37,7 @@ import java.util.Set;
 
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -82,13 +84,13 @@ public class RemoveRedundantInItems
                 }
 
                 if (isDeterministic(item)) {
-                    exactMatchFound = exactMatchFound || value.equals(item);
+                    exactMatchFound = exactMatchFound || (value.equals(item) && !mayContainNaN(value.type()));
                     seen.add(item);
                 }
             }
         }
 
-        if (exactMatchFound && mayFail.isEmpty()) {
+        if (exactMatchFound) {
             ResolvedFunction indeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(value.type()));
             return Optional.of(ifExpression(new Call(indeterminate, ImmutableList.of(value)), NULL_BOOLEAN, TRUE));
         }
@@ -107,5 +109,10 @@ public class RemoveRedundantInItems
         }
 
         return Optional.of(new In(value, newItems));
+    }
+
+    private static boolean mayContainNaN(Type type)
+    {
+        return typeHasNaN(type) || type.getTypeParameters().stream().anyMatch(RemoveRedundantInItems::mayContainNaN);
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.RowType;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
@@ -85,7 +87,7 @@ public class TestRemoveRedundantInItems
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail")
-                .isEqualTo(Optional.empty());
+                .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
@@ -94,11 +96,24 @@ public class TestRemoveRedundantInItems
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail, duplicate removed")
-                .isEqualTo(Optional.of(
-                        new In(new Reference(BIGINT, "x"),
-                                ImmutableList.of(
-                                        new Reference(BIGINT, "x"),
-                                        new Cast(new Reference(VARCHAR, "y"), BIGINT)))));
+                .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
+
+        assertThat(optimize(
+                new In(new Reference(DOUBLE, "x"),
+                        ImmutableList.of(
+                                new Reference(DOUBLE, "x"),
+                                new Reference(DOUBLE, "y")))))
+                .describedAs("exact match, NaN is not equal to itself")
+                .isEqualTo(Optional.empty());
+
+        RowType rowType = RowType.anonymous(ImmutableList.of(DOUBLE));
+        assertThat(optimize(
+                new In(new Reference(rowType, "x"),
+                        ImmutableList.of(
+                                new Reference(rowType, "x"),
+                                new Reference(rowType, "y")))))
+                .describedAs("exact match, row containing NaN is not equal to itself")
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(TINYINT, "x"),
@@ -116,12 +131,7 @@ public class TestRemoveRedundantInItems
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
                 .describedAs("non-deterministic items")
-                .isEqualTo(Optional.of(new In(
-                        new Reference(TINYINT, "x"),
-                        ImmutableList.of(
-                                new Reference(TINYINT, "x"),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
+                .isEqualTo(Optional.of(ifExpression(new Call(FUNCTIONS.resolveOperator(INDETERMINATE, ImmutableList.of(TINYINT)), ImmutableList.of(new Reference(TINYINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
