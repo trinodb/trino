@@ -212,6 +212,21 @@ values. Typical usage does not require you to configure them.
     file is missing, incomplete, or malformed. The equivalent catalog
     session property is `load_metadata_from_checksum_file`.
   - `true`
+* - `delta.transaction-log.parallel-read.enabled`
+  - Speed up query planning for tables with many commits since the last
+    checkpoint. The connector finds those commits with one listing of the
+    `_delta_log` directory, instead of checking for each file in turn, and reads
+    them in parallel. Requires permission to list `_delta_log` in the object
+    storage. The `transaction_log_parallel_read_enabled` catalog session
+    property can disable this for a session, but has no effect when this
+    property is `false`.
+  - `false`
+* - `delta.transaction-log.max-concurrent-reads`
+  - Maximum number of transaction log files read concurrently across all
+    queries when `delta.transaction-log.parallel-read.enabled` is `true`.
+    Each table load also reads at most `delta.metadata.parallelism` files at
+    once.
+  - `16`
 :::
 
 ### Catalog session properties
@@ -254,6 +269,11 @@ The following table describes {ref}`catalog session properties
     available. Falls back to scanning the transaction log if the checksum
     file is missing, incomplete, or malformed.
   - `true`
+* - `transaction_log_parallel_read_enabled`
+  - Find transaction log commits with one listing and read them in parallel.
+    Only takes effect when `delta.transaction-log.parallel-read.enabled` is
+    `true`, so it can only disable the feature.
+  - `true` when `delta.transaction-log.parallel-read.enabled` is `true`
 :::
 
 (delta-lake-fte-support)=

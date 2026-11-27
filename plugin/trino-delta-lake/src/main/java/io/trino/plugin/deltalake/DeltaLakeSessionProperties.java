@@ -78,6 +78,7 @@ public final class DeltaLakeSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String LOAD_METADATA_FROM_CHECKSUM_FILE = "load_metadata_from_checksum_file";
+    private static final String TRANSACTION_LOG_PARALLEL_READ_ENABLED = "transaction_log_parallel_read_enabled";
     private static final String STORE_TABLE_METADATA = "store_table_metadata";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -254,6 +255,11 @@ public final class DeltaLakeSessionProperties
                         deltaLakeConfig.isLoadMetadataFromChecksumFile(),
                         false),
                 booleanProperty(
+                        TRANSACTION_LOG_PARALLEL_READ_ENABLED,
+                        "Find transaction log commits with one listing and read them in parallel. Has no effect unless enabled in the catalog configuration",
+                        deltaLakeConfig.isTransactionLogParallelReadEnabled(),
+                        false),
+                booleanProperty(
                         STORE_TABLE_METADATA,
                         "Store table metadata in metastore",
                         deltaLakeConfig.isStoreTableMetadataEnabled(),
@@ -383,6 +389,11 @@ public final class DeltaLakeSessionProperties
     public static boolean isLoadMetadataFromChecksumFile(ConnectorSession session)
     {
         return session.getProperty(LOAD_METADATA_FROM_CHECKSUM_FILE, Boolean.class);
+    }
+
+    public static boolean isTransactionLogParallelReadEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TRANSACTION_LOG_PARALLEL_READ_ENABLED, Boolean.class);
     }
 
     public static boolean isStoreTableMetadataInMetastoreEnabled(ConnectorSession session)

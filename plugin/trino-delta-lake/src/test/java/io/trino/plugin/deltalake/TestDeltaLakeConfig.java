@@ -78,7 +78,9 @@ public class TestDeltaLakeConfig
                 .setMetadataParallelism(8)
                 .setMetadataVirtualThreadsEnabled(true)
                 .setCheckpointProcessingParallelism(4)
-                .setLoadMetadataFromChecksumFile(true));
+                .setLoadMetadataFromChecksumFile(true)
+                .setTransactionLogParallelReadEnabled(false)
+                .setTransactionLogMaxConcurrentReads(16));
     }
 
     @Test
@@ -124,6 +126,8 @@ public class TestDeltaLakeConfig
                 .put("delta.metadata.virtual-threads-enabled", "false")
                 .put("delta.checkpoint-processing.parallelism", "8")
                 .put("delta.load-metadata-from-checksum-file", "false")
+                .put("delta.transaction-log.parallel-read.enabled", "true")
+                .put("delta.transaction-log.max-concurrent-reads", "64")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -165,7 +169,9 @@ public class TestDeltaLakeConfig
                 .setMetadataParallelism(10)
                 .setMetadataVirtualThreadsEnabled(false)
                 .setCheckpointProcessingParallelism(8)
-                .setLoadMetadataFromChecksumFile(false);
+                .setLoadMetadataFromChecksumFile(false)
+                .setTransactionLogParallelReadEnabled(true)
+                .setTransactionLogMaxConcurrentReads(64);
 
         assertFullMapping(properties, expected);
     }

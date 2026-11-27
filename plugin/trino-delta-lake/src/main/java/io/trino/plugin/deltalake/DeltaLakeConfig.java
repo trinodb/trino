@@ -98,6 +98,8 @@ public class DeltaLakeConfig
     private boolean metadataVirtualThreadsEnabled = true;
     private int checkpointProcessingParallelism = 4;
     private boolean loadMetadataFromChecksumFile = true;
+    private boolean transactionLogParallelReadEnabled;
+    private int transactionLogMaxConcurrentReads = 16;
 
     public Duration getMetadataCacheTtl()
     {
@@ -627,6 +629,33 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setLoadMetadataFromChecksumFile(boolean loadMetadataFromChecksumFile)
     {
         this.loadMetadataFromChecksumFile = loadMetadataFromChecksumFile;
+        return this;
+    }
+
+    public boolean isTransactionLogParallelReadEnabled()
+    {
+        return transactionLogParallelReadEnabled;
+    }
+
+    @Config("delta.transaction-log.parallel-read.enabled")
+    @ConfigDescription("Find transaction log commits with one listing of the _delta_log directory and read them in parallel. Requires list permission on _delta_log")
+    public DeltaLakeConfig setTransactionLogParallelReadEnabled(boolean transactionLogParallelReadEnabled)
+    {
+        this.transactionLogParallelReadEnabled = transactionLogParallelReadEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getTransactionLogMaxConcurrentReads()
+    {
+        return transactionLogMaxConcurrentReads;
+    }
+
+    @Config("delta.transaction-log.max-concurrent-reads")
+    @ConfigDescription("Maximum number of transaction log files read concurrently across all table loads, when parallel reads are enabled")
+    public DeltaLakeConfig setTransactionLogMaxConcurrentReads(int transactionLogMaxConcurrentReads)
+    {
+        this.transactionLogMaxConcurrentReads = transactionLogMaxConcurrentReads;
         return this;
     }
 }
