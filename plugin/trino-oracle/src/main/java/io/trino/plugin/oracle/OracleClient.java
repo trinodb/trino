@@ -34,6 +34,8 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -41,6 +43,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -67,9 +70,14 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -97,6 +105,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -110,12 +120,14 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FINITE_FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FLOATING_POINT_PUSHDOWN;
@@ -168,6 +180,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.clamp;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
@@ -178,6 +191,7 @@ import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.FLOAT;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class OracleClient
@@ -199,6 +213,7 @@ public class OracleClient
     private static final int EXPRESSION_NUMBER_COLUMN_SIZE = 0;
 
     private static final int TRINO_BIGINT_TYPE = 832_424_001;
+    private static final int MAX_SYNONYM_DEPTH = 10;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     private static final DateTimeFormatter TIMESTAMP_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
@@ -247,6 +262,7 @@ public class OracleClient
             .buildOrThrow();
 
     private final boolean synonymsEnabled;
+    private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final ProjectFunctionRewriter<JdbcExpression, ParameterizedExpression> projectFunctionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -256,6 +272,7 @@ public class OracleClient
     public OracleClient(
             BaseJdbcConfig config,
             OracleConfig oracleConfig,
+            JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
@@ -264,6 +281,7 @@ public class OracleClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -723,6 +741,47 @@ public class OracleClient
     }
 
     @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
+    }
+
+    @Override
+    @Deprecated
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+    }
+
+    @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return joinCondition.getOperator() != JoinCondition.Operator.IDENTICAL;
@@ -1023,4 +1082,239 @@ public class OracleClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed to retrieve statistics for " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+        if (remoteTableName.getSchemaName().isEmpty()) {
+            return TableStatistics.empty();
+        }
+
+        long rowCount;
+        Map<String, OracleColumnStatistics> columnStatisticsMap;
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            Optional<TableRowCount> resolved = resolveTableRowCount(
+                    connection,
+                    new OracleObjectName(remoteTableName.getSchemaName().get(), remoteTableName.getTableName()));
+            if (resolved.isEmpty()) {
+                return TableStatistics.empty();
+            }
+
+            rowCount = resolved.get().rowCount();
+            if (rowCount == 0) {
+                return TableStatistics.builder()
+                        .setRowCount(Estimate.of(0))
+                        .build();
+            }
+
+            columnStatisticsMap = readColumnStatistics(connection, resolved.get().targetTable());
+        }
+
+        TableStatistics.Builder tableStatistics = TableStatistics.builder()
+                .setRowCount(Estimate.of(rowCount));
+
+        if (columnStatisticsMap.isEmpty()) {
+            return tableStatistics.build();
+        }
+
+        for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
+            OracleColumnStatistics columnStats = columnStatisticsMap.get(column.getColumnName());
+            if (columnStats == null) {
+                continue;
+            }
+
+            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+
+            Long numNulls = columnStats.numNulls();
+            Long numDistinct = columnStats.numDistinct();
+            Long avgColLen = columnStats.avgColLen();
+
+            boolean allNulls = numNulls != null && numNulls >= rowCount;
+
+            if (numNulls != null && numNulls >= 0) {
+                double nullsFraction = clamp((double) numNulls / rowCount, 0.0, 1.0);
+                columnStatistics.setNullsFraction(Estimate.of(nullsFraction));
+            }
+
+            if (numDistinct != null && numDistinct >= 0) {
+                if (allNulls) {
+                    columnStatistics.setDistinctValuesCount(Estimate.zero());
+                }
+                else if (numDistinct > 0) {
+                    long maxDistinct = (numNulls != null && numNulls >= 0) ? max(0L, rowCount - numNulls) : rowCount;
+                    columnStatistics.setDistinctValuesCount(Estimate.of(clamp(numDistinct, 1L, maxDistinct)));
+                }
+                // Oracle reports NUM_DISTINCT = 0 for types where NDV is not gathered (e.g. CLOB, NCLOB, BLOB).
+                // Leaving distinctValuesCount unknown prevents Trino's StatsNormalizer from treating non-null LOB columns as all-null.
+            }
+
+            if (allNulls) {
+                columnStatistics.setDataSize(Estimate.zero());
+            }
+            else if (avgColLen != null && avgColLen >= 0) {
+                columnStatistics.setDataSize(Estimate.of((double) avgColLen * rowCount));
+            }
+
+            tableStatistics.setColumnStatistics(column, columnStatistics.build());
+        }
+
+        return tableStatistics.build();
+    }
+
+    private Optional<TableRowCount> resolveTableRowCount(Connection connection, OracleObjectName initialObject)
+            throws SQLException
+    {
+        OracleObjectName current = initialObject;
+        Set<OracleObjectName> visited = new HashSet<>();
+        visited.add(current);
+
+        for (int depth = 0; depth <= MAX_SYNONYM_DEPTH; depth++) {
+            RowCountLookupResult lookupResult = readRowCount(connection, current);
+            switch (lookupResult) {
+                case RowCountLookupResult.Analyzed(long numRows) -> {
+                    return Optional.of(new TableRowCount(current, numRows));
+                }
+                case RowCountLookupResult.Unanalyzed() -> {
+                    return Optional.empty();
+                }
+                case RowCountLookupResult.NotFound() -> {
+                    if (!synonymsEnabled || depth == MAX_SYNONYM_DEPTH) {
+                        return Optional.empty();
+                    }
+                    Optional<OracleObjectName> synonymTarget = resolveSynonymTarget(connection, current);
+                    if (synonymTarget.isEmpty() || !visited.add(synonymTarget.get())) {
+                        return Optional.empty();
+                    }
+                    current = synonymTarget.get();
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static RowCountLookupResult readRowCount(Connection connection, OracleObjectName objectName)
+            throws SQLException
+    {
+        String sql =
+                """
+                SELECT NUM_ROWS
+                FROM ALL_TABLES
+                WHERE OWNER = ? AND TABLE_NAME = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, objectName.owner());
+            statement.setString(2, objectName.name());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return new RowCountLookupResult.NotFound();
+                }
+                long numRows = resultSet.getLong("NUM_ROWS");
+                if (resultSet.wasNull() || numRows < 0) {
+                    return new RowCountLookupResult.Unanalyzed();
+                }
+                return new RowCountLookupResult.Analyzed(numRows);
+            }
+        }
+    }
+
+    private static Optional<OracleObjectName> resolveSynonymTarget(Connection connection, OracleObjectName objectName)
+            throws SQLException
+    {
+        String sql =
+                """
+                SELECT TABLE_OWNER, TABLE_NAME
+                FROM ALL_SYNONYMS
+                WHERE OWNER = ? AND SYNONYM_NAME = ? AND DB_LINK IS NULL
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, objectName.owner());
+            statement.setString(2, objectName.name());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                String targetOwner = resultSet.getString("TABLE_OWNER");
+                String targetTable = resultSet.getString("TABLE_NAME");
+                if (targetOwner == null || targetTable == null) {
+                    return Optional.empty();
+                }
+                return Optional.of(new OracleObjectName(targetOwner, targetTable));
+            }
+        }
+    }
+
+    private static Map<String, OracleColumnStatistics> readColumnStatistics(Connection connection, OracleObjectName objectName)
+            throws SQLException
+    {
+        String sql =
+                """
+                SELECT COLUMN_NAME, NUM_DISTINCT, NUM_NULLS, AVG_COL_LEN
+                FROM ALL_TAB_COL_STATISTICS
+                WHERE OWNER = ? AND TABLE_NAME = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, objectName.owner());
+            statement.setString(2, objectName.name());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Map<String, OracleColumnStatistics> columnStatistics = new HashMap<>();
+                while (resultSet.next()) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    if (columnName == null) {
+                        continue;
+                    }
+                    Long numDistinct = getNullableLong(resultSet, "NUM_DISTINCT");
+                    Long numNulls = getNullableLong(resultSet, "NUM_NULLS");
+                    Long avgColLen = getNullableLong(resultSet, "AVG_COL_LEN");
+                    columnStatistics.put(columnName, new OracleColumnStatistics(numDistinct, numNulls, avgColLen));
+                }
+                return ImmutableMap.copyOf(columnStatistics);
+            }
+        }
+    }
+
+    private static Long getNullableLong(ResultSet resultSet, String columnLabel)
+            throws SQLException
+    {
+        long value = resultSet.getLong(columnLabel);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    private sealed interface RowCountLookupResult
+    {
+        record NotFound()
+                implements RowCountLookupResult {}
+
+        record Unanalyzed()
+                implements RowCountLookupResult {}
+
+        record Analyzed(long rowCount)
+                implements RowCountLookupResult {}
+    }
+
+    private record OracleObjectName(String owner, String name) {}
+
+    private record TableRowCount(OracleObjectName targetTable, long rowCount) {}
+
+    private record OracleColumnStatistics(Long numDistinct, Long numNulls, Long avgColLen) {}
 }
