@@ -27,10 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -41,6 +38,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.util.ShortestDecimalFormatter.formatReal;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -49,7 +47,6 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
 import static java.math.RoundingMode.HALF_UP;
-import static java.util.Locale.ENGLISH;
 
 public final class RealOperators
 {
@@ -57,8 +54,6 @@ public final class RealOperators
     private static final float MAX_SHORT_PLUS_ONE_AS_FLOAT = 0x1p15f;
     private static final float MIN_BYTE_AS_FLOAT = -0x1p7f;
     private static final float MAX_BYTE_PLUS_ONE_AS_FLOAT = 0x1p7f;
-
-    private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0#####E0", new DecimalFormatSymbols(ENGLISH)));
 
     private RealOperators() {}
 
@@ -112,35 +107,14 @@ public final class RealOperators
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.REAL) long value)
     {
         float floatValue = intBitsToFloat((int) value);
-        String stringValue;
-
-        // handle positive and negative 0
-        if (floatValue == 0.0f) {
-            if (1.0f / floatValue > 0) {
-                stringValue = "0E0";
-            }
-            else {
-                stringValue = "-0E0";
-            }
-        }
-        else if (Float.isInfinite(floatValue)) {
-            if (floatValue > 0) {
-                stringValue = "Infinity";
-            }
-            else {
-                stringValue = "-Infinity";
-            }
-        }
-        else {
-            stringValue = FORMAT.get().format(Double.parseDouble(Float.toString(floatValue)));
-        }
+        Slice slice = formatReal(floatValue);
 
         // String is all-ASCII, so String.length() here returns actual code points count
-        if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
+        if (slice.length() <= x) {
+            return slice;
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", floatValue, stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", floatValue, slice.toStringUtf8(), x));
     }
 
     // fallible
