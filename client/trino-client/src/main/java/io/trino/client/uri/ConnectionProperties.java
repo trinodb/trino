@@ -124,6 +124,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
     public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
     public static final ConnectionProperty<String, Boolean> DISALLOW_LOCAL_REDIRECT = new LocalRedirectDisallowed();
+    public static final ConnectionProperty<String, Boolean> LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS = new LegacySendCredentialsOnAllRequests();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -159,6 +160,7 @@ final class ConnectionProperties
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
+            .add(LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS)
             .add(LOCALE)
             .add(OAUTH2_CLIENT_ID)
             .add(OAUTH2_CLIENT_SECRET)
@@ -1103,6 +1105,15 @@ final class ConnectionProperties
         public LocalRedirectDisallowed()
         {
             super(PropertyName.DISALLOW_LOCAL_REDIRECT, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class LegacySendCredentialsOnAllRequests
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public LegacySendCredentialsOnAllRequests()
+        {
+            super(PropertyName.LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

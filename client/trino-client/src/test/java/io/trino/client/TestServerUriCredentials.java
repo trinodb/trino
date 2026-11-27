@@ -98,6 +98,25 @@ final class TestServerUriCredentials
 
     @Test
     @Timeout(10)
+    void testLegacySendCredentialsOnAllRequests()
+            throws InterruptedException
+    {
+        TrinoUri uri = TrinoUri.builder()
+                .setUri(server.url("/").uri())
+                .setAccessToken(ACCESS_TOKEN)
+                .setSsl(true)
+                .setLegacySendCredentialsOnAllRequests(true)
+                .build();
+
+        assertThat(authorizationByMethod(uri)).isEqualTo(ImmutableMap.of(
+                "POST", Optional.of("Bearer " + ACCESS_TOKEN),
+                "HEAD", Optional.of("Bearer " + ACCESS_TOKEN),
+                "GET", Optional.of("Bearer " + ACCESS_TOKEN),
+                "DELETE", Optional.of("Bearer " + ACCESS_TOKEN)));
+    }
+
+    @Test
+    @Timeout(10)
     void testNextUriChallengeIsNotAnswered()
             throws InterruptedException
     {

@@ -143,6 +143,18 @@ public final class OkHttpUtil
         return request.tag(CredentialsExcluded.class) != null;
     }
 
+    /**
+     * Restores sending credentials with requests marked by {@link #excludeCredentials}, for proxies or gateways
+     * that require them on every request. It must be an application interceptor, so it runs before the authentication
+     * interceptors, and before following redirects and answering authentication challenges.
+     */
+    public static Interceptor includeExcludedCredentials()
+    {
+        return chain -> chain.proceed(chain.request().newBuilder()
+                .tag(CredentialsExcluded.class, null)
+                .build());
+    }
+
     public static Interceptor extraHeaders(Map<String, String> extraHeaders)
     {
         requireNonNull(extraHeaders, "extraHeaders is null");

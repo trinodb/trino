@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
 import static io.trino.client.OkHttpUtil.extraHeaders;
+import static io.trino.client.OkHttpUtil.includeExcludedCredentials;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpLogging;
@@ -57,6 +58,10 @@ public class HttpClientFactory
     {
         OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
         setupCookieJar(builder);
+
+        if (uri.isLegacySendCredentialsOnAllRequests()) {
+            builder.addInterceptor(includeExcludedCredentials());
+        }
 
         if (uri.hasPassword()) {
             if (!uri.isUseSecureConnection()) {
