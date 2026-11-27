@@ -15,9 +15,12 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -37,6 +40,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -84,6 +88,20 @@ public class TestEvaluateIsNull
         assertThat(optimize(new IsNull(new Coalesce(new Constant(BIGINT, null), new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))))
                 .describedAs("coalesce is not nullable when any operand is not nullable")
                 .isEqualTo(Optional.of(FALSE));
+    }
+
+    @Test
+    void testNestedNullComparison()
+    {
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            if (operator == IDENTICAL || operator == NOT_EQUAL) {
+                continue;
+            }
+            for (var type : ImmutableList.of(RowType.anonymousRow(BIGINT), new ArrayType(BIGINT))) {
+                assertThat(optimize(new IsNull(comparison(operator, new Reference(type, "a"), new Reference(type, "b")))))
+                        .isEmpty();
+            }
+        }
     }
 
     private Optional<Expression> optimize(Expression expression)

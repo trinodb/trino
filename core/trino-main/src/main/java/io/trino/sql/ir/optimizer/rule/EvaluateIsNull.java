@@ -35,6 +35,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.comparisonMayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -76,7 +77,9 @@ public class EvaluateIsNull
             return Optional.of(inner.value() == null ? TRUE : FALSE);
         }
 
-        if (matchComparison(value) instanceof Comparison comparison && comparison.operator() != IDENTICAL) {
+        if (matchComparison(value) instanceof Comparison comparison &&
+                comparison.operator() != IDENTICAL &&
+                !comparisonMayReturnNullOnNonNullInput(plannerContext, comparison.operator(), comparison.left().type())) {
             return Optional.of(new Logical(OR, ImmutableList.of(
                     new IsNull(comparison.left()),
                     new IsNull(comparison.right()))));

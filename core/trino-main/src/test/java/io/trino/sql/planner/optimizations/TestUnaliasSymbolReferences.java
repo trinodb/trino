@@ -26,10 +26,12 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -58,7 +60,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnaliasSymbolReferences
         extends BasePlanTest
@@ -142,32 +146,83 @@ public class TestUnaliasSymbolReferences
                         project(values("symbol"))));
     }
 
+    @Test
+    public void testCorrelatedJoinSubqueryKeepsSelectedInputSymbolDistinct()
+    {
+        // `LEFT JOIN LATERAL (SELECT t.a FROM u) ON true`: the subquery's alias of the correlation
+        // symbol is NULL-extended when the subquery is empty, so it must not be unaliased to the
+        // input's symbol.
+        PlanNode optimized = optimize(
+                new UnaliasSymbolReferences(),
+                (p, _, _) -> {
+                    Symbol a = p.symbol("a");
+                    Symbol alias = p.symbol("alias");
+                    return p.correlatedJoin(
+                            ImmutableList.of(a),
+                            p.values(a),
+                            LEFT,
+                            TRUE,
+                            p.project(Assignments.of(alias, a.toSymbolReference()), p.values()));
+                });
+        assertThat(optimized.getOutputSymbols()).doesNotHaveDuplicates();
+    }
+
+    @Test
+    public void testReallocateSymbolsRenamesSubquerySelectedInputSymbol()
+    {
+        // Copying a plan reallocates every symbol, including the one that keeps the subquery's copy
+        // of an input symbol apart from the input's.
+        getPlanTester().inTransaction(session -> {
+            PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), getPlanTester().getPlannerContext(), session);
+            Symbol a = p.symbol("a");
+            Symbol alias = p.symbol("alias");
+            PlanNode plan = p.correlatedJoin(
+                    ImmutableList.of(a),
+                    p.values(a),
+                    LEFT,
+                    TRUE,
+                    p.project(Assignments.of(alias, a.toSymbolReference()), p.values()));
+            NodeAndMappings copy = new UnaliasSymbolReferences().reallocateSymbols(plan, plan.getOutputSymbols(), emptySymbolAllocator());
+            assertThat(SymbolsExtractor.extractOutputSymbols(copy.getNode())).doesNotContain(alias);
+            return null;
+        });
+    }
+
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)
     {
         PlanTester planTester = getPlanTester();
         planTester.inTransaction(session -> {
-            Metadata metadata = planTester.getPlannerContext().getMetadata();
-            session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
-
-            SymbolAllocator symbolAllocator = emptySymbolAllocator();
-            PlanNode plan = planCreator.create(planBuilder, session, metadata);
-            PlanNode optimized = optimizer.optimize(
-                    plan,
-                    new PlanOptimizer.Context(
-                            session,
-                            symbolAllocator,
-                            idAllocator,
-                            WarningCollector.NOOP,
-                            createPlanOptimizersStatsCollector(),
-                            new CachingTableStatsProvider(metadata, session, () -> false),
-                            RuntimeInfoProvider.noImplementation()));
-
-            Plan actual = new Plan(optimized, StatsAndCosts.empty());
+            Plan actual = new Plan(optimize(session, optimizer, planCreator), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);
             return null;
         });
+    }
+
+    private PlanNode optimize(PlanOptimizer optimizer, PlanCreator planCreator)
+    {
+        return getPlanTester().inTransaction(session -> optimize(session, optimizer, planCreator));
+    }
+
+    private PlanNode optimize(Session session, PlanOptimizer optimizer, PlanCreator planCreator)
+    {
+        PlanTester planTester = getPlanTester();
+        Metadata metadata = planTester.getPlannerContext().getMetadata();
+        session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
+
+        SymbolAllocator symbolAllocator = emptySymbolAllocator();
+        PlanNode plan = planCreator.create(planBuilder, session, metadata);
+        return optimizer.optimize(
+                plan,
+                new PlanOptimizer.Context(
+                        session,
+                        symbolAllocator,
+                        idAllocator,
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector(),
+                        new CachingTableStatsProvider(metadata, session, () -> false),
+                        RuntimeInfoProvider.noImplementation()));
     }
 
     private Expression dynamicFilterExpression(Metadata metadata, Symbol symbol, DynamicFilterId id)
