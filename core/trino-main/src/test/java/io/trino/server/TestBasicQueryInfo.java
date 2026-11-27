@@ -165,6 +165,7 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.of(QueryType.SELECT),
                         RetryPolicy.NONE,
+                        null,
                         false,
                         new NodeVersion("test")));
 
@@ -203,5 +204,6 @@ public class TestBasicQueryInfo
 
         assertThat(basicInfo.getErrorCode()).isEqualTo(StandardErrorCode.ABANDONED_QUERY.toErrorCode());
         assertThat(basicInfo.getErrorType()).isEqualTo(StandardErrorCode.ABANDONED_QUERY.toErrorCode().getType());
+        assertThat(basicInfo.getQueuePosition()).isNull();
     }
 }

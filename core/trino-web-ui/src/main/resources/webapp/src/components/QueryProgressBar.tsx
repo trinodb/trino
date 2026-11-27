@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 import React from 'react'
+import { Box } from '@mui/material'
+import Chip from '@mui/material/Chip'
 import { LinearProgressWithLabel, LinearProgressWithLabelProps } from './LinearProgressWithLabel'
 import { QueryInfoBase } from '../api/webapp/api.ts'
 import { getHumanReadableState } from '../utils/utils.ts'
@@ -83,11 +85,25 @@ export const QueryProgressBar = React.memo(function QueryProgressBar(props: Quer
         return getHumanReadableState(query)
     }
 
+    const queuePosition = queryInfoBase.state === 'QUEUED' ? queryInfoBase.queuePosition : null
+
     return (
-        <LinearProgressWithLabel
-            value={getProgressBarPercentage(queryInfoBase)}
-            title={getProgressBarTitle(queryInfoBase)}
-            color={getQueryStateColor(queryInfoBase)}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flexGrow: 1 }}>
+                <LinearProgressWithLabel
+                    value={getProgressBarPercentage(queryInfoBase)}
+                    title={getProgressBarTitle(queryInfoBase)}
+                    color={getQueryStateColor(queryInfoBase)}
+                />
+            </Box>
+            {queuePosition != null && (
+                <Chip
+                    size="small"
+                    color="default"
+                    label={`#${queuePosition} in queue`}
+                    title="Position in the resource group queue"
+                />
+            )}
+        </Box>
     )
 })

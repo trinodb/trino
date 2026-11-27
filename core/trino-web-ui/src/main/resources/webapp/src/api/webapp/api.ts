@@ -179,6 +179,7 @@ export interface QueryInfoBase {
     state: string
     scheduled: boolean
     memoryPool: string
+    queuePosition?: number | null
     errorType: string
     errorCode: {
         code: string
