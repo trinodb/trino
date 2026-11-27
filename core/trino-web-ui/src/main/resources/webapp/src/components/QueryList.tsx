@@ -187,6 +187,7 @@ export const QueryList = () => {
                       query.queryId,
                       getHumanReadableState(query),
                       query.queryTextPreview,
+                      query.preparedQueryPreview,
                       query.sessionUser,
                       query.sessionSource,
                       query.resourceGroupId?.join('.'),
