@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.tpch.TpchTable;
 
 import java.util.List;
@@ -57,7 +58,8 @@ public class TpchPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         TpchSplit tpchSplit = (TpchSplit) split;
         TpchTableHandle tpchTable = (TpchTableHandle) table;
@@ -71,6 +73,7 @@ public class TpchPageSourceProvider
                         tpchSplit.getPartNumber(),
                         tpchSplit.getTotalParts(),
                         tpchTable.constraint(),
-                        decimalTypeMapping));
+                        decimalTypeMapping),
+                memoryContext);
     }
 }
