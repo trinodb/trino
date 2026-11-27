@@ -39,6 +39,10 @@ username that will be used for all Web UI access by setting the authentication t
 If there is a system access control installed, this user must have permission to view
 (and possibly to kill) queries.
 
+If `web-ui.query-editor.enabled` is set to `true`, this user must also have
+permission to execute queries and access the queried data. Anyone who can
+access the Web UI can then run SQL with the permissions of this user.
+
 ### Other authentication types
 
 The following Web UI authentication types are also supported:
