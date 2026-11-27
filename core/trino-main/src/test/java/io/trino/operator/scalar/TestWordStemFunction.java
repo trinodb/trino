@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Set;
+
+import static io.trino.operator.scalar.ConstantSpecializationAssertions.varchar;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -126,5 +130,12 @@ public class TestWordStemFunction
 
         assertTrinoExceptionThrownBy(assertions.function("word_stem", "'test'", "'xx'")::evaluate)
                 .hasMessage("Unknown stemmer language: xx");
+    }
+
+    @Test
+    public void testConstantSpecializationParity()
+    {
+        ConstantSpecializationAssertions parity = new ConstantSpecializationAssertions(new TestingFunctionResolution(assertions.getQueryRunner()));
+        parity.assertParity("word_stem", Set.of(1), varchar("authorized"), varchar("en"));
     }
 }

@@ -19,31 +19,16 @@ import io.airlift.slice.SliceOutput;
 import io.trino.re2j.Matcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.function.Description;
-import io.trino.spi.function.LiteralParameters;
-import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.SqlNullable;
-import io.trino.spi.function.SqlType;
-import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 import io.trino.type.Re2JRegexp;
-import io.trino.type.Re2JRegexpType;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-@ScalarFunction("regexp_replace")
-@Description("Replaces substrings matching a regular expression using a lambda function")
 public final class Re2JRegexpReplaceLambdaFunction
 {
-    private final BufferedArrayValueBuilder arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(VARCHAR));
+    private Re2JRegexpReplaceLambdaFunction() {}
 
-    @LiteralParameters("x")
-    @SqlType("varchar")
-    @SqlNullable
-    public Slice regexpReplace(
-            @SqlType("varchar") Slice source,
-            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
-            @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
+    public static Slice regexpReplace(Slice source, Re2JRegexp pattern, UnaryFunctionInterface replaceFunction, BufferedArrayValueBuilder arrayValueBuilder)
     {
         // If there is no match we can simply return the original source without doing copy.
         Matcher matcher = pattern.matcher(source);

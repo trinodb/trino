@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
@@ -2469,11 +2470,11 @@ public class TestExpressionCompiler
 
                 assertThat(assertions.function("regexp_replace", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))).toStringUtf8());
+                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern)), EMPTY_SLICE).toStringUtf8());
 
                 assertThat(assertions.function("regexp_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : toString(JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern)))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern)), 0)));
             }
         }
     }

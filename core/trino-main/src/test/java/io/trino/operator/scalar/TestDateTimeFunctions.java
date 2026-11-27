@@ -15,6 +15,11 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.scalar.ConstantSpecializationAssertions.Typed;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.TestingConnectorSession;
@@ -29,16 +34,27 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.operator.scalar.ConstantSpecializationAssertions.varchar;
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -58,6 +74,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestDateTimeFunctions
 {
     private QueryAssertions assertions;
+    private static final TimeZoneKey PARITY_ZONE = TimeZoneKey.getTimeZoneKey("America/Los_Angeles");
+    private static final long PARITY_MILLIS = LocalDateTime.of(2022, 5, 10, 12, 34, 56, 789_000_000).toInstant(ZoneOffset.UTC).toEpochMilli();
+    private static final long PARITY_DATE = LocalDate.of(2022, 5, 10).toEpochDay();
 
     @BeforeAll
     public void init()
@@ -1260,5 +1279,38 @@ public class TestDateTimeFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("with_timezone", "TIMESTAMP '2001-08-22 03:04:05.321'", "'invalidzoneid'")::evaluate)
                 .hasMessage("'invalidzoneid' is not a valid time zone");
+    }
+
+    @Test
+    public void testConstantSpecializationParity()
+    {
+        ConstantSpecializationAssertions parity = new ConstantSpecializationAssertions(new TestingFunctionResolution(assertions.getQueryRunner()));
+        List<Typed> timestamps = List.of(
+                new Typed(TIMESTAMP_MILLIS, PARITY_MILLIS * 1000),
+                new Typed(TIMESTAMP_NANOS, new LongTimestamp(PARITY_MILLIS * 1000, 123_000)),
+                new Typed(TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(PARITY_MILLIS, PARITY_ZONE)),
+                new Typed(TIMESTAMP_TZ_NANOS, LongTimestampWithTimeZone.fromEpochMillisAndFraction(PARITY_MILLIS, 123_000_000, PARITY_ZONE)));
+        List<Typed> temporalValues = ImmutableList.<Typed>builder()
+                .add(new Typed(DateType.DATE, PARITY_DATE))
+                .addAll(timestamps)
+                .build();
+
+        for (String unit : List.of("day", "month", "year")) {
+            for (Typed value : temporalValues) {
+                parity.assertParity("date_trunc", Set.of(0), varchar(unit), value);
+                parity.assertParity("date_add", Set.of(0), varchar(unit), new Typed(BIGINT, 3L), value);
+                parity.assertParity("date_add", Set.of(0, 1), varchar(unit), new Typed(BIGINT, -2L), value);
+                parity.assertParity("date_diff", Set.of(0), varchar(unit), value, value);
+            }
+        }
+
+        for (Typed timestamp : timestamps) {
+            parity.assertParity("date_format", Set.of(1), timestamp, varchar("%Y-%m-%d %H:%i:%s"));
+            parity.assertParity("format_datetime", Set.of(1), timestamp, varchar("yyyy-MM-dd HH:mm:ss"));
+        }
+
+        parity.assertParity("date_parse", Set.of(1), varchar("2020-05-10"), varchar("%Y-%m-%d"));
+        parity.assertParity("date_parse", Set.of(1), varchar("12:34:56"), varchar("%H:%i:%s"));
+        parity.assertParity("parse_datetime", Set.of(1), varchar("2020-05-10 12:34 +0000"), varchar("yyyy-MM-dd HH:mm Z"));
     }
 }

@@ -58,11 +58,8 @@ import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
 import io.trino.type.LikePattern;
-import io.trino.type.Re2JRegexp;
-import io.trino.type.Re2JRegexpType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -128,7 +125,6 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.EngineExpressions.ENGINE_EXPRESSION_FUNCTION_NAME;
 import static io.trino.type.CharVarcharCoercion.LEGACY;
-import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -432,8 +428,7 @@ public final class ConnectorExpressionTranslator
                     return Optional.empty();
                 }
                 Expression expression = translated.get();
-                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
-                        && argumentType instanceof VarcharType) {
+                if (formalType instanceof JsonPathType && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
                     expression = cast(plannerContext.getTypeManager(), getCharVarcharCoercion(session), expression, formalType);
                 }
@@ -949,21 +944,11 @@ public final class ConnectorExpressionTranslator
 
         private boolean isSpecialType(Type type)
         {
-            return type.equals(JONI_REGEXP) ||
-                    type instanceof Re2JRegexpType ||
-                    type instanceof JsonPathType;
+            return type instanceof JsonPathType;
         }
 
         private ConnectorExpression constantFor(Type type, Object value)
         {
-            if (type == JONI_REGEXP) {
-                Slice pattern = ((JoniRegexp) value).pattern();
-                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
-            }
-            if (type instanceof Re2JRegexpType) {
-                Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
-                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
-            }
             if (type instanceof JsonPathType) {
                 Slice pattern = Slices.utf8Slice(((JsonPath) value).pattern());
                 return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
