@@ -50,6 +50,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -103,6 +104,7 @@ import static io.trino.parquet.reader.ParquetReader.SELECTED_POSITIONS_PUSHDOWNS
 import static io.trino.parquet.reader.ParquetReader.isRowSelectionBeneficial;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
@@ -1129,6 +1131,40 @@ public class TestParquetReader
             }
         }
         return values.build();
+    }
+
+    @Test
+    public void testDecimalPredicateOverIntegerColumn(@TempDir Path directory)
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .required(INT32).named("value")
+                .named("test");
+        File file = directory.resolve("integers.parquet").toFile();
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new LocalOutputFile(file.toPath()))
+                .withType(schema)
+                .withWriteMode(OVERWRITE)
+                .withDictionaryEncoding(false)
+                .withPageRowCountLimit(2)
+                // the page row count limit is only enforced when the page size is checked, by default after 100 rows
+                .withMinRowCountForPageSizeCheck(1)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (int value : ImmutableList.of(1, 2, 3, 4)) {
+                writer.write(factory.newGroup().append("value", value));
+            }
+        }
+
+        // The reader turns the stored 3 into 3.0, which the bounds of the row group allow and those of the first page do not
+        DecimalType type = createDecimalType(18, 1);
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        try (ParquetReader reader = createFilteredParquetReader(file, ImmutableList.of(type), ImmutableList.of("value"), TupleDomain.withColumnDomains(ImmutableMap.of("value", Domain.singleValue(type, 30L))))) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                values.addAll(blockValues(page.getBlock(0)));
+            }
+            assertThat(values.build()).containsExactly(30L, 40L);
+            assertThat(((Count<?>) reader.getMetrics().getMetrics().get(COLUMN_INDEX_ROWS_FILTERED)).getTotal()).isEqualTo(2);
+        }
     }
 
     private static List<Long> blockValues(Block block)
