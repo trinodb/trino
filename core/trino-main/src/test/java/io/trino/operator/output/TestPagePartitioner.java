@@ -13,8 +13,8 @@
  */
 package io.trino.operator.output;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -27,6 +27,7 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -76,6 +77,8 @@ import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.output.TestPagePartitioner.PagePartitionerBuilder.POSITIONS_APPENDER_FACTORY;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -223,15 +226,17 @@ public class TestPagePartitioner
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
 
         PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
-        Page page1 = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
-        Page page2 = new Page(createLongSequenceBlock(1, POSITIONS_PER_PAGE));
-        Page page3 = new Page(createLongSequenceBlock(2, POSITIONS_PER_PAGE));
+        Page page1 = new Page(createLongsBlock(1, 2));
+        Page page2 = new Page(createLongsBlock(4, 3));
+        Page page3 = new Page(createLongsBlock(5, 6));
         List<Object> expected = readLongs(Stream.of(page1, page2, page3), 0);
 
         processPages(multiPartitionPartitioner, partitioningMode, page1, page2, page3);
 
-        List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
-        assertEqualsIgnoreOrder(partitioned, expected); // order is different due to 2 partitions joined
+        PageSerializer serializer = PAGES_SERDE_FACTORY.createSerializer(Optional.empty());
+        assertThat(outputBuffer.getEnqueued()).containsExactly(
+                serializer.serialize(new Page(createLongsBlock(2, 4, 6))),
+                serializer.serialize(new Page(createLongsBlock(1, 3, 5))));
         outputBuffer.clear();
 
         PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
@@ -714,6 +719,31 @@ public class TestPagePartitioner
     }
 
     @Test
+    public void testPageBuildersAllocatedOnlyForUsedPartitions()
+    {
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        OperatorContext operatorContext = operatorContext();
+        long serializerBytes = PAGES_SERDE_FACTORY.createSerializer(Optional.empty()).getRetainedSizeInBytes();
+        PositionsAppenderPageBuilder expectedBuilder = PositionsAppenderPageBuilder.withMaxPageSize(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ImmutableList.of(BIGINT), POSITIONS_APPENDER_FACTORY);
+        try (PagePartitioner partitioner = pagePartitioner(outputBuffer, BIGINT).withMemoryContext(memoryContext).build()) {
+            assertThat(memoryContext.getBytes()).isEqualTo(serializerBytes);
+
+            // Both the row-wise and the columnar page go entirely to partition 1.
+            for (Page page : ImmutableList.of(new Page(createLongsBlock(1)), new Page(createLongsBlock(3, 5, 7, 9)))) {
+                partitioner.partitionPage(page, operatorContext);
+                expectedBuilder.appendToOutputPartition(page);
+                assertThat(memoryContext.getBytes()).isEqualTo(serializerBytes + expectedBuilder.getRetainedSizeInBytes());
+            }
+            partitioner.prepareForRelease(operatorContext);
+            assertThat(memoryContext.getBytes()).isEqualTo(serializerBytes + expectedBuilder.getRetainedSizeInBytes());
+        }
+        assertThat(memoryContext.getBytes()).isZero();
+        assertThat(outputBuffer.getEnqueued(0)).isEmpty();
+        assertThat(readLongs(outputBuffer.getEnqueuedDeserialized(1), 0)).containsExactly(1L, 3L, 5L, 7L, 9L);
+    }
+
+    @Test
     public void testMemoryReleased()
     {
         testMemoryReleased(PartitioningMode.ROW_WISE);
@@ -1012,7 +1042,7 @@ public class TestPagePartitioner
     public static class TestOutputBuffer
             implements OutputBuffer
     {
-        private final Multimap<Integer, Slice> enqueued = ArrayListMultimap.create();
+        private final Multimap<Integer, Slice> enqueued = LinkedListMultimap.create();
         private RuntimeException throwOnEnqueue;
 
         @Override

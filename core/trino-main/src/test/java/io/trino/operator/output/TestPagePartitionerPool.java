@@ -89,51 +89,55 @@ public class TestPagePartitionerPool
             throws Exception
     {
         Page split = new Page(createLongsBlock(1));
-        // one split fit in the buffer but 2 do not
-        DataSize maxPagePartitioningBufferSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
+        // A page can fit one split, but not two.
+        DataSize maxPageSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
 
         OutputBufferMock outputBuffer = new OutputBufferMock();
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        PartitionedOutputOperatorFactory factory = createFactory(maxPagePartitioningBufferSize, outputBuffer, memoryContext);
+        PartitionedOutputOperatorFactory factory = createFactory(maxPageSize, outputBuffer, memoryContext);
 
         assertThat(memoryContext.getBytes()).isEqualTo(0);
         // first split, too small for a flush
-        long initialRetainedBytesOneOperator = processSplitsConcurrently(factory, memoryContext, split);
+        long unusedPartitionerBytes = processSplitsConcurrently(factory, memoryContext, split);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(0);
-        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesOneOperator + split.getSizeInBytes());
+        long bufferedPartitionerBytes = memoryContext.getBytes();
 
         // second split makes the split partitioner buffer full so the split is flushed
         processSplitsConcurrently(factory, memoryContext, split);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(1);
-        assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesOneOperator);
+        // The flushed partitioner retains its page builder for reuse.
+        long flushedPartitionerBytes = memoryContext.getBytes();
+        assertThat(flushedPartitionerBytes).isGreaterThan(unusedPartitionerBytes);
+        assertThat(bufferedPartitionerBytes).isGreaterThanOrEqualTo(flushedPartitionerBytes + split.getSizeInBytes());
 
-        // two splits are processed at once so the use different buffers and do not flush for single split per buffer
-        long initialRetainedBytesTwoOperators = processSplitsConcurrently(factory, memoryContext, split, split);
+        // One partitioner is reused and one is new. Neither flushes after a single split.
+        long retainedBeforeInput = processSplitsConcurrently(factory, memoryContext, split, split);
+        assertThat(retainedBeforeInput).isEqualTo(flushedPartitionerBytes + unusedPartitionerBytes);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(1);
-        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesTwoOperators + 2 * split.getSizeInBytes());
+        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(2 * (flushedPartitionerBytes + split.getSizeInBytes()));
 
         // another pair of splits should flush both buffers
         processSplitsConcurrently(factory, memoryContext, split, split);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(3);
-        assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesTwoOperators);
+        assertThat(memoryContext.getBytes()).isEqualTo(2 * flushedPartitionerBytes);
 
         // max free buffers is set to 2 so 2 buffers are going to be retained but 2 will be flushed and released
         processSplitsConcurrently(factory, memoryContext, split, split, split, split);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(5);
-        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesTwoOperators + 2 * split.getSizeInBytes());
+        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(2 * (flushedPartitionerBytes + split.getSizeInBytes()));
 
         // another pair of splits should flush remaining buffers
         processSplitsConcurrently(factory, memoryContext, split, split);
         assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(7);
-        assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesTwoOperators);
+        assertThat(memoryContext.getBytes()).isEqualTo(2 * flushedPartitionerBytes);
 
         // noMoreOperators forces buffers to be flushed even though they are not full
         processSplitsConcurrently(factory, memoryContext, split);
-        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesTwoOperators + split.getSizeInBytes());
+        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(2 * flushedPartitionerBytes + split.getSizeInBytes());
         try (Operator operator = factory.createOperator(driverContext())) {
             factory.noMoreOperators();
             assertThat(outputBuffer.totalEnqueuedPageCount()).isEqualTo(8);
-            assertThat(memoryContext.getBytes()).isEqualTo(initialRetainedBytesOneOperator);
+            assertThat(memoryContext.getBytes()).isEqualTo(flushedPartitionerBytes);
 
             // noMoreOperators was called already so new split are flushed even though they are not full
             operator.addInput(split);
@@ -148,8 +152,8 @@ public class TestPagePartitionerPool
     public void testMemoryReleasedOnFailure()
     {
         Page split = new Page(createLongsBlock(1));
-        // one split fit in the buffer but 2 do not
-        DataSize maxPagePartitioningBufferSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
+        // A page can fit one split, but not two.
+        DataSize maxPageSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
         RuntimeException exception = new RuntimeException();
         OutputBufferMock outputBuffer = new OutputBufferMock()
         {
@@ -160,7 +164,7 @@ public class TestPagePartitionerPool
             }
         };
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        PartitionedOutputOperatorFactory factory = createFactory(maxPagePartitioningBufferSize, outputBuffer, memoryContext);
+        PartitionedOutputOperatorFactory factory = createFactory(maxPageSize, outputBuffer, memoryContext);
 
         long initialRetainedBytesOneOperator = processSplitsConcurrently(factory, memoryContext, split);
         assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesOneOperator + split.getSizeInBytes());
@@ -192,21 +196,23 @@ public class TestPagePartitionerPool
         assertThat(memoryContext.getBytes()).isZero();
     }
 
-    private static PartitionedOutputOperatorFactory createFactory(DataSize maxPagePartitioningBufferSize, OutputBufferMock outputBuffer, AggregatedMemoryContext memoryContext)
+    private static PartitionedOutputOperatorFactory createFactory(DataSize maxPageSize, OutputBufferMock outputBuffer, AggregatedMemoryContext memoryContext)
     {
+        // Partition 0 stays unused across checkouts.
+        BucketPartitionFunction partitionFunction = new BucketPartitionFunction((_, _) -> 1, new int[] {0, 1});
         return new PartitionedOutputOperatorFactory(
                 0,
                 new PlanNodeId("0"),
                 ImmutableList.of(BIGINT),
                 Function.identity(),
-                new BucketPartitionFunction((_, _) -> 0, new int[1]),
+                partitionFunction,
                 ImmutableList.of(0),
                 ImmutableList.of(),
                 false,
                 OptionalInt.empty(),
                 outputBuffer,
                 createTestingPagesSerdeFactory(LZ4),
-                maxPagePartitioningBufferSize,
+                DataSize.ofBytes(maxPageSize.toBytes() * partitionFunction.partitionCount()),
                 new PositionsAppenderFactory(new BlockTypeOperators()),
                 Optional.empty(),
                 memoryContext,
