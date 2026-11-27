@@ -157,6 +157,15 @@ fails at startup.
 * - `s3.role-session-name`
   - Role session name to use when connecting to S3. Defaults to
     `trino-filesystem`.
+* - `s3.role-session-duration`
+  - Requested session duration for `IAM_ROLE`, `WEB_IDENTITY`, and IAM roles
+    selected through security mappings. Defaults to `1h`; accepts `15m` to
+    `12h`. AWS also enforces the role's maximum session duration, and role
+    chaining cannot exceed `1h`. This does not configure sessions obtained
+    through the default credentials chain.
+* - `s3.presigned-uri.lifetime-validation.enabled`
+  - Enable presigned URI lifetime validation for spooling segments, as
+    described in [](prop-spooling-presigned-uri-lifetime). Defaults to `false`.
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
 * - `s3.auth-type`

@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createStaticCredentialsProvider;
@@ -29,9 +30,11 @@ record S3PresignerSettings(
         S3AuthType authType,
         Optional<String> iamRole,
         String roleSessionName,
+        Duration roleSessionDuration,
         Optional<String> externalId,
         Optional<String> stsEndpoint,
-        Optional<String> stsRegion)
+        Optional<String> stsRegion,
+        boolean lifetimeValidation)
 {
     public S3PresignerSettings
     {
@@ -41,6 +44,7 @@ record S3PresignerSettings(
         requireNonNull(authType, "authType is null");
         requireNonNull(iamRole, "iamRole is null");
         requireNonNull(roleSessionName, "roleSessionName is null");
+        requireNonNull(roleSessionDuration, "roleSessionDuration is null");
         requireNonNull(externalId, "externalId is null");
         requireNonNull(stsEndpoint, "stsEndpoint is null");
         requireNonNull(stsRegion, "stsRegion is null");
@@ -55,9 +59,11 @@ record S3PresignerSettings(
                 config.getAuthType(),
                 Optional.ofNullable(config.getIamRole()),
                 config.getRoleSessionName(),
+                config.getRoleSessionDuration().toJavaTime(),
                 Optional.ofNullable(config.getExternalId()),
                 Optional.ofNullable(config.getStsEndpoint()),
                 Optional.ofNullable(config.getStsRegion())
-                        .or(() -> Optional.ofNullable(config.getRegion())));
+                        .or(() -> Optional.ofNullable(config.getRegion())),
+                config.isPresignedUriLifetimeValidationEnabled());
     }
 }

@@ -94,7 +94,7 @@ public class TestS3FileSystemMinIo
         return new S3FileSystemFactory(OpenTelemetry.noop(), createS3FileSystemConfig(), new S3FileSystemStats());
     }
 
-    private S3FileSystemConfig createS3FileSystemConfig()
+    protected S3FileSystemConfig createS3FileSystemConfig()
     {
         return new S3FileSystemConfig()
                 .setEndpoint(minio.getMinioAddress())

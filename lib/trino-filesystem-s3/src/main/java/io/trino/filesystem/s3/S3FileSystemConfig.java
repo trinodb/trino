@@ -24,7 +24,9 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -39,6 +41,7 @@ import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
@@ -173,6 +176,8 @@ public class S3FileSystemConfig
     private boolean chunkedEncodingEnabled = true;
     private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
+    private Duration roleSessionDuration = new Duration(1, HOURS);
+    private boolean presignedUriLifetimeValidationEnabled;
     private String roleSessionName = "trino-filesystem";
     private String externalId;
     private String stsEndpoint;
@@ -328,6 +333,35 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setRoleSessionName(String roleSessionName)
     {
         this.roleSessionName = roleSessionName;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("15m")
+    @MaxDuration("12h")
+    public Duration getRoleSessionDuration()
+    {
+        return roleSessionDuration;
+    }
+
+    @Config("s3.role-session-duration")
+    @ConfigDescription("Requested duration of IAM role and web identity sessions, subject to AWS role session limits")
+    public S3FileSystemConfig setRoleSessionDuration(Duration roleSessionDuration)
+    {
+        this.roleSessionDuration = roleSessionDuration;
+        return this;
+    }
+
+    public boolean isPresignedUriLifetimeValidationEnabled()
+    {
+        return presignedUriLifetimeValidationEnabled;
+    }
+
+    @Config("s3.presigned-uri.lifetime-validation.enabled")
+    @ConfigDescription("Refresh signing credentials when they cannot cover the lifetime of a presigned URI, and fail signing when even fresh credentials cannot")
+    public S3FileSystemConfig setPresignedUriLifetimeValidationEnabled(boolean presignedUriLifetimeValidationEnabled)
+    {
+        this.presignedUriLifetimeValidationEnabled = presignedUriLifetimeValidationEnabled;
         return this;
     }
 
@@ -502,6 +536,20 @@ public class S3FileSystemConfig
                     stsRegion == null;
         }
         return true;
+    }
+
+    @AssertTrue(message = "s3.presigned-uri.lifetime-validation.enabled requires s3.auth-type=IAM_ROLE, s3.auth-type=WEB_IDENTITY, or s3.aws-access-key and s3.aws-secret-key")
+    public boolean isPresignedUriLifetimeValidationAuthValid()
+    {
+        if (!presignedUriLifetimeValidationEnabled) {
+            return true;
+        }
+        // For some auth types we cannot refresh the credentials to guarantee they cover presigned URI lifetime.
+        return switch (authType) {
+            case IAM_ROLE, WEB_IDENTITY -> true;
+            case DEFAULT -> awsAccessKey != null && awsSecretKey != null;
+            case ANONYMOUS -> false;
+        };
     }
 
     public Optional<SignerType> getSignerType()
