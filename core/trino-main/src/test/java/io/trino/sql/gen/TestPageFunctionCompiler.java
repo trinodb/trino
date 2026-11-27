@@ -27,6 +27,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TestingSourcePage;
+import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -65,6 +66,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -87,6 +89,7 @@ import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.BytecodeUtils.isJitCompilable;
 import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -95,6 +98,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
@@ -452,13 +456,63 @@ public class TestPageFunctionCompiler
         Expression nestedRow = new Row(nCopies(8, new Reference(VARCHAR, "$col_0")), nestedRowType);
         Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
 
-        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
-                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0), SQL_STANDARD, Optional.empty())
-                .get();
+        assertJitCompilableProjection(row, rowType, fieldCount);
+    }
 
+    @Test
+    public void testSmallRowWithBulkyFieldsFitsJitLimit()
+    {
+        // a row with few bulky fields is split into JIT compilable methods
+        int fieldCount = 16;
+        RowType nestedRowType = RowType.anonymous(nCopies(8, VARCHAR));
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, nestedRowType));
+        Expression nestedRow = new Row(nCopies(8, new Reference(VARCHAR, "$col_0")), nestedRowType);
+        Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
+        assertThat(fieldCount).isLessThanOrEqualTo(MEGAMORPHIC_FIELD_COUNT);
+
+        // projected directly into the output, and nested in another expression
+        assertJitCompilableProjection(row, rowType, fieldCount);
+        assertJitCompilableProjection(new Coalesce(row, row), rowType, fieldCount);
+
+        // split rows still see the enclosing let binding
+        Symbol let = new Symbol(VARCHAR, "let");
+        Expression letNestedRow = new Row(nCopies(8, new Reference(VARCHAR, "let")), nestedRowType);
+        Expression letRow = new Row(nCopies(fieldCount, letNestedRow), rowType);
+        assertJitCompilableProjection(new Let(let, new Reference(VARCHAR, "$col_0"), letRow), rowType, fieldCount);
+    }
+
+    @Test
+    public void testSmallRowIsGeneratedInline()
+    {
+        Reference input = new Reference(VARCHAR, "$col_0");
+        Row row = new Row(ImmutableList.of(input, input), RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR)));
+        for (Expression expression : ImmutableList.of(row, new Coalesce(row, row))) {
+            Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+            PageFieldsToInputParametersRewriter.Result rewritten = rewritePageFieldsToInputParameters(expression, layout);
+            ClassDefinition classDefinition = FUNCTION_RESOLUTION.getPageFunctionCompiler().definePageProjectWorkClass(
+                    expression, rewritten.compactLayout(), rewritten.inputChannels(), new CallSiteBinder(), SQL_STANDARD, Optional.empty());
+            assertThat(classDefinition.getMethods())
+                    .noneMatch(method -> method.getName().startsWith("partialRowConstructor"));
+        }
+    }
+
+    private void assertJitCompilableProjection(Expression projectionExpression, RowType rowType, int fieldCount)
+    {
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        PageFieldsToInputParametersRewriter.Result rewritten = rewritePageFieldsToInputParameters(projectionExpression, layout);
+        ClassDefinition classDefinition = FUNCTION_RESOLUTION.getPageFunctionCompiler().definePageProjectWorkClass(
+                projectionExpression, rewritten.compactLayout(), rewritten.inputChannels(), new CallSiteBinder(), SQL_STANDARD, Optional.empty());
+        for (MethodDefinition method : classDefinition.getMethods()) {
+            assertThat(isJitCompilable(method))
+                    .describedAs("method %s is too large to be JIT compiled", method.getName())
+                    .isTrue();
+        }
+
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projectionExpression, layout, SQL_STANDARD, Optional.empty())
+                .get();
         Page page = new Page(createStringsBlock("abc", "xyz"));
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
-        assertThat(result.getPositionCount()).isEqualTo(2);
         assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, nCopies(8, "abc")));
         assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, nCopies(8, "xyz")));
     }

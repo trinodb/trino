@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -272,7 +273,8 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, InputChannels inputChannels, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
+    @VisibleForTesting
+    ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, InputChannels inputChannels, CallSiteBinder callSiteBinder, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
