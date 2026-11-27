@@ -650,6 +650,10 @@ public class TestWebUi
                     false);
             OkHttpClient clientWithCert = clientBuilder.build();
             testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert, nodeId);
+            assertThat(assertOk(clientWithCert, getLocation(httpServerInfo.getHttpsUri(), "/ui/auth/info")))
+                    .hasValueSatisfying(body -> assertThat(body).contains(
+                            "\"authenticated\":true",
+                            "\"username\":\"CN=PrestoTest, O=PrestoTest, L=Palo Alto, ST=California, C=US\""));
         }
     }
 
@@ -679,11 +683,16 @@ public class TestWebUi
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
+                    .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build()))
                     .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
             testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt, nodeId);
+            assertThat(assertOk(clientWithJwt, getLocation(httpServerInfo.getHttpsUri(), "/ui/auth/info")))
+                    .hasValueSatisfying(body -> assertThat(body).contains("\"authenticated\":true", "\"username\":\"test-user\""));
         }
     }
 
