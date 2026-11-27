@@ -27,6 +27,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TestingSourcePage;
+import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -39,6 +40,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -64,7 +66,9 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -87,6 +91,7 @@ import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.BytecodeUtils.isJitCompilable;
 import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -95,6 +100,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
@@ -452,15 +458,212 @@ public class TestPageFunctionCompiler
         Expression nestedRow = new Row(nCopies(8, new Reference(VARCHAR, "$col_0")), nestedRowType);
         Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
 
-        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
-                .compileProjection(row, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0), SQL_STANDARD, Optional.empty())
-                .get();
+        assertJitCompilableProjection(row, rowType, fieldCount);
+    }
 
+    @Test
+    public void testSmallRowWithBulkyFieldsFitsJitLimit()
+    {
+        // a row with few bulky fields is split into JIT compilable methods
+        int fieldCount = 16;
+        RowType nestedRowType = RowType.anonymous(nCopies(8, VARCHAR));
+        RowType rowType = RowType.anonymous(nCopies(fieldCount, nestedRowType));
+        Expression nestedRow = new Row(nCopies(8, new Reference(VARCHAR, "$col_0")), nestedRowType);
+        Expression row = new Row(nCopies(fieldCount, nestedRow), rowType);
+        assertThat(fieldCount).isLessThanOrEqualTo(MEGAMORPHIC_FIELD_COUNT);
+
+        // projected directly into the output, and nested in another expression
+        assertJitCompilableProjection(row, rowType, fieldCount);
+        assertJitCompilableProjection(new Coalesce(row, row), rowType, fieldCount);
+
+        // split rows still see the enclosing let binding
+        Symbol let = new Symbol(VARCHAR, "let");
+        Expression letNestedRow = new Row(nCopies(8, new Reference(VARCHAR, "let")), nestedRowType);
+        Expression letRow = new Row(nCopies(fieldCount, letNestedRow), rowType);
+        assertJitCompilableProjection(new Let(let, new Reference(VARCHAR, "$col_0"), letRow), rowType, fieldCount);
+    }
+
+    @Test
+    public void testSmallRowIsGeneratedInline()
+    {
+        Reference input = new Reference(VARCHAR, "$col_0");
+        Row row = new Row(ImmutableList.of(input, input), RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR)));
+        for (Expression expression : ImmutableList.of(row, new Coalesce(row, row))) {
+            Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+            PageFieldsToInputParametersRewriter.Result rewritten = rewritePageFieldsToInputParameters(expression, layout);
+            ClassDefinition classDefinition = FUNCTION_RESOLUTION.getPageFunctionCompiler().definePageProjectWorkClass(
+                    expression, rewritten.compactLayout(), rewritten.inputChannels(), new CallSiteBinder(), SQL_STANDARD, Optional.empty());
+            assertThat(classDefinition.getMethods())
+                    .noneMatch(method -> method.getName().startsWith("partialRowConstructor"));
+        }
+    }
+
+    private void assertJitCompilableProjection(Expression projectionExpression, RowType rowType, int fieldCount)
+    {
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        PageFieldsToInputParametersRewriter.Result rewritten = rewritePageFieldsToInputParameters(projectionExpression, layout);
+        ClassDefinition classDefinition = FUNCTION_RESOLUTION.getPageFunctionCompiler().definePageProjectWorkClass(
+                projectionExpression, rewritten.compactLayout(), rewritten.inputChannels(), new CallSiteBinder(), SQL_STANDARD, Optional.empty());
+        for (MethodDefinition method : classDefinition.getMethods()) {
+            assertThat(isJitCompilable(method))
+                    .describedAs("method %s is too large to be JIT compiled", method.getName())
+                    .isTrue();
+        }
+
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projectionExpression, layout, SQL_STANDARD, Optional.empty())
+                .get();
         Page page = new Page(createStringsBlock("abc", "xyz"));
         Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
-        assertThat(result.getPositionCount()).isEqualTo(2);
         assertThat(rowType.getObjectValue(result, 0)).isEqualTo(nCopies(fieldCount, nCopies(8, "abc")));
         assertThat(rowType.getObjectValue(result, 1)).isEqualTo(nCopies(fieldCount, nCopies(8, "xyz")));
+    }
+
+    @Test
+    public void testGuardedRowProjection()
+    {
+        // IF(x IS NULL, NULL, ROW(...)) must yield the same values as constructing the row and then copying it
+        RowType nestedType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        RowType inputType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT, nestedType, arrayType));
+        RowType resultNestedType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        RowType resultType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT, resultNestedType, arrayType));
+
+        Reference x = new Reference(inputType, "x");
+        Expression nested = new FieldReference(x, 2);
+        Expression guardedNested = new Case(
+                ImmutableList.of(new WhenClause(new IsNull(nested), new Constant(resultNestedType, null))),
+                new Row(ImmutableList.of(new FieldReference(nested, 0), new Constant(BIGINT, 7L)), resultNestedType));
+        Expression guardedRow = new Case(
+                ImmutableList.of(new WhenClause(new IsNull(x), new Constant(resultType, null))),
+                new Row(ImmutableList.of(new FieldReference(x, 0), new Constant(BIGINT, 99L), guardedNested, new FieldReference(x, 3)), resultType));
+
+        RowBlockBuilder input = (RowBlockBuilder) inputType.createBlockBuilder(null, 5);
+        input.buildEntry(fields -> {
+            VARCHAR.writeSlice(fields.get(0), utf8Slice("a0"));
+            BIGINT.writeLong(fields.get(1), 1);
+            ((RowBlockBuilder) fields.get(2)).buildEntry(nestedFields -> {
+                VARCHAR.writeSlice(nestedFields.get(0), utf8Slice("c0"));
+                BIGINT.writeLong(nestedFields.get(1), 10);
+            });
+            ((ArrayBlockBuilder) fields.get(3)).buildEntry(elements -> {
+                VARCHAR.writeSlice(elements, utf8Slice("x"));
+                VARCHAR.writeSlice(elements, utf8Slice("y"));
+            });
+        });
+        input.appendNull();
+        input.buildEntry(fields -> {
+            VARCHAR.writeSlice(fields.get(0), utf8Slice("a2"));
+            fields.get(1).appendNull();
+            fields.get(2).appendNull();
+            fields.get(3).appendNull();
+        });
+        input.buildEntry(fields -> {
+            fields.get(0).appendNull();
+            BIGINT.writeLong(fields.get(1), 3);
+            ((RowBlockBuilder) fields.get(2)).buildEntry(nestedFields -> {
+                nestedFields.get(0).appendNull();
+                BIGINT.writeLong(nestedFields.get(1), 30);
+            });
+            ((ArrayBlockBuilder) fields.get(3)).buildEntry(_ -> {});
+        });
+        input.buildEntry(fields -> {
+            VARCHAR.writeSlice(fields.get(0), utf8Slice("a4"));
+            BIGINT.writeLong(fields.get(1), 4);
+            ((RowBlockBuilder) fields.get(2)).buildEntry(nestedFields -> {
+                VARCHAR.writeSlice(nestedFields.get(0), utf8Slice("c4"));
+                nestedFields.get(1).appendNull();
+            });
+            ((ArrayBlockBuilder) fields.get(3)).buildEntry(elements -> {
+                elements.appendNull();
+                VARCHAR.writeSlice(elements, utf8Slice("z"));
+            });
+        });
+
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(guardedRow, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Page page = new Page(input.build());
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, 5));
+
+        assertThat(result.getPositionCount()).isEqualTo(5);
+        assertThat(resultType.getObjectValue(result, 0)).isEqualTo(Arrays.asList("a0", 99L, Arrays.asList("c0", 7L), Arrays.asList("x", "y")));
+        assertThat(result.isNull(1)).isTrue();
+        assertThat(resultType.getObjectValue(result, 2)).isEqualTo(Arrays.asList("a2", 99L, null, null));
+        assertThat(resultType.getObjectValue(result, 3)).isEqualTo(Arrays.asList(null, 99L, Arrays.asList(null, 7L), List.of()));
+        assertThat(resultType.getObjectValue(result, 4)).isEqualTo(Arrays.asList("a4", 99L, Arrays.asList("c4", 7L), Arrays.asList(null, "z")));
+
+        // a null field right before a guarded field must not leak its null flag into the guard
+        Expression nullFieldThenGuard = new Row(ImmutableList.of(new FieldReference(x, 0), guardedNested), RowType.anonymous(ImmutableList.of(VARCHAR, resultNestedType)));
+        PageProjection nullFieldProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(nullFieldThenGuard, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Block nullFieldResult = project(nullFieldProjection, page, SelectedPositions.positionsRange(3, 2));
+        assertThat(nullFieldThenGuard.type().getObjectValue(nullFieldResult, 0)).isEqualTo(Arrays.asList(null, Arrays.asList(null, 7L)));
+        assertThat(nullFieldThenGuard.type().getObjectValue(nullFieldResult, 1)).isEqualTo(Arrays.asList("a4", Arrays.asList("c4", 7L)));
+
+        // the same with a condition that does not set the null flag itself
+        Expression constantGuard = new Case(
+                ImmutableList.of(new WhenClause(new Constant(BOOLEAN, true), new Row(ImmutableList.of(new Constant(BIGINT, 5L)), RowType.anonymous(ImmutableList.of(BIGINT))))),
+                new Constant(RowType.anonymous(ImmutableList.of(BIGINT)), null));
+        Expression nullFieldThenConstantGuard = new Row(ImmutableList.of(new FieldReference(x, 0), constantGuard), RowType.anonymous(ImmutableList.of(VARCHAR, constantGuard.type())));
+        PageProjection constantGuardProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(nullFieldThenConstantGuard, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Block constantGuardResult = project(constantGuardProjection, page, SelectedPositions.positionsRange(3, 2));
+        assertThat(nullFieldThenConstantGuard.type().getObjectValue(constantGuardResult, 0)).isEqualTo(Arrays.asList(null, List.of(5L)));
+        assertThat(nullFieldThenConstantGuard.type().getObjectValue(constantGuardResult, 1)).isEqualTo(Arrays.asList("a4", List.of(5L)));
+
+        // also when selected positions skip rows and the guard is the nested field of an outer row
+        Expression outer = new Row(ImmutableList.of(guardedRow, new Constant(BIGINT, 1L)), RowType.anonymous(ImmutableList.of(resultType, BIGINT)));
+        PageProjection outerProjection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(outer, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                .get();
+        Block outerResult = project(outerProjection, page, SelectedPositions.positionsRange(1, 2));
+        assertThat(outerResult.getPositionCount()).isEqualTo(2);
+        assertThat(outer.type().getObjectValue(outerResult, 0)).isEqualTo(Arrays.asList(null, 1L));
+        assertThat(outer.type().getObjectValue(outerResult, 1)).isEqualTo(Arrays.asList(Arrays.asList("a2", 99L, null, null), 1L));
+    }
+
+    @Test
+    public void testRowProjectionInLet()
+    {
+        // the body of a LET is written straight into the output, with the binding still visible to it
+        RowType inputType = RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT));
+        RowType resultType = RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR));
+        Symbol y = new Symbol(inputType, "y");
+        Expression body = new Case(
+                ImmutableList.of(new WhenClause(new IsNull(new Reference(inputType, "y")), new Constant(resultType, null))),
+                new Row(ImmutableList.of(new FieldReference(new Reference(inputType, "y"), 1), new FieldReference(new Reference(inputType, "y"), 0)), resultType));
+        Expression let = new Let(y, new Reference(inputType, "x"), body);
+        // the null field before the LET must not be visible to it
+        RowType outerType = RowType.anonymous(ImmutableList.of(VARCHAR, resultType));
+        Expression outer = new Row(ImmutableList.of(new Constant(VARCHAR, null), let), outerType);
+
+        RowBlockBuilder input = (RowBlockBuilder) inputType.createBlockBuilder(null, 3);
+        input.buildEntry(fields -> {
+            VARCHAR.writeSlice(fields.get(0), utf8Slice("a"));
+            BIGINT.writeLong(fields.get(1), 1);
+        });
+        input.appendNull();
+        input.buildEntry(fields -> {
+            fields.get(0).appendNull();
+            fields.get(1).appendNull();
+        });
+        Page page = new Page(input.build());
+
+        for (Expression expression : ImmutableList.of(let, outer)) {
+            PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                    .compileProjection(expression, ImmutableMap.of(new Symbol(inputType, "x"), 0), SQL_STANDARD, Optional.empty())
+                    .get();
+            Block result = project(projection, page, SelectedPositions.positionsRange(0, 3));
+            Type type = expression.type();
+            List<Object> expected = Arrays.asList(Arrays.asList(1L, "a"), null, Arrays.asList(null, null));
+            for (int position = 0; position < 3; position++) {
+                Object value = expression == let ? expected.get(position) : Arrays.asList(null, expected.get(position));
+                assertThat(type.getObjectValue(result, position)).isEqualTo(value);
+            }
+        }
     }
 
     @Test

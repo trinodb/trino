@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
@@ -28,10 +29,6 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.RowEntryBuilder;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -54,28 +51,33 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.trino.sql.gen.BytecodeUtils.fitsJitCompilableMethod;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
-import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionBytecodeCompiler
 {
+    // matched on disjoint shapes, so the order does not change the result
+    private static final List<ProjectionWriter> PROJECTION_WRITERS = ImmutableList.of(new RowProjectionWriter(), new CaseProjectionWriter(), new LetProjectionWriter());
+
     private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
@@ -85,6 +87,7 @@ public class ExpressionBytecodeCompiler
     private final CharVarcharCoercion charVarcharCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
+    private final Map<Row, List<MethodDefinition>> partialRowConstructors = new IdentityHashMap<>();
 
     public ExpressionBytecodeCompiler(
             ClassDefinition classDefinition,
@@ -109,6 +112,16 @@ public class ExpressionBytecodeCompiler
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
     }
 
+    List<MethodDefinition> partialRowConstructors(Row row, Supplier<List<MethodDefinition>> generator)
+    {
+        List<MethodDefinition> methods = partialRowConstructors.get(row);
+        if (methods == null) {
+            methods = generator.get();
+            partialRowConstructors.put(row, methods);
+        }
+        return methods;
+    }
+
     public BytecodeNode compile(Expression expression, Scope scope)
     {
         return compile(expression, scope, Optional.empty(), ImmutableMap.of());
@@ -126,25 +139,82 @@ public class ExpressionBytecodeCompiler
 
     public BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, BytecodeExpression blockBuilder)
     {
+        return compileToBlock(expression, type, scope, ImmutableMap.of(), blockBuilder, true);
+    }
+
+    private BytecodeNode compileToBlock(Expression expression, Type type, Scope scope, Map<String, LetBinding> lets, BytecodeExpression blockBuilder, boolean measure)
+    {
         Variable wasNull = scope.getVariable("wasNull");
-        BytecodeBlock block = new BytecodeBlock();
-        if (expression instanceof Row row && row.items().size() <= MEGAMORPHIC_FIELD_COUNT) {
-            // A field failure can leave an open entry with uneven field counts. GeneratedPageProjection
-            // creates a fresh output builder on every project() call, including dictionary retries.
-            List<Type> fieldTypes = ((RowType) type).getFieldTypes();
-            Variable entry = scope.getOrCreateTempVariable(RowEntryBuilder.class);
-            block.append(entry.set(blockBuilder.cast(RowBlockBuilder.class).invoke("buildEntry", RowEntryBuilder.class)));
-            for (int field = 0; field < row.items().size(); field++) {
-                block.append(compileToBlock(row.items().get(field), fieldTypes.get(field), scope, entry.invoke("getFieldBuilder", BlockBuilder.class, constantInt(field))));
+        for (ProjectionWriter writer : PROJECTION_WRITERS) {
+            if (writer.supports(expression, type)) {
+                BytecodeBlock block = new BytecodeBlock()
+                        .append(wasNull.set(constantFalse()))
+                        .append(writer.write(new WriteContext(scope, lets), expression, type, blockBuilder));
+                // a method over the JIT limit is never compiled, so bulky fields take the generic path, which splits the row into methods;
+                // nested values are part of the outermost block, so only that one is measured
+                if (!measure || fitsJitCompilableMethod(block, scope)) {
+                    return block;
+                }
+                break;
             }
-            block.append(entry.invoke("build", void.class));
-            scope.releaseTempVariableForReuse(entry);
-            return block.append(wasNull.set(constantFalse()));
         }
-        return block.append(wasNull.set(constantFalse()))
+        return new BytecodeBlock()
+                .append(wasNull.set(constantFalse()))
                 .append(blockBuilder)
-                .append(compile(expression, scope))
+                .append(new Visitor().process(expression, new Context(scope, Optional.empty(), lets)))
                 .append(generateWrite(callSiteBinder, scope, wasNull, type));
+    }
+
+    private class WriteContext
+            implements ProjectionWriter.Context
+    {
+        private final Scope scope;
+        private final Map<String, LetBinding> lets;
+
+        private WriteContext(Scope scope, Map<String, LetBinding> lets)
+        {
+            this.scope = scope;
+            this.lets = lets;
+        }
+
+        @Override
+        public Scope scope()
+        {
+            return scope;
+        }
+
+        @Override
+        public BytecodeGeneratorContext generatorContext()
+        {
+            return ExpressionBytecodeCompiler.this.generatorContext(scope, lets);
+        }
+
+        @Override
+        public BytecodeNode write(Expression expression, Type type, BytecodeExpression output)
+        {
+            return compileToBlock(expression, type, scope, lets, output, false);
+        }
+
+        @Override
+        public ProjectionWriter.Context withLet(Symbol name, Variable value, Variable wasNull)
+        {
+            return new WriteContext(scope, ImmutableMap.<String, LetBinding>builder()
+                    .putAll(lets)
+                    .put(name.name(), new LetBinding(value, wasNull))
+                    .buildOrThrow());
+        }
+    }
+
+    static BytecodeBlock caseCondition(BytecodeGeneratorContext generatorContext, WhenClause clause)
+    {
+        Variable wasNull = generatorContext.wasNull();
+        return new BytecodeBlock()
+                .append(generatorContext.generate(clause.operand()))
+                .comment("... and condition value was not null")
+                .append(wasNull)
+                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
+                .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
+                .append(wasNull.set(constantFalse()));
     }
 
     private BytecodeGeneratorContext generatorContext(Scope scope, Map<String, LetBinding> lets)
@@ -295,17 +365,8 @@ public class ExpressionBytecodeCompiler
             BytecodeNode result = generatorContext.generate(node.defaultValue());
 
             for (WhenClause clause : node.whenClauses().reversed()) {
-                Variable wasNull = generatorContext.wasNull();
-                BytecodeBlock conditionBlock = new BytecodeBlock()
-                        .append(generatorContext.generate(clause.operand()))
-                        .comment("... and condition value was not null")
-                        .append(wasNull)
-                        .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
-                        .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
-                        .append(wasNull.set(constantFalse()));
-
                 result = new IfStatement()
-                        .condition(conditionBlock)
+                        .condition(caseCondition(generatorContext, clause))
                         .ifTrue(generatorContext.generate(clause.result()))
                         .ifFalse(result);
             }

@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -28,11 +29,14 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.ExpressionBytecodeCompiler.LetBinding;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
@@ -53,6 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
+    private final Row row;
     private final RowType rowType;
     private final List<Expression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
@@ -60,7 +65,7 @@ public class RowConstructorCodeGenerator
 
     public RowConstructorCodeGenerator(Row row)
     {
-        requireNonNull(row, "row is null");
+        this.row = requireNonNull(row, "row is null");
         rowType = (RowType) row.type();
         arguments = row.items();
     }
@@ -72,6 +77,16 @@ public class RowConstructorCodeGenerator
             return generateExpressionForLargeRows(context);
         }
 
+        BytecodeNode inline = generateInlineExpression(context);
+        // a few bulky fields can exceed the JIT limit too
+        if (fitsJitCompilableMethod(inline, context.getScope())) {
+            return inline;
+        }
+        return generateExpressionForLargeRows(context);
+    }
+
+    private BytecodeNode generateInlineExpression(BytecodeGeneratorContext context)
+    {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
@@ -124,22 +139,38 @@ public class RowConstructorCodeGenerator
         Variable fieldBuilders = scope.getOrCreateTempVariable(BlockBuilder[].class);
         block.append(fieldBuilders.set(invokeStatic(RowConstructorCodeGenerator.class, "createFieldBlockBuildersForSingleRow", BlockBuilder[].class, constantType(binder, rowType))));
 
-        int field = 0;
-        while (field < arguments.size()) {
-            PartialRowConstructor partialRowConstructor = generatePartialRowConstructor(field, context);
+        List<LetBinding> lets = ImmutableList.copyOf(context.lets().values());
+        // a failed inline attempt may already have declared these methods
+        List<MethodDefinition> partials = context.getExpressionCompiler().partialRowConstructors(row, () -> generatePartialRowConstructors(context));
+        for (MethodDefinition partial : partials) {
             block.getVariable(scope.getThis());
             for (Parameter argument : context.getContextArguments()) {
                 block.getVariable(argument);
             }
+            for (LetBinding let : lets) {
+                block.getVariable(let.value());
+                block.getVariable(let.wasNull());
+            }
             block.getVariable(fieldBuilders);
-            block.invokeVirtual(partialRowConstructor.method());
-            field = partialRowConstructor.nextField();
+            block.invokeVirtual(partial);
         }
 
         block.append(invokeStatic(RowConstructorCodeGenerator.class, "createSqlRowFromFieldBuildersForSingleRow", SqlRow.class, fieldBuilders));
         scope.releaseTempVariableForReuse(fieldBuilders);
         block.append(context.wasNull().set(constantFalse()));
         return block;
+    }
+
+    private List<MethodDefinition> generatePartialRowConstructors(BytecodeGeneratorContext context)
+    {
+        ImmutableList.Builder<MethodDefinition> methods = ImmutableList.builder();
+        int field = 0;
+        while (field < arguments.size()) {
+            PartialRowConstructor partial = generatePartialRowConstructor(field, context);
+            methods.add(partial.method());
+            field = partial.nextField();
+        }
+        return methods.build();
     }
 
     private PartialRowConstructor generatePartialRowConstructor(int start, BytecodeGeneratorContext parentContext)
@@ -150,6 +181,12 @@ public class RowConstructorCodeGenerator
         Parameter fieldBuilders = arg("fieldBuilders", BlockBuilder[].class);
 
         List<Parameter> parameters = new ArrayList<>(parentContext.getContextArguments());
+        // let bindings are locals of the caller, so each one is passed in with its null flag
+        List<LetBinding> parentLets = ImmutableList.copyOf(parentContext.lets().values());
+        for (int i = 0; i < parentLets.size(); i++) {
+            parameters.add(arg("let" + i, parentLets.get(i).value().getType()));
+            parameters.add(arg("letWasNull" + i, boolean.class));
+        }
         parameters.add(fieldBuilders);
 
         MethodDefinition methodDefinition = classDefinition.declareMethod(
@@ -162,6 +199,13 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = methodDefinition.getBody();
         scope.declareVariable("wasNull", block, constantFalse());
 
+        Map<String, LetBinding> lets = new LinkedHashMap<>();
+        int letIndex = 0;
+        for (String name : parentContext.lets().keySet()) {
+            lets.put(name, new LetBinding(scope.getVariable("let" + letIndex), scope.getVariable("letWasNull" + letIndex)));
+            letIndex++;
+        }
+
         BytecodeGeneratorContext context = new BytecodeGeneratorContext(
                 parentContext.getExpressionCompiler(),
                 scope,
@@ -170,7 +214,8 @@ public class RowConstructorCodeGenerator
                 parentContext.getFunctionManager(),
                 parentContext.getMetadata(),
                 classDefinition,
-                parentContext.getContextArguments());
+                parentContext.getContextArguments(),
+                lets);
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         List<Type> types = rowType.getFieldTypes();
 
@@ -203,8 +248,7 @@ public class RowConstructorCodeGenerator
                     .append(fieldInitialization);
             // always emit at least one field, so an oversized single field still makes progress
             if (field > start && !fitsJitCompilableMethod(candidate, scope)) {
-                // this field goes into the next partial method; discarding the block generated
-                // for it is safe as the measuring pass has no side effects
+                // this field goes into the next partial method
                 break;
             }
             block.append(fieldInitialization);
