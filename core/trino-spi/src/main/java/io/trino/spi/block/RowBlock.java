@@ -274,7 +274,12 @@ public final class RowBlock
         long[] newValueIsValid = copyBitmapAndAppendUnset(valueIsValid, startOffset, positionCount);
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
+            Block fieldBlock = fieldBlocks[i];
+            // The appended null must follow the last visible position, so drop raw field positions after it
+            if (fieldBlock.getPositionCount() != startOffset + positionCount) {
+                fieldBlock = fieldBlock.getRegion(0, startOffset + positionCount);
+            }
+            newBlocks[i] = fieldBlock.copyWithAppendedNull();
         }
         return new RowBlock(startOffset, positionCount + 1, newValueIsValid, newBlocks);
     }

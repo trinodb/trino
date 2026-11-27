@@ -13,17 +13,96 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.function.ColumnarScalar;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SelectedPositions;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+
+import java.util.Optional;
+
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.set;
 
 @ScalarFunction(value = "reverse", neverFails = true)
 @Description("Returns an array which has the reversed order of the given array.")
 public final class ArrayReverseFunction
 {
     private ArrayReverseFunction() {}
+
+    @ColumnarScalar
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block reverseColumnar(SelectedPositions selectedPositions, @SqlType("array(E)") Block arrayColumn)
+    {
+        ColumnarArray arrays = ColumnarArray.toColumnarArray(arrayColumn);
+        if (selectedPositions.isList()) {
+            return reverseSelected(arrays, selectedPositions);
+        }
+
+        int[] ids = new int[arrays.getElementsBlock().getPositionCount()];
+        int nextId = 0;
+        for (int position = 0; position < arrays.getPositionCount(); position++) {
+            int offset = arrays.getOffset(position);
+            int length = arrays.getLength(position);
+            for (int element = length - 1; element >= 0; element--) {
+                ids[nextId++] = offset + element;
+            }
+        }
+
+        Block elements = DictionaryBlock.create(ids.length, arrays.getElementsBlock(), ids);
+        return selectedPositions.select(replaceElements(arrayColumn, arrays, elements));
+    }
+
+    private static Block reverseSelected(ColumnarArray arrays, SelectedPositions selectedPositions)
+    {
+        int positionCount = selectedPositions.size();
+        int[] offsets = new int[positionCount + 1];
+        long[] valueIsValid = arrays.mayHaveNull() ? allocateWords(positionCount, false) : null;
+        for (int index = 0; index < positionCount; index++) {
+            int position = selectedPositions.position(index);
+            offsets[index + 1] = offsets[index] + arrays.getLength(position);
+            if (valueIsValid != null && !arrays.isNull(position)) {
+                set(valueIsValid, 0, index);
+            }
+        }
+
+        int[] ids = new int[offsets[positionCount]];
+        for (int index = 0; index < positionCount; index++) {
+            int position = selectedPositions.position(index);
+            int offset = arrays.getOffset(position);
+            int nextId = offsets[index];
+            for (int element = arrays.getLength(position) - 1; element >= 0; element--) {
+                ids[nextId++] = offset + element;
+            }
+        }
+
+        Block elements = DictionaryBlock.create(ids.length, arrays.getElementsBlock(), ids);
+        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(valueIsValid), offsets, elements);
+    }
+
+    private static Block replaceElements(Block arrayColumn, ColumnarArray arrays, Block elements)
+    {
+        if (arrayColumn instanceof ArrayBlock arrayBlock) {
+            return arrayBlock.createProjection(elements);
+        }
+
+        int positionCount = arrays.getPositionCount();
+        int[] offsets = new int[positionCount + 1];
+        long[] valueIsValid = arrays.mayHaveNull() ? allocateWords(positionCount, false) : null;
+        for (int position = 0; position < positionCount; position++) {
+            offsets[position + 1] = offsets[position] + arrays.getLength(position);
+            if (valueIsValid != null && !arrays.isNull(position)) {
+                set(valueIsValid, 0, position);
+            }
+        }
+        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(valueIsValid), offsets, elements);
+    }
 
     @TypeParameter("E")
     @SqlType("array(E)")

@@ -19,13 +19,22 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.ColumnarProjectionAssertions;
+import io.trino.sql.gen.ColumnarProjectionAssertions.Input;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,13 +45,18 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+import java.util.function.IntToLongFunction;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -57,6 +71,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.gen.ColumnarProjectionAssertions.region;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -76,6 +91,14 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestMapOperators
 {
     private QueryAssertions assertions;
+
+    private static final ColumnarProjectionAssertions COLUMNAR = new ColumnarProjectionAssertions(new TestingFunctionResolution());
+    private static final int POSITION_COUNT = 40;
+    private static final MapType BIGINT_VARCHAR_MAP = mapType(BIGINT, VARCHAR);
+    private static final MapType VARCHAR_MAP = mapType(VARCHAR, VARCHAR);
+    private static final MapType VARCHAR_BIGINT_MAP = mapType(VARCHAR, BIGINT);
+    // positions with invalid arguments for the functions that can fail
+    private static final IntPredicate INVALID = position -> position % 3 == 1;
 
     @BeforeAll
     public void init()
@@ -1884,5 +1907,143 @@ public class TestMapOperators
     private static Type entryType(Type keyType, Type valueType)
     {
         return new ArrayType(RowType.anonymous(ImmutableList.of(keyType, valueType)));
+    }
+
+    @Test
+    public void testColumnarMapFunctions()
+    {
+        for (String function : ImmutableList.of("map_keys", "map_values", "map_entries")) {
+            COLUMNAR.assertEquivalent(
+                    COLUMNAR.function(function, new Reference(BIGINT_VARCHAR_MAP, "input")),
+                    new Input("input", BIGINT_VARCHAR_MAP, mapBlock()));
+        }
+    }
+
+    private static Block mapBlock()
+    {
+        // every seventh map is null, the maps have up to three entries, and the value of the second entry is null
+        MapBlockBuilder builder = BIGINT_VARCHAR_MAP.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (int entry = 0; entry < value % 4; entry++) {
+                    BIGINT.writeLong(keyBuilder, value * 10L + entry);
+                    if (entry == 1) {
+                        valueBuilder.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(valueBuilder, "value-" + value + "-" + entry);
+                    }
+                }
+            });
+        }
+        return builder.build();
+    }
+
+    @Test
+    public void testColumnarCardinality()
+    {
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(BIGINT_VARCHAR_MAP, "input")),
+                new Input("input", BIGINT_VARCHAR_MAP, mapBlock()));
+        // the offsets of a region do not start at the first map
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("cardinality", new Reference(BIGINT_VARCHAR_MAP, "input")),
+                new Input("input", BIGINT_VARCHAR_MAP, region(BIGINT_VARCHAR_MAP, mapBlock())));
+    }
+
+    @Test
+    public void testColumnarElementAt()
+    {
+        // key-3 is only in every fourth map
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("element_at", new Reference(VARCHAR_MAP, "input"), new Constant(VARCHAR, utf8Slice("key-3"))),
+                new Input("input", VARCHAR_MAP, varcharMapBlock()));
+        // the offsets of a region do not start at the first map
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("element_at", new Reference(VARCHAR_MAP, "input"), new Constant(VARCHAR, utf8Slice("key-2"))),
+                new Input("input", VARCHAR_MAP, region(VARCHAR_MAP, varcharMapBlock())));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("element_at", new Reference(VARCHAR_MAP, "input"), new Reference(VARCHAR, "key")),
+                new Input("input", VARCHAR_MAP, varcharMapBlock()),
+                new Input("key", VARCHAR, varcharBlock(position -> position % 5 == 1, position -> "key-" + (position % 5))));
+        COLUMNAR.assertEquivalent(
+                COLUMNAR.function("element_at", new Reference(BIGINT_VARCHAR_MAP, "input"), new Reference(BIGINT, "key")),
+                new Input("input", BIGINT_VARCHAR_MAP, mapBlock()),
+                new Input("key", BIGINT, longBlock(position -> position * 10L + (position % 3))));
+    }
+
+    @Test
+    public void testColumnarSubscript()
+    {
+        // subscript fails for a missing key
+        COLUMNAR.assertEquivalentForValidPositions(
+                COLUMNAR.operator(SUBSCRIPT, new Reference(VARCHAR_MAP, "input"), new Reference(VARCHAR, "key")),
+                INVALID,
+                new Input("input", VARCHAR_MAP, varcharMapBlock()),
+                // the value of key-1 is null, and a null key selects a null
+                new Input("key", VARCHAR, varcharBlock(position -> position % 5 == 2, position -> INVALID.test(position) ? "missing" : position % 4 == 2 ? "key-1" : "key-0")));
+    }
+
+    @Test
+    public void testColumnarFixedWidthMapValues()
+    {
+        // fixed width values are selected by the generated projection
+        Input map = new Input("input", VARCHAR_BIGINT_MAP, VARCHAR_BIGINT_MAP.createBlockBuilder(null, 0).build());
+        Input key = new Input("key", VARCHAR, varcharBlock(_ -> false, position -> "key-" + position));
+        COLUMNAR.assertGenerated(COLUMNAR.function("element_at", new Reference(VARCHAR_BIGINT_MAP, "input"), new Reference(VARCHAR, "key")), map, key);
+        COLUMNAR.assertGenerated(COLUMNAR.operator(SUBSCRIPT, new Reference(VARCHAR_BIGINT_MAP, "input"), new Reference(VARCHAR, "key")), map, key);
+    }
+
+    private static Block varcharMapBlock()
+    {
+        // every non-null map has key-0, and the value of key-1 is null
+        MapBlockBuilder builder = VARCHAR_MAP.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (position % 7 == 3) {
+                builder.appendNull();
+                continue;
+            }
+            int value = position;
+            builder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (int entry = 0; entry <= value % 4; entry++) {
+                    VARCHAR.writeString(keyBuilder, "key-" + entry);
+                    if (entry == 1) {
+                        valueBuilder.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(valueBuilder, "value-" + value + "-" + entry);
+                    }
+                }
+            });
+        }
+        return builder.build();
+    }
+
+    private static Block varcharBlock(IntPredicate isNull, IntFunction<String> value)
+    {
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            if (isNull.test(position)) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(builder, value.apply(position));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Block longBlock(IntToLongFunction value)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(POSITION_COUNT);
+        for (int position = 0; position < POSITION_COUNT; position++) {
+            BIGINT.writeLong(builder, value.applyAsLong(position));
+        }
+        return builder.build();
     }
 }

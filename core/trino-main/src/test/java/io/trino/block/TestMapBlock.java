@@ -182,6 +182,39 @@ public class TestMapBlock
         assertBlock(midSection, Arrays.copyOfRange(testValues, 2, 6));
     }
 
+    @Test
+    public void testLazyHashTableBuildOverCopyWithAppendedNull()
+    {
+        assertLazyHashTableBuildOverCopyWithAppendedNull(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+        assertLazyHashTableBuildOverCopyWithAppendedNull(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    private void assertLazyHashTableBuildOverCopyWithAppendedNull(Map<String, Long>[] testValues)
+    {
+        assertLazyHashTableBuildOverCopyWithAppendedNull(testValues, 0, 2);
+        assertLazyHashTableBuildOverCopyWithAppendedNull(testValues, 0, testValues.length - 1);
+        assertLazyHashTableBuildOverCopyWithAppendedNull(testValues, 2, 4);
+        assertLazyHashTableBuildOverCopyWithAppendedNull(testValues, testValues.length - 2, 2);
+    }
+
+    private void assertLazyHashTableBuildOverCopyWithAppendedNull(Map<String, Long>[] testValues, int position, int length)
+    {
+        Map<String, Long>[] expectedCopy = Arrays.copyOf(Arrays.copyOfRange(testValues, position, position + length), length + 1);
+
+        // the copy builds its hash tables before the block
+        MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+        MapBlock copy = block.getRegion(position, length).copyWithAppendedNull();
+        assertThat(copy.isHashTablesPresent()).isFalse();
+        assertBlock(copy, expectedCopy);
+        assertBlock(block, testValues);
+
+        // the block builds its hash tables before the copy
+        block = createBlockWithValuesFromKeyValueBlock(testValues);
+        copy = block.getRegion(position, length).copyWithAppendedNull();
+        assertBlock(block, testValues);
+        assertBlock(copy, expectedCopy);
+    }
+
     private static Map<String, Long>[] createTestMap(int... entryCounts)
     {
         @SuppressWarnings({"rawtypes", "unchecked"})
