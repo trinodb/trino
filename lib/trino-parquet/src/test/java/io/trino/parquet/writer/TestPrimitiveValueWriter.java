@@ -76,8 +76,9 @@ final class TestPrimitiveValueWriter
 {
     // a small dictionary page forces a fallback to plain encoding, a large one keeps dictionary encoding
     private static final List<Integer> MAX_DICTIONARY_PAGE_SIZES = ImmutableList.of(64, 1048576);
-    // boolean values are written in chunks of 64 bits, so counts either side of a chunk boundary are covered
-    private static final List<Integer> REPEATED_COUNTS = ImmutableList.of(2, 8, 65, 130);
+    // boolean values are written in chunks of 64 bits and fixed width values in batches of 1024,
+    // so counts either side of those boundaries are covered
+    private static final List<Integer> REPEATED_COUNTS = ImmutableList.of(2, 8, 65, 130, 1024, 2500);
 
     @Test
     void testRepeatedBlockMatchesValueBlock()
@@ -175,12 +176,51 @@ final class TestPrimitiveValueWriter
         }
     }
 
+    @Test
+    void testLargeBlockMatchesSmallBlocks()
+            throws IOException
+    {
+        // fixed width values are written in batches, so a block spanning several batches is compared with the same values written a few at a time
+        int positionCount = 2500;
+        int smallBlockSize = 7;
+        for (TestCase testCase : testCases()) {
+            for (int maxDictionaryPageSize : MAX_DICTIONARY_PAGE_SIZES) {
+                for (boolean withNulls : ImmutableList.of(false, true)) {
+                    List<Object> dictionaryValues = new ArrayList<>(testCase.values());
+                    if (withNulls) {
+                        dictionaryValues.add(null);
+                    }
+                    int[] ids = new int[positionCount];
+                    for (int position = 0; position < positionCount; position++) {
+                        ids[position] = (position * 7 + position / 3) % dictionaryValues.size();
+                    }
+                    Block valueBlock = createBlock(testCase.trinoType(), Arrays.stream(ids).mapToObj(dictionaryValues::get).toList());
+                    Block dictionaryBlock = DictionaryBlock.create(ids.length, createBlock(testCase.trinoType(), dictionaryValues), ids);
+                    assertThat(dictionaryBlock).isInstanceOf(DictionaryBlock.class);
+
+                    ImmutableList.Builder<Block> smallBlocks = ImmutableList.builder();
+                    for (int offset = 0; offset < positionCount; offset += smallBlockSize) {
+                        smallBlocks.add(valueBlock.getRegion(offset, Math.min(smallBlockSize, positionCount - offset)));
+                    }
+                    WriteResult expected = write(testCase, maxDictionaryPageSize, smallBlocks.build());
+
+                    assertWriteResultsMatch(testCase, write(testCase, maxDictionaryPageSize, ImmutableList.of(valueBlock)), expected);
+                    assertWriteResultsMatch(testCase, write(testCase, maxDictionaryPageSize, ImmutableList.of(dictionaryBlock)), expected);
+                }
+            }
+        }
+    }
+
     private static void assertWritesMatch(TestCase testCase, int maxDictionaryPageSize, Block actualBlock, Block expectedBlock)
             throws IOException
     {
-        WriteResult actual = write(testCase, maxDictionaryPageSize, actualBlock);
-        WriteResult expected = write(testCase, maxDictionaryPageSize, expectedBlock);
+        WriteResult actual = write(testCase, maxDictionaryPageSize, ImmutableList.of(actualBlock));
+        WriteResult expected = write(testCase, maxDictionaryPageSize, ImmutableList.of(expectedBlock));
+        assertWriteResultsMatch(testCase, actual, expected);
+    }
 
+    private static void assertWriteResultsMatch(TestCase testCase, WriteResult actual, WriteResult expected)
+    {
         assertThat(actual.pageBytes()).describedAs("%s", testCase).isEqualTo(expected.pageBytes());
         assertThat(actual.dictionarySize()).describedAs("%s", testCase).isEqualTo(expected.dictionarySize());
         assertThat(actual.dictionaryBytes()).describedAs("%s", testCase).isEqualTo(expected.dictionaryBytes());
@@ -191,11 +231,13 @@ final class TestPrimitiveValueWriter
         }
     }
 
-    private static WriteResult write(TestCase testCase, int maxDictionaryPageSize, Block block)
+    private static WriteResult write(TestCase testCase, int maxDictionaryPageSize, List<Block> blocks)
             throws IOException
     {
         try (PrimitiveValueWriter writer = createValueWriter(testCase, maxDictionaryPageSize)) {
-            writer.write(block);
+            for (Block block : blocks) {
+                writer.write(block);
+            }
             // the data page is taken before the dictionary page, matching PrimitiveColumnWriter
             byte[] pageBytes = writer.getBytes().toByteArray();
             Statistics<?> statistics = writer.resetAndGetStatistics();

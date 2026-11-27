@@ -118,6 +118,32 @@ public final class PlainValuesWriter
     }
 
     @Override
+    public void writeIntegers(int[] values, int offset, int length)
+    {
+        sliceOutput.writeInts(values, offset, length);
+    }
+
+    @Override
+    public void writeLongs(long[] values, int offset, int length)
+    {
+        sliceOutput.writeLongs(values, offset, length);
+    }
+
+    @Override
+    public void writeDoubleBits(long[] values, int offset, int length)
+    {
+        // PLAIN encoding of a double is its raw little-endian bits
+        sliceOutput.writeLongs(values, offset, length);
+    }
+
+    @Override
+    public void writeFloatBits(int[] values, int offset, int length)
+    {
+        // PLAIN encoding of a float is its raw little-endian bits
+        sliceOutput.writeInts(values, offset, length);
+    }
+
+    @Override
     public String memUsageString(String prefix)
     {
         return format("%s PlainValuesWriter %d bytes", prefix, sliceOutput.getRetainedSize());

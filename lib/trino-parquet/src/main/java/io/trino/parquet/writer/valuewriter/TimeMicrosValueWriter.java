@@ -15,10 +15,10 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ValueBlock;
-import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.min;
 
 public class TimeMicrosValueWriter
         extends PrimitiveValueWriter
@@ -31,45 +31,47 @@ public class TimeMicrosValueWriter
     @Override
     protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        int positionCount = block.getPositionCount();
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!mayHaveNull || !block.isNull(i)) {
-                long scaledValue = longArrayBlock.getLong(i) / PICOSECONDS_PER_MICROSECOND;
-                valuesWriter.writeLong(scaledValue);
-                statistics.updateStats(scaledValue);
+        long[] buffer = longBuffer();
+        for (int start = 0; start < positionCount; start += buffer.length) {
+            int end = min(start + buffer.length, positionCount);
+            int size = 0;
+            for (int position = start; position < end; position++) {
+                if (!mayHaveNull || !block.isNull(position)) {
+                    buffer[size] = longArrayBlock.getLong(position) / PICOSECONDS_PER_MICROSECOND;
+                    size++;
+                }
             }
+            writeLongs(buffer, 0, size);
         }
     }
 
     @Override
     protected void writeRepeated(ValueBlock block, int count)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
-        long scaledValue = ((LongArrayBlock) block).getLong(0) / PICOSECONDS_PER_MICROSECOND;
-        for (int i = 0; i < count; i++) {
-            valuesWriter.writeLong(scaledValue);
-        }
-        statistics.updateStats(scaledValue);
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        writeRepeatedLong(longArrayBlock.getLong(0) / PICOSECONDS_PER_MICROSECOND, count);
     }
 
     @Override
     protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
     {
-        ValuesWriter valuesWriter = getValuesWriter();
-        Statistics<?> statistics = getStatistics();
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         boolean mayHaveNull = block.mayHaveNull();
-        for (int index = 0; index < length; index++) {
-            int position = positions[offset + index];
-            if (!mayHaveNull || !block.isNull(position)) {
-                long scaledValue = longArrayBlock.getLong(position) / PICOSECONDS_PER_MICROSECOND;
-                valuesWriter.writeLong(scaledValue);
-                statistics.updateStats(scaledValue);
+        long[] buffer = longBuffer();
+        for (int start = 0; start < length; start += buffer.length) {
+            int end = min(start + buffer.length, length);
+            int size = 0;
+            for (int index = start; index < end; index++) {
+                int position = positions[offset + index];
+                if (!mayHaveNull || !block.isNull(position)) {
+                    buffer[size] = longArrayBlock.getLong(position) / PICOSECONDS_PER_MICROSECOND;
+                    size++;
+                }
             }
+            writeLongs(buffer, 0, size);
         }
     }
 }
