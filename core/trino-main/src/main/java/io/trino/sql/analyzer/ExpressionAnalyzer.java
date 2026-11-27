@@ -5184,23 +5184,52 @@ public class ExpressionAnalyzer
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             Type columnType,
-            Expression defaultLiteral)
+            Expression expression)
     {
-        if (!(defaultLiteral instanceof Literal literal)) {
-            throw new IllegalArgumentException("Unsupported default expression: " + defaultLiteral);
-        }
+        validateDefaultExpression(expression, columnType);
 
         try {
             ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
-            Type literalType = constantAnalyzer.analyze(literal, Scope.create());
-            Object value = evaluateConstant(literal, literalType, parameters, plannerContext, session, accessControl);
+            Type expressionType = constantAnalyzer.analyze(expression, Scope.create());
 
-            if (!literalType.equals(columnType)) {
-                checkDefaultColumnValue(session, plannerContext, value, columnType, literalType);
+            if (expression instanceof Literal) {
+                Object value = evaluateConstant(expression, expressionType, parameters, plannerContext, session, accessControl);
+                if (!expressionType.equals(columnType)) {
+                    checkDefaultColumnValue(session, plannerContext, value, columnType, expressionType);
+                }
+            }
+            else {
+                TypeCoercion typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
+                checkArgument(typeCoercion.isStoreAssignable(expressionType, columnType), "%s is not assignable to %s", expressionType, columnType);
             }
         }
         catch (RuntimeException e) {
-            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
+            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, expression, e, "'%s' is not a valid %s literal", expression, columnType.getDisplayName().toUpperCase(ENGLISH));
+        }
+    }
+
+    public static void validateDefaultExpression(Expression expression, Type columnType)
+    {
+        switch (expression) {
+            case Literal _, CurrentDate _, CurrentTime _, CurrentTimestamp _, LocalTime _, LocalTimestamp _ -> {}
+            // The length shall be at least 128 characters, as required by the SQL standard
+            case CurrentUser _ -> validateCharacterStringColumn("CURRENT_USER", columnType, 128);
+            case CurrentCatalog _ -> validateCharacterStringColumn("CURRENT_CATALOG", columnType, 128);
+            case CurrentSchema _ -> validateCharacterStringColumn("CURRENT_SCHEMA", columnType, 128);
+            // The length shall be at least 1031 characters, as required by the SQL standard
+            case CurrentPath _ -> validateCharacterStringColumn("CURRENT_PATH", columnType, 1031);
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported default expression: " + expression);
+        }
+    }
+
+    private static void validateCharacterStringColumn(String function, Type columnType, int minLength)
+    {
+        if (!isCharacterStringType(columnType)) {
+            throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "%s requires a character string column".formatted(function));
+        }
+        if ((columnType instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() < minLength) ||
+                (columnType instanceof CharType charType && charType.getLength() < minLength)) {
+            throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, "%s requires at least %s length".formatted(function, minLength));
         }
     }
 

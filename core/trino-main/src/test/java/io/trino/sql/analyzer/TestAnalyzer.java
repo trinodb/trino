@@ -147,6 +147,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_GRACE_PERIOD;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
@@ -239,6 +240,7 @@ public class TestAnalyzer
     private static final String THIRD_CATALOG = "c3";
     private static final String FAILING_CATALOG = "failing";
     private static final String VERSIONED_MV_CATALOG = "versioned_mv";
+    private static final String DEFAULT_VALUE_CATALOG = "default_value";
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
@@ -6445,6 +6447,18 @@ public class TestAnalyzer
     }
 
     @Test
+    void testInsertWithInvalidConnectorDefaultValue()
+    {
+        assertFails("INSERT INTO default_value.default.unsupported VALUES 1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Invalid default column value for 'default_value.default.unsupported.x': Unsupported default expression");
+
+        assertFails("INSERT INTO default_value.default.short_varchar VALUES 'a'")
+                .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
+                .hasMessageContaining("Invalid default column value for 'default_value.default.short_varchar.x': CURRENT_USER requires at least 128 length");
+    }
+
+    @Test
     public void testAnalyzeVersionedStaleMaterializedView()
     {
         // Unversioned read of a stale materialized view with WHEN STALE FAIL is rejected
@@ -8643,6 +8657,15 @@ public class TestAnalyzer
                     case "wrapped_user_failure" -> throw new RuntimeException("Wrapped failure", new TrinoException(PERMISSION_DENIED, "Denied"));
                     default -> null;
                 })
+                .build(), ImmutableMap.of());
+
+        planTester.createCatalog(DEFAULT_VALUE_CATALOG, MockConnectorFactory.builder()
+                .withName("default_value")
+                .withGetColumns(table -> ImmutableList.of(ColumnMetadata.builder()
+                        .setName("x")
+                        .setType(table.getTableName().equals("short_varchar") ? createVarcharType(10) : INTEGER)
+                        .setDefaultValue(Optional.of(table.getTableName().equals("short_varchar") ? "CURRENT_USER" : "1 + 1"))
+                        .build()))
                 .build(), ImmutableMap.of());
 
         SchemaTableName versionedMaterializedView = new SchemaTableName("default", "stale_mv");
