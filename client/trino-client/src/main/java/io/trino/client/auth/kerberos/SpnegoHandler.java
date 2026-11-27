@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static io.trino.client.OkHttpUtil.isCredentialsExcluded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -66,6 +67,9 @@ public class SpnegoHandler
     public Response intercept(Chain chain)
             throws IOException
     {
+        if (isCredentialsExcluded(chain.request())) {
+            return chain.proceed(chain.request());
+        }
         // eagerly send authentication if possible
         try {
             return chain.proceed(authenticate(chain.request()));
@@ -79,7 +83,8 @@ public class SpnegoHandler
     public Request authenticate(Route route, Response response)
     {
         // skip if we already tried or were not asked for Kerberos
-        if (response.request().headers(AUTHORIZATION).stream().anyMatch(SpnegoHandler::isNegotiate) ||
+        if (isCredentialsExcluded(response.request()) ||
+                response.request().headers(AUTHORIZATION).stream().anyMatch(SpnegoHandler::isNegotiate) ||
                 response.headers(WWW_AUTHENTICATE).stream().noneMatch(SpnegoHandler::isNegotiate)) {
             return null;
         }

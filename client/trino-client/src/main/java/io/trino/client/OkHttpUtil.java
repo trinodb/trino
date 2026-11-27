@@ -104,9 +104,14 @@ public final class OkHttpUtil
         }
 
         String credential = Credentials.basic(user, password);
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .header(AUTHORIZATION, credential)
-                .build());
+        return chain -> {
+            if (isCredentialsExcluded(chain.request())) {
+                return chain.proceed(chain.request());
+            }
+            return chain.proceed(chain.request().newBuilder()
+                    .header(AUTHORIZATION, credential)
+                    .build());
+        };
     }
 
     public static Interceptor tokenAuth(String accessToken)
@@ -114,8 +119,39 @@ public final class OkHttpUtil
         requireNonNull(accessToken, "accessToken is null");
         checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
 
+        return chain -> {
+            if (isCredentialsExcluded(chain.request())) {
+                return chain.proceed(chain.request());
+            }
+            return chain.proceed(chain.request().newBuilder()
+                    .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                    .build());
+        };
+    }
+
+    /**
+     * Marks the request so that the built-in authentication interceptors and authenticators don't add credentials to it.
+     * Extra headers are still added.
+     */
+    public static Request.Builder excludeCredentials(Request.Builder builder)
+    {
+        return builder.tag(CredentialsExcluded.class, CredentialsExcluded.INSTANCE);
+    }
+
+    public static boolean isCredentialsExcluded(Request request)
+    {
+        return request.tag(CredentialsExcluded.class) != null;
+    }
+
+    /**
+     * Restores sending credentials with requests marked by {@link #excludeCredentials}, for proxies or gateways
+     * that require them on every request. It must be an application interceptor, so it runs before the authentication
+     * interceptors, and before following redirects and answering authentication challenges.
+     */
+    public static Interceptor includeExcludedCredentials()
+    {
         return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                .tag(CredentialsExcluded.class, null)
                 .build());
     }
 
@@ -507,5 +543,10 @@ public final class OkHttpUtil
                 ((SSLSocket) socket).setSSLParameters(params);
             }
         }
+    }
+
+    private enum CredentialsExcluded
+    {
+        INSTANCE
     }
 }

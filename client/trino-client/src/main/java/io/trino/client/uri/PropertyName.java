@@ -53,6 +53,7 @@ public enum PropertyName
     KERBEROS_REMOTE_SERVICE_NAME("KerberosRemoteServiceName"),
     KERBEROS_SERVICE_PRINCIPAL_PATTERN("KerberosServicePrincipalPattern"),
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
+    LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS("legacySendCredentialsOnAllRequests"),
     LOCALE("locale"),
     OAUTH2_CLIENT_ID("oauth2ClientId"),
     OAUTH2_CLIENT_SECRET("oauth2ClientSecret"),

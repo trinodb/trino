@@ -37,6 +37,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.trino.client.OkHttpUtil.isCredentialsExcluded;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +54,8 @@ import static java.util.function.Predicate.not;
  *    is then only ever sent there, and a challenge that names a different endpoint is rejected.
  * 3. Caches the resulting access token and its expiry time. The scope is taken from each challenge and
  *    is not cached across challenges.
- * 4. Subsequent requests proactively inject the cached token (via the interceptor).
+ * 4. Subsequent requests proactively inject the cached token (via the interceptor), except requests marked
+ *    with {@link io.trino.client.OkHttpUtil#excludeCredentials}, which get no token, even after a 401.
  * 5. Re-fetches transparently when the token expires (reactively via the authenticator on 401,
  *    using the scope from the fresh challenge).
  * <p>
@@ -114,6 +116,9 @@ public class ClientCredentialsAuthenticator
     public Response intercept(Chain chain)
             throws IOException
     {
+        if (isCredentialsExcluded(chain.request())) {
+            return chain.proceed(chain.request());
+        }
         if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) {
             return chain.proceed(withBearerToken(chain.request(), cachedToken));
         }
@@ -125,6 +130,9 @@ public class ClientCredentialsAuthenticator
     public Request authenticate(Route route, Response response)
             throws IOException
     {
+        if (isCredentialsExcluded(response.request())) {
+            return null;
+        }
         if (response.priorResponse() != null && response.priorResponse().code() == 401) {
             return null;
         }

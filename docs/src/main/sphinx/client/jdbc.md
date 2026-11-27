@@ -278,6 +278,12 @@ may not be specified using both methods.
 * - `disallowLocalRedirect`
   -  Whether client should reject redirects to localhost, link or site local
      IP addresses. Defaults to `false`.
+* - `legacySendCredentialsOnAllRequests`
+  - Deprecated, and will be removed in a future release. Whether to send
+    credentials with all HTTP requests, including the requests for query
+    results, heartbeats, cancellation and token polling, and not only with the
+    initial query request. Use it only with a proxy or gateway that requires
+    credentials on every request. Defaults to `false`.
 * - `assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`
   - When enabled, the name patterns passed to `DatabaseMetaData` methods are
     treated as underscores. You can use this as a workaround for applications

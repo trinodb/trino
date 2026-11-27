@@ -74,6 +74,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.client.uri.ConnectionProperties.LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_ID;
 import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_SECRET;
@@ -463,6 +464,11 @@ public class TrinoUri
     public boolean isLocalRedirectDisallowed()
     {
         return resolveWithDefault(DISALLOW_LOCAL_REDIRECT, false);
+    }
+
+    public boolean isLegacySendCredentialsOnAllRequests()
+    {
+        return resolveWithDefault(LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS, false);
     }
 
     public Optional<String> getEncoding()
@@ -1129,6 +1135,11 @@ public class TrinoUri
         public Builder setDisallowLocalRedirect(boolean value)
         {
             return setProperty(DISALLOW_LOCAL_REDIRECT, value);
+        }
+
+        public Builder setLegacySendCredentialsOnAllRequests(boolean value)
+        {
+            return setProperty(LEGACY_SEND_CREDENTIALS_ON_ALL_REQUESTS, value);
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)

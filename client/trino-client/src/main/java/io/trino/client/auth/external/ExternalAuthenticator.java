@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.trino.client.OkHttpUtil.isCredentialsExcluded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +58,9 @@ public class ExternalAuthenticator
     @Override
     public Request authenticate(Route route, Response response)
     {
+        if (isCredentialsExcluded(response.request())) {
+            return null;
+        }
         knownToken.setupToken(() -> {
             Optional<ExternalAuthentication> authentication = toAuthentication(response);
             if (!authentication.isPresent()) {
@@ -75,6 +79,9 @@ public class ExternalAuthenticator
     public Response intercept(Chain chain)
             throws IOException
     {
+        if (isCredentialsExcluded(chain.request())) {
+            return chain.proceed(chain.request());
+        }
         Optional<Token> token = knownToken.getToken();
         if (token.isPresent()) {
             return chain.proceed(withBearerToken(chain.request(), token.get()));

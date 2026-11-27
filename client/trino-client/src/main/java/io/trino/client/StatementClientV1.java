@@ -61,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
+import static io.trino.client.OkHttpUtil.excludeCredentials;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.TrinoJsonCodec.singlePassQueryResultsCodec;
 import static java.lang.String.format;
@@ -393,6 +394,13 @@ class StatementClientV1
         return builder;
     }
 
+    private Request.Builder prepareServerUriRequest(URI uri)
+    {
+        // Only the initial request needs credentials. The server authorizes requests to the URIs it returned, like nextUri,
+        // by the query ID and slug in the URI, so sending credentials there would only expose them, possibly to another host.
+        return excludeCredentials(prepareRequest(HttpUrl.get(uri)));
+    }
+
     @Override
     public boolean advance()
     {
@@ -406,7 +414,7 @@ class StatementClientV1
             return false;
         }
 
-        Request request = prepareRequest(HttpUrl.get(nextUri)).build();
+        Request request = prepareServerUriRequest(nextUri).build();
         return executeRequest(request, "fetching next", e -> true);
     }
 
@@ -431,7 +439,7 @@ class StatementClientV1
             return;
         }
 
-        Request request = prepareRequest(HttpUrl.get(nextUri))
+        Request request = prepareServerUriRequest(nextUri)
                 .head()
                 .build();
 
@@ -665,7 +673,7 @@ class StatementClientV1
 
     private void httpDelete(URI uri)
     {
-        Request request = prepareRequest(HttpUrl.get(uri))
+        Request request = prepareServerUriRequest(uri)
                 .delete()
                 .build();
         try {

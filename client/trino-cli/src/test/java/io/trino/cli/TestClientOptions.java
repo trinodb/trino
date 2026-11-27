@@ -360,6 +360,13 @@ public class TestClientOptions
     }
 
     @Test
+    public void testLegacySendCredentialsOnAllRequests()
+    {
+        assertThat(createConsole().clientOptions.getTrinoUri().isLegacySendCredentialsOnAllRequests()).isFalse();
+        assertThat(createConsole("trino://localhost:8080?legacySendCredentialsOnAllRequests=true").clientOptions.getTrinoUri().isLegacySendCredentialsOnAllRequests()).isTrue();
+    }
+
+    @Test
     public void testThreePartPropertyName()
     {
         assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))

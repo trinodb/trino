@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonResponse.execute;
+import static io.trino.client.OkHttpUtil.excludeCredentials;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -125,9 +126,10 @@ public class HttpTokenPoller
             throw new IllegalArgumentException("Invalid token URI: " + tokenUri);
         }
 
-        return new Request.Builder()
+        // The token URI comes from the server's authentication challenge, and the token endpoint doesn't need credentials
+        return excludeCredentials(new Request.Builder()
                 .url(url)
-                .addHeader(USER_AGENT, USER_AGENT_VALUE);
+                .addHeader(USER_AGENT, USER_AGENT_VALUE));
     }
 
     private TokenPollResult executePoll(Request request)
