@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.hdfs.nativefs.NativeFileSystemRegistry;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestHdfsFileSystemManager
 {
@@ -50,5 +53,18 @@ class TestHdfsFileSystemManager
         assertThat(fileSystem.newInputFile(location).exists()).isFalse();
 
         manager.stop();
+    }
+
+    @Test
+    void testCreateFailureUnregistersNativeFileSystems()
+    {
+        HdfsFileSystemManager manager = new HdfsFileSystemManager(
+                ImmutableMap.of("hive.dfs.verify-checksum", "invalid"),
+                "test",
+                new TestingConnectorContext());
+
+        assertThatThrownBy(() -> manager.create(ImmutableMap.of("memory", new MemoryFileSystemFactory())))
+                .hasMessageContaining("hive.dfs.verify-checksum");
+        assertThat(NativeFileSystemRegistry.schemes(manager.nativeFileSystemRegistryId())).isEmpty();
     }
 }
