@@ -13,15 +13,25 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
-import org.junit.jupiter.api.Test;
+import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
-import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import java.util.Map;
 
-public class TestForwardingSchemaParser
+public class SchemaRegistryClientSecurityProvider
+        implements SchemaRegistryClientPropertiesProvider
 {
-    @Test
-    public void testAllMethodsOverridden()
+    private final Map<String, Object> properties;
+
+    @Inject
+    public SchemaRegistryClientSecurityProvider(ConfluentSchemaRegistrySecurityConfig config)
     {
-        assertAllMethodsOverridden(SchemaParser.class, ForwardingSchemaParser.class);
+        this.properties = ImmutableMap.copyOf(config.getSchemaRegistryClientProperties());
+    }
+
+    @Override
+    public Map<String, Object> getSchemaRegistryClientProperties()
+    {
+        return properties;
     }
 }

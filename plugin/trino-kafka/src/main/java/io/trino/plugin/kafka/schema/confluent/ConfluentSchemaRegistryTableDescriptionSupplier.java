@@ -20,8 +20,10 @@ import com.google.common.collect.SetMultimap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.airlift.units.Duration;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Schema;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.plugin.kafka.KafkaConfig;
 import io.trino.plugin.kafka.KafkaTopicDescription;
@@ -46,6 +48,7 @@ import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
 import static io.trino.plugin.kafka.KafkaErrorCode.SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -210,14 +213,14 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         if (schemaParser == null) {
             throw new TrinoException(NOT_SUPPORTED, "Not supported schema: " + schemaMetadata.getSchemaType());
         }
-        return schemaParser.parse(
-                session,
-                subject,
-                schemaRegistryClient.parseSchema(
-                                schemaMetadata.getSchemaType(),
-                                schemaMetadata.getSchema(),
-                                schemaMetadata.getReferences())
-                        .orElseThrow());
+        ParsedSchema parsedSchema;
+        try {
+            parsedSchema = schemaRegistryClient.parseSchemaOrElseThrow(new Schema(subject, schemaMetadata));
+        }
+        catch (IOException e) {
+            throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to parse the schema of the '%s' subject: %s", subject, e.getMessage()), e);
+        }
+        return schemaParser.parse(session, subject, schemaMetadata.getId(), parsedSchema);
     }
 
     private SchemaMetadata getLatestSchemaMetadata(String subject)
