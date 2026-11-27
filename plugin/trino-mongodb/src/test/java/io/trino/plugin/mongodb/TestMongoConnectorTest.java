@@ -1941,6 +1941,24 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    void testEmptyCollection()
+    {
+        String tableName = "test_empty" + randomNameSuffix();
+
+        MongoDatabase database = client.getDatabase("test");
+        database.createCollection(tableName);
+        try {
+            assertQueryReturnsEmptyResult("DESCRIBE test." + tableName);
+            assertThat(database.getCollection("_schema").find(new Document("table", tableName)))
+                    .as("Empty collection should not be added to _schema")
+                    .isEmpty();
+        }
+        finally {
+            database.getCollection(tableName).drop();
+        }
+    }
+
+    @Test
     @Override
     public void testProjectionPushdownReadsLessData()
     {
