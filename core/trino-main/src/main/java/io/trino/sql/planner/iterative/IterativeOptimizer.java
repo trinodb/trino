@@ -176,9 +176,10 @@ public class IterativeOptimizer
             context.checkTimeoutNotExhausted();
 
             done = true;
+            // Timing of a rule starts where the previous one ended, so the clock is read once per rule
+            long timeStart = nanoTime();
             for (Rule<?> rule : ruleIndex.getCandidates(node)) {
-                long timeStart = nanoTime();
-                long timeEnd;
+                long timeEnd = timeStart;
                 boolean invoked = false;
                 boolean applied = false;
 
@@ -195,11 +196,10 @@ public class IterativeOptimizer
                         progress = true;
                     }
                 }
-                else {
-                    timeEnd = nanoTime();
-                }
 
                 context.recordRuleInvocation(rule, invoked, applied, timeEnd - timeStart);
+                // Replacing the node must not be charged to the next rule
+                timeStart = applied ? nanoTime() : timeEnd;
             }
         }
 
