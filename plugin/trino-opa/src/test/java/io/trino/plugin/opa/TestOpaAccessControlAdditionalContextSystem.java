@@ -47,34 +47,33 @@ final class TestOpaAccessControlAdditionalContextSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.if
-                import future.keywords.in
+                import rego.v1
 
                 default allow = false
                 allow if is_admin
-                allow {
+                allow if {
                   is_bob
                   is_some_namespace
                   is_some_cluster
                   can_be_accessed_by_bob
                 }
 
-                is_admin {
+                is_admin if {
                   input.context.identity.user == "admin"
                 }
-                is_bob {
+                is_bob if {
                   input.context.identity.user == "bob"
                 }
-                is_some_namespace {
+                is_some_namespace if {
                   input.context.properties.namespace == "some-namespace"
                 }
-                is_some_cluster {
+                is_some_cluster if {
                   input.context.properties.cluster == "some-cluster"
                 }
-                can_be_accessed_by_bob {
+                can_be_accessed_by_bob if {
                   input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
                 }
-                can_be_accessed_by_bob {
+                can_be_accessed_by_bob if {
                   input.action.operation in ["FilterCatalogs", "AccessCatalog"]
                   input.action.resource.catalog.name == "catalog_one"
                 }
@@ -97,14 +96,14 @@ final class TestOpaAccessControlAdditionalContextSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.in
+                import rego.v1
                 default allow = false
 
-                allow {
+                allow if {
                   input.context.identity.user == "admin"
                 }
 
-                allow {
+                allow if {
                   input.context.identity.user == "someone"
                   input.context.properties.namespace == "diff-namespace"
                 }
@@ -129,24 +128,23 @@ final class TestOpaAccessControlAdditionalContextSystem
         OPA_CONTAINER.submitPolicy(
                 """
                 package trino
-                import future.keywords.if
-                import future.keywords.in
+                import rego.v1
                 default allow = false
 
                 allow if is_admin
 
-                allow {
+                allow if {
                   is_bob
                   input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
                 }
 
-                batchAllow[i] {
+                batchAllow contains i if {
                   some i
                   input.action.filterResources[i]
                   is_admin
                 }
 
-                batchAllow[i] {
+                batchAllow contains i if {
                   some i
                   is_bob
                   is_some_namespace
@@ -155,18 +153,18 @@ final class TestOpaAccessControlAdditionalContextSystem
                   input.action.filterResources[i].catalog.name == "catalog_one"
                 }
 
-                is_bob {
+                is_bob if {
                   input.context.identity.user == "bob"
                 }
 
-                is_admin {
+                is_admin if {
                   input.context.identity.user == "admin"
                 }
 
-                is_some_namespace {
+                is_some_namespace if {
                   input.context.properties.namespace == "some-namespace"
                 }
-                is_some_cluster {
+                is_some_cluster if {
                   input.context.properties.cluster == "some-cluster"
                 }
                 """);

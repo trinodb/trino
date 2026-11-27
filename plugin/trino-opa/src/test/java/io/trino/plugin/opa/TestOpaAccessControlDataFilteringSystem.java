@@ -50,14 +50,12 @@ final class TestOpaAccessControlDataFilteringSystem
     private static final String SAMPLE_ROW_LEVEL_FILTERING_POLICY =
             """
             package trino
-            import future.keywords.in
-            import future.keywords.if
-            import future.keywords.contains
+            import rego.v1
 
             default allow := true
 
             table_resource := input.action.resource.table
-            is_admin {
+            is_admin if {
               input.context.identity.user == "admin"
             }
 
@@ -71,14 +69,12 @@ final class TestOpaAccessControlDataFilteringSystem
     private static final String SAMPLE_COLUMN_MASKING_POLICY =
             """
             package trino
-            import future.keywords.in
-            import future.keywords.if
-            import future.keywords.contains
+            import rego.v1
 
             default allow := true
 
             column_resource := input.action.resource.column
-            is_admin {
+            is_admin if {
               input.context.identity.user == "admin"
             }
 
@@ -270,13 +266,11 @@ final class TestOpaAccessControlDataFilteringSystem
         String policy =
                 """
                 package trino
-                import future.keywords.in
-                import future.keywords.if
-                import future.keywords.contains
+                import rego.v1
 
                 default allow := true
 
-                is_admin {
+                is_admin if {
                   input.context.identity.user == "admin"
                 }
 
