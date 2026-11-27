@@ -45,6 +45,7 @@ import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
 import io.trino.execution.DropTableTask;
 import io.trino.execution.DropViewTask;
+import io.trino.execution.EnforcedFilterColumnsConfig;
 import io.trino.execution.FastForwardBranchTask;
 import io.trino.execution.GrantRolesTask;
 import io.trino.execution.GrantTask;
@@ -130,6 +131,7 @@ import io.trino.sql.tree.Use;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.util.StatementUtils.getNonDataDefinitionStatements;
 import static io.trino.util.StatementUtils.isDataDefinitionStatement;
 
@@ -139,6 +141,8 @@ public class QueryExecutionFactoryModule
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(EnforcedFilterColumnsConfig.class);
+
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder =
                 newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
