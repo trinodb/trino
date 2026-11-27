@@ -86,7 +86,7 @@ final class TestDuckDbConnectorTest
 
         if (type.equals("time") ||
                 type.startsWith("time(") ||
-                type.startsWith("timestamp") ||
+                type.contains("with time zone") ||
                 type.equals("varbinary") ||
                 type.startsWith("array") ||
                 type.startsWith("row")) {
