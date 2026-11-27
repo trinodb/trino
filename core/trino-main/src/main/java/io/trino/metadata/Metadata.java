@@ -309,7 +309,7 @@ public interface Metadata
     /**
      * Add the specified field to the column.
      */
-    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, Optional<String> defaultValue, boolean ignoreExisting);
 
     /**
      * Set the specified default value to the column.

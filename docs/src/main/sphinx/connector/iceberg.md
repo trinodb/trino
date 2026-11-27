@@ -8,7 +8,8 @@ Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in files written in Iceberg
 format, as defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/).
 The connector supports Apache Iceberg table spec versions 1 and 2.
-Support for format version 3 is experimental.
+Support for format version 3 is experimental. Column default values require
+format version 3, see {ref}`iceberg-column-default-values`.
 
 The table state is maintained in metadata files. All changes to table
 state create a new metadata file and replace the old metadata with an atomic
@@ -928,6 +929,59 @@ Iceberg supports updating column types only for widening operations:
 
 Partitioning can also be changed and the connector can still query data
 created before the partitioning change.
+
+(iceberg-column-default-values)=
+#### Column default values
+
+The connector supports default values for columns and for fields of `ROW`
+columns on tables that use format version 3.
+
+Default values are supported in the following statements:
+
+- {doc}`/sql/create-table`, with `DEFAULT` in a column definition
+- {doc}`/sql/alter-table`, with `ADD COLUMN ... DEFAULT`
+- `ALTER TABLE ... ALTER COLUMN ... SET DEFAULT` and `DROP DEFAULT`
+
+When a column is created with a default, the connector stores it in the table
+schema as both the Iceberg `initial-default` and `write-default`. The
+`initial-default` is returned when reading data files written before the column
+was added. The `write-default` is used for rows inserted without a value for the
+column. `SET DEFAULT` and `DROP DEFAULT` update only the `write-default`.
+
+```sql
+CREATE TABLE example (id integer) WITH (format_version = 3);
+INSERT INTO example VALUES 1;
+ALTER TABLE example ADD COLUMN active boolean DEFAULT true;
+INSERT INTO example (id) VALUES 2;
+
+SELECT * FROM example;
+```
+
+```text
+ id | active
+----+--------
+  1 | true
+  2 | true
+```
+
+Fields of a `ROW` column can have a default value. Specify `DEFAULT` in the
+field definition, or on the nested field in `ADD COLUMN`:
+
+```sql
+CREATE TABLE example_row (
+  id integer,
+  info ROW(name varchar, active boolean DEFAULT true)
+) WITH (format_version = 3);
+
+ALTER TABLE example_row ADD COLUMN info.score integer DEFAULT 5;
+```
+
+The connector stores the nested default as `initial-default` and
+`write-default` of the field. Reading a data file written before the field was
+added returns the `initial-default` for the field. Rows where the whole `ROW`
+value is `NULL` stay `NULL`. A nested default is not applied by `INSERT`: an
+omitted `ROW` column is `NULL`, and a `ROW` value must always provide all of its
+fields.
 
 (iceberg-alter-table-execute)=
 #### ALTER TABLE EXECUTE

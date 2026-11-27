@@ -741,6 +741,8 @@ public final class ExpressionFormatter
 
             result.append(process(node.getType(), context));
 
+            node.getDefaultValue().ifPresent(value -> result.append(" DEFAULT ").append(process(value, context)));
+
             return result.toString();
         }
 

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
@@ -35,10 +36,16 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -69,6 +76,84 @@ public final class IcebergDefaultValues
             .toFormatter();
 
     private IcebergDefaultValues() {}
+
+    /**
+     * Applies nested field defaults (path inside the column to SQL literal) to the struct fields as initial-default and write-default.
+     */
+    public static org.apache.iceberg.types.Type applyFieldDefaults(org.apache.iceberg.types.Type icebergType, Type trinoType, Map<List<String>, String> fieldDefaults)
+    {
+        if (fieldDefaults.isEmpty()) {
+            return icebergType;
+        }
+        return applyFieldDefaults(icebergType, trinoType, List.of(), fieldDefaults);
+    }
+
+    private static org.apache.iceberg.types.Type applyFieldDefaults(org.apache.iceberg.types.Type icebergType, Type trinoType, List<String> path, Map<List<String>, String> fieldDefaults)
+    {
+        if (!(icebergType instanceof Types.StructType structType) || !(trinoType instanceof RowType rowType)) {
+            return icebergType;
+        }
+        List<Types.NestedField> icebergFields = structType.fields();
+        List<Types.NestedField> newFields = new ArrayList<>();
+        for (int i = 0; i < icebergFields.size(); i++) {
+            Types.NestedField field = icebergFields.get(i);
+            RowType.Field trinoField = rowType.getFields().get(i);
+            List<String> fieldPath = Stream.concat(path.stream(), Stream.of(field.name())).collect(toImmutableList());
+            Types.NestedField.Builder builder = Types.NestedField.from(field)
+                    .ofType(applyFieldDefaults(field.type(), trinoField.getType(), fieldPath, fieldDefaults));
+            String defaultValue = findFieldDefault(fieldDefaults, fieldPath);
+            if (defaultValue != null) {
+                Object parsed = parseDefaultValue(defaultValue, trinoField.getType());
+                // DEFAULT NULL is already the implicit default
+                if (parsed != null) {
+                    Literal<?> literal = toIcebergLiteral(parsed, field.type());
+                    builder.withInitialDefault(literal);
+                    builder.withWriteDefault(literal);
+                }
+            }
+            newFields.add(builder.build());
+        }
+        return Types.StructType.of(newFields);
+    }
+
+    private static String findFieldDefault(Map<List<String>, String> fieldDefaults, List<String> path)
+    {
+        for (Map.Entry<List<String>, String> entry : fieldDefaults.entrySet()) {
+            List<String> key = entry.getKey();
+            if (key.size() == path.size()) {
+                boolean match = true;
+                for (int i = 0; i < key.size(); i++) {
+                    match &= key.get(i).equalsIgnoreCase(path.get(i));
+                }
+                if (match) {
+                    return entry.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Collects write-defaults of nested struct fields as SQL literals, keyed by the field path inside the column.
+     */
+    public static Map<List<String>, String> collectFieldDefaults(org.apache.iceberg.types.Type icebergType)
+    {
+        Map<List<String>, String> result = new LinkedHashMap<>();
+        collectFieldDefaults(icebergType, List.of(), result);
+        return result;
+    }
+
+    private static void collectFieldDefaults(org.apache.iceberg.types.Type icebergType, List<String> path, Map<List<String>, String> result)
+    {
+        if (!(icebergType instanceof Types.StructType structType)) {
+            return;
+        }
+        for (Types.NestedField field : structType.fields()) {
+            List<String> fieldPath = Stream.concat(path.stream(), Stream.of(field.name())).collect(toImmutableList());
+            formatIcebergDefaultAsSql(field.writeDefault(), field.type()).ifPresent(value -> result.put(fieldPath, value));
+            collectFieldDefaults(field.type(), fieldPath, result);
+        }
+    }
 
     /**
      * Formats an Iceberg default value as a SQL expression string for display and parsing.

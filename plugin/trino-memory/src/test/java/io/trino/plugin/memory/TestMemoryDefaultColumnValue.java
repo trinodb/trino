@@ -32,6 +32,16 @@ public class TestMemoryDefaultColumnValue
     }
 
     @Test
+    void testRowFieldDefault()
+    {
+        try (TestTable table = newTrinoTable("test_row_field_default", "(id integer, info ROW(name varchar, active boolean DEFAULT true, score integer DEFAULT 5))")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("active boolean DEFAULT true")
+                    .contains("score integer DEFAULT 5");
+        }
+    }
+
+    @Test
     void testNull()
     {
         assertDefaultValue("TINYINT", "null", null);

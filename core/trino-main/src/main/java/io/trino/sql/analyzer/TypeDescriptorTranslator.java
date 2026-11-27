@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NumericExpression;
@@ -33,6 +35,7 @@ import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
+import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalDataType;
@@ -47,6 +50,7 @@ import io.trino.type.IntervalYearMonthType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -55,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -65,6 +70,7 @@ import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -191,6 +197,63 @@ public final class TypeDescriptorTranslator
         }
     }
 
+    /// Returns the default values of the row fields in a column type, keyed by the path of the field within the column.
+    /// Defaults are supported only for named fields reachable through nested rows, not through arrays or maps.
+    public static Map<List<String>, Expression> extractFieldDefaults(DataType type)
+    {
+        ImmutableMap.Builder<List<String>, Expression> defaults = ImmutableMap.builder();
+        collectFieldDefaults(type, ImmutableList.of(), true, defaults);
+        return defaults.buildOrThrow();
+    }
+
+    private static void collectFieldDefaults(DataType type, List<String> path, boolean reachable, ImmutableMap.Builder<List<String>, Expression> defaults)
+    {
+        switch (type) {
+            case RowDataType rowType -> {
+                for (RowDataType.Field field : rowType.getFields()) {
+                    if (field.getDefaultValue().isPresent()) {
+                        if (!reachable) {
+                            throw semanticException(NOT_SUPPORTED, field, "Default values for row fields inside array or map types are not supported");
+                        }
+                        if (field.getName().isEmpty()) {
+                            throw semanticException(NOT_SUPPORTED, field, "Default values are not supported for anonymous row fields");
+                        }
+                    }
+                    List<String> fieldPath = field.getName()
+                            .<List<String>>map(name -> ImmutableList.<String>builder().addAll(path).add(name.getValue()).build())
+                            .orElse(path);
+                    field.getDefaultValue().ifPresent(value -> defaults.put(fieldPath, value));
+                    collectFieldDefaults(field.getType(), fieldPath, reachable && field.getName().isPresent(), defaults);
+                }
+            }
+            case GenericDataType genericType -> genericType.getArguments().stream()
+                    .filter(argument -> argument instanceof io.trino.sql.tree.TypeParameter)
+                    .forEach(argument -> collectFieldDefaults(((io.trino.sql.tree.TypeParameter) argument).getValue(), path, false, defaults));
+            default -> {}
+        }
+    }
+
+    /// Returns the type without any row field defaults.
+    public static DataType stripFieldDefaults(DataType type)
+    {
+        return switch (type) {
+            case RowDataType rowType -> new RowDataType(
+                    rowType.getLocation(),
+                    rowType.getFields().stream()
+                            .map(field -> new RowDataType.Field(field.getLocation().orElseThrow(), field.getName(), stripFieldDefaults(field.getType()), Optional.empty()))
+                            .collect(toImmutableList()));
+            case GenericDataType genericType -> new GenericDataType(
+                    genericType.getLocation(),
+                    genericType.getName(),
+                    genericType.getArguments().stream()
+                            .map(argument -> argument instanceof io.trino.sql.tree.TypeParameter nested
+                                    ? new io.trino.sql.tree.TypeParameter(stripFieldDefaults(nested.getValue()))
+                                    : argument)
+                            .collect(toImmutableList()));
+            default -> type;
+        };
+    }
+
     private static TypeTemplate toTypeTemplate(DataType type, Set<String> typeVariables, Set<String> numericVariables)
     {
         return switch (type) {
@@ -295,6 +358,12 @@ public final class TypeDescriptorTranslator
 
     private static TypeTemplate toTypeTemplate(RowDataType type, Set<String> typeVariables, Set<String> numericVariables)
     {
+        type.getFields().stream()
+                .filter(field -> field.getDefaultValue().isPresent())
+                .findFirst()
+                .ifPresent(field -> {
+                    throw semanticException(NOT_SUPPORTED, field, "Default values for row fields are only supported in column definitions");
+                });
         List<TemplateParameter> parameters = type.getFields().stream()
                 .map(field -> (TemplateParameter) new TemplateParameter.TypeArgument(
                         field.getName().map(TypeDescriptorTranslator::canonicalize),
