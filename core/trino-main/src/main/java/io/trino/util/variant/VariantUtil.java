@@ -53,6 +53,7 @@ import io.trino.spi.type.VariantType;
 import io.trino.spi.variant.Header;
 import io.trino.spi.variant.Metadata;
 import io.trino.spi.variant.Variant;
+import io.trino.spi.variant.VariantDecoder;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
 import io.trino.type.DateOperators;
@@ -114,6 +115,10 @@ import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.spi.variant.Header.BasicType.PRIMITIVE;
 import static io.trino.spi.variant.Header.PrimitiveType.BINARY;
+import static io.trino.spi.variant.Header.objectFieldIdSize;
+import static io.trino.spi.variant.Header.objectFieldOffsetSize;
+import static io.trino.spi.variant.Header.objectIsLarge;
+import static io.trino.spi.variant.VariantUtils.readOffset;
 import static io.trino.type.BooleanOperators.castToVarchar;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
@@ -126,6 +131,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 import static tools.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8;
@@ -810,7 +816,7 @@ public final class VariantUtil
                 for (int i = 0; i < fieldAppenders.length; i++) {
                     fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
                 }
-                return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
+                return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields), getFieldNames(rowFields));
             }
 
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -1147,8 +1153,12 @@ public final class VariantUtil
             if (variant.basicType() != Header.BasicType.ARRAY) {
                 throw new VariantCastException("Expected a variant array, but got " + variant.basicType());
             }
-            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder ->
-                    variant.arrayElements().forEach(element -> elementAppender.append(element, elementBuilder)));
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                int length = variant.getArrayLength();
+                for (int i = 0; i < length; i++) {
+                    elementAppender.append(variant.getArrayElement(i), elementBuilder);
+                }
+            });
         }
     }
 
@@ -1177,7 +1187,7 @@ public final class VariantUtil
         }
     }
 
-    private record RowBlockBuilderAppender(BlockBuilderAppender[] fieldAppenders, Optional<Map<String, Integer>> fieldNameToIndex)
+    private record RowBlockBuilderAppender(BlockBuilderAppender[] fieldAppenders, Optional<Map<String, Integer>> fieldNameToIndex, byte[][] fieldNames)
             implements BlockBuilderAppender
     {
         @Override
@@ -1192,7 +1202,7 @@ public final class VariantUtil
                 throw new VariantCastException("Expected an object, but got " + variant.basicType());
             }
 
-            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> parseVariantToSingleRowBlock(variant, fieldBuilders, fieldAppenders, fieldNameToIndex));
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> parseVariantToSingleRowBlock(variant, fieldBuilders, this));
         }
     }
 
@@ -1209,35 +1219,92 @@ public final class VariantUtil
         return Optional.of(fieldNameToIndex.buildOrThrow());
     }
 
-    private static void parseVariantToSingleRowBlock(
-            Variant variant,
-            List<BlockBuilder> fieldBuilders,
-            BlockBuilderAppender[] fieldAppenders,
-            Optional<Map<String, Integer>> fieldNameToIndex)
+    private static byte[][] getFieldNames(List<Field> rowFields)
     {
-        if (fieldNameToIndex.isEmpty()) {
+        return rowFields.stream()
+                .map(field -> field.getName().map(name -> name.getBytes(UTF_8)).orElse(new byte[0]))
+                .toArray(byte[][]::new);
+    }
+
+    private static void parseVariantToSingleRowBlock(Variant variant, List<BlockBuilder> fieldBuilders, RowBlockBuilderAppender appender)
+    {
+        if (appender.fieldNameToIndex().isEmpty()) {
             throw new VariantCastException("Cannot cast VARIANT object to anonymous row type. Row fields must have names.");
         }
-        boolean[] fieldWritten = new boolean[fieldAppenders.length];
+        BlockBuilderAppender[] fieldAppenders = appender.fieldAppenders();
+        // RowBlockBuilder keeps every field builder at the row position count, so a field
+        // builder past this position was written by an earlier field of this object
+        int rowPosition = fieldBuilders.getFirst().getPositionCount();
 
+        // Walk the field id and offset tables directly: decoding an ObjectLayout sorts the
+        // value offsets, which casting to a row does not need
+        Slice data = variant.data();
         Metadata metadata = variant.metadata();
-        variant.objectFields().forEach(field -> {
-            String fieldName = metadata.get(field.fieldId()).toStringUtf8().toLowerCase(Locale.ENGLISH);
-            Integer fieldIndex = fieldNameToIndex.get().get(fieldName);
-            if (fieldIndex != null) {
-                if (fieldWritten[fieldIndex]) {
-                    throw new VariantCastException("Duplicate field: " + fieldName);
-                }
-                fieldWritten[fieldIndex] = true;
-                fieldAppenders[fieldIndex].append(field.value(), fieldBuilders.get(fieldIndex));
+        byte header = data.getByte(0);
+        boolean large = objectIsLarge(header);
+        int idSize = objectFieldIdSize(header);
+        int offsetSize = objectFieldOffsetSize(header);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
+        int idsStart = 1 + (large ? 4 : 1);
+        int offsetsStart = idsStart + count * idSize;
+        int valuesStart = offsetsStart + (count + 1) * offsetSize;
+        for (int i = 0; i < count; i++) {
+            Slice fieldName = metadata.get(readOffset(data, idsStart + i * idSize, idSize));
+            int fieldIndex = findFieldIndex(fieldName, appender);
+            if (fieldIndex < 0) {
+                continue;
             }
-        });
+            BlockBuilder fieldBuilder = fieldBuilders.get(fieldIndex);
+            if (fieldBuilder.getPositionCount() > rowPosition) {
+                throw new VariantCastException("Duplicate field: " + fieldName.toStringUtf8().toLowerCase(Locale.ENGLISH));
+            }
+            int start = valuesStart + readOffset(data, offsetsStart + i * offsetSize, offsetSize);
+            fieldAppenders[fieldIndex].append(Variant.from(metadata, data.slice(start, VariantDecoder.valueSize(data, start))), fieldBuilder);
+        }
 
-        for (int i = 0; i < fieldWritten.length; i++) {
-            if (!fieldWritten[i]) {
-                fieldBuilders.get(i).appendNull();
+        for (BlockBuilder fieldBuilder : fieldBuilders) {
+            if (fieldBuilder.getPositionCount() == rowPosition) {
+                fieldBuilder.appendNull();
             }
         }
+    }
+
+    /// Returns the index of the row field matching the lowercase form of a variant field name, or -1.
+    private static int findFieldIndex(Slice fieldName, RowBlockBuilderAppender appender)
+    {
+        int length = fieldName.length();
+        for (int i = 0; i < length; i++) {
+            if (fieldName.getByte(i) < 0) {
+                // Non-ASCII names can lowercase to different bytes, even to ASCII, so use the JDK rules
+                Integer fieldIndex = appender.fieldNameToIndex().orElseThrow().get(fieldName.toStringUtf8().toLowerCase(Locale.ENGLISH));
+                return fieldIndex == null ? -1 : fieldIndex;
+            }
+        }
+
+        byte[][] fieldNames = appender.fieldNames();
+        for (int fieldIndex = 0; fieldIndex < fieldNames.length; fieldIndex++) {
+            if (equalsLowerCaseAscii(fieldName, fieldNames[fieldIndex])) {
+                return fieldIndex;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean equalsLowerCaseAscii(Slice asciiName, byte[] lowerCaseName)
+    {
+        if (asciiName.length() != lowerCaseName.length) {
+            return false;
+        }
+        for (int i = 0; i < lowerCaseName.length; i++) {
+            byte value = asciiName.getByte(i);
+            if (value >= 'A' && value <= 'Z') {
+                value = (byte) (value + ('a' - 'A'));
+            }
+            if (value != lowerCaseName[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static Slice asJson(Variant variant)

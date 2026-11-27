@@ -95,8 +95,11 @@ public class VariantToArrayCast
             return null;
         }
 
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, variant.getArrayLength());
-        variant.arrayElements().forEach(element -> elementAppender.append(element, blockBuilder));
+        int length = variant.getArrayLength();
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, length);
+        for (int i = 0; i < length; i++) {
+            elementAppender.append(variant.getArrayElement(i), blockBuilder);
+        }
         return blockBuilder.build();
     }
 }
