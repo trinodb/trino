@@ -781,6 +781,12 @@ public final class StreamPropertyDerivations
             return otherActualProperties.getLocalProperties();
         }
 
+        public List<Optional<LocalProperty<Symbol>>> matchLocalProperties(List<LocalProperty<Symbol>> desired)
+        {
+            checkState(otherActualProperties != null, "otherActualProperties not set");
+            return otherActualProperties.matchLocalProperties(desired);
+        }
+
         private static StreamProperties singleStream()
         {
             return new StreamProperties(SINGLE, Optional.of(ImmutableSet.of()), false);
@@ -837,7 +843,12 @@ public final class StreamPropertyDerivations
 
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
-            return ImmutableSet.copyOf(columns).containsAll(partitioningColumns.get());
+            Set<Symbol> columnSet = ImmutableSet.copyOf(columns);
+            if (otherActualProperties != null) {
+                // rows with equal values in a symbol also have equal values in its equivalent symbols
+                columnSet = ImmutableSet.copyOf(otherActualProperties.withEquivalentSymbols(columnSet));
+            }
+            return columnSet.containsAll(partitioningColumns.get());
         }
 
         public boolean isOrdered()
@@ -861,8 +872,9 @@ public final class StreamPropertyDerivations
             return new StreamProperties(distribution, partitioningColumns, ordered, actualProperties);
         }
 
-        public StreamProperties translate(Function<Symbol, Optional<Symbol>> translator)
+        public StreamProperties translate(Function<Symbol, Optional<Symbol>> originalTranslator)
         {
+            Function<Symbol, Optional<Symbol>> translator = otherActualProperties == null ? originalTranslator : otherActualProperties.withEquivalences(originalTranslator);
             return new StreamProperties(
                     distribution,
                     partitioningColumns.flatMap(partitioning -> {
@@ -877,7 +889,7 @@ public final class StreamPropertyDerivations
                         return Optional.of(newPartitioningColumns.build());
                     }),
                     ordered,
-                    otherActualProperties == null ? null : otherActualProperties.translate(translator));
+                    otherActualProperties == null ? null : otherActualProperties.translate(originalTranslator));
         }
 
         public Optional<List<Symbol>> getPartitioningColumns()

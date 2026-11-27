@@ -25,6 +25,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -78,6 +79,28 @@ public class TestValidateStreamingAggregations
                                                         nationTableHandle,
                                                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
+    }
+
+    @Test
+    public void testValidateSuccessfulWithEquivalentSymbols()
+    {
+        // both outputs are copies of the unique id, so grouping on one of them implies grouping on the other
+        validatePlan(
+                p -> p.aggregation(
+                        a -> a.step(SINGLE)
+                                .singleGroupingSet(p.symbol("first", BIGINT), p.symbol("second", BIGINT))
+                                .preGroupedSymbols(p.symbol("first", BIGINT), p.symbol("second", BIGINT))
+                                .source(
+                                        p.project(
+                                                Assignments.builder()
+                                                        .put(p.symbol("first", BIGINT), p.symbol("unique", BIGINT).toSymbolReference())
+                                                        .put(p.symbol("second", BIGINT), p.symbol("unique", BIGINT).toSymbolReference())
+                                                        .build(),
+                                                p.assignUniqueId(p.symbol("unique", BIGINT),
+                                                        p.tableScan(
+                                                                nationTableHandle,
+                                                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))))));
     }
 
     @Test

@@ -28,7 +28,9 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,15 +50,18 @@ public class ActualProperties
     private final Global global;
     private final List<LocalProperty<Symbol>> localProperties;
     private final Map<Symbol, NullableValue> constants;
+    private final SymbolEquivalences equivalences;
 
     private ActualProperties(
             Global global,
             List<? extends LocalProperty<Symbol>> localProperties,
-            Map<Symbol, NullableValue> constants)
+            Map<Symbol, NullableValue> constants,
+            SymbolEquivalences equivalences)
     {
         requireNonNull(global, "globalProperties is null");
         requireNonNull(localProperties, "localProperties is null");
         requireNonNull(constants, "constants is null");
+        requireNonNull(equivalences, "equivalences is null");
 
         this.global = global;
 
@@ -77,6 +82,7 @@ public class ActualProperties
 
         this.localProperties = ImmutableList.copyOf(updatedLocalProperties);
         this.constants = ImmutableMap.copyOf(constants);
+        this.equivalences = equivalences;
     }
 
     public boolean isCoordinatorOnly()
@@ -107,7 +113,9 @@ public class ActualProperties
         if (exactly) {
             return global.isNodePartitionedOnExactly(columns, constants.keySet(), nullsAndAnyReplicated);
         }
-        return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
+        // Rows with equal values in a symbol also have equal values in all of its equivalent symbols,
+        // so partitioning on any of them implies partitioning on the others
+        return global.isNodePartitionedOn(withEquivalentSymbols(columns), constants.keySet(), nullsAndAnyReplicated);
     }
 
     public boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
@@ -133,10 +141,12 @@ public class ActualProperties
 
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
+        Function<Symbol, Optional<Symbol>> equivalenceAwareTranslator = withEquivalences(translator);
         return builder()
-                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), _ -> Optional.empty())))
-                .local(LocalProperties.translate(localProperties, translator))
-                .constants(translateConstants(translator))
+                .global(global.translate(new Partitioning.Translator(equivalenceAwareTranslator, symbol -> Optional.ofNullable(constants.get(symbol)), _ -> Optional.empty())))
+                .local(LocalProperties.translate(localProperties, equivalenceAwareTranslator))
+                .constants(translateConstants(equivalenceAwareTranslator))
+                .equivalences(equivalences.translate(translator))
                 .build();
     }
 
@@ -144,10 +154,12 @@ public class ActualProperties
             Function<Symbol, Optional<Symbol>> translator,
             Function<Expression, Optional<Symbol>> expressionTranslator)
     {
+        Function<Symbol, Optional<Symbol>> equivalenceAwareTranslator = withEquivalences(translator);
         return builder()
-                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expressionTranslator)))
-                .local(LocalProperties.translate(localProperties, translator))
-                .constants(translateConstants(translator))
+                .global(global.translate(new Partitioning.Translator(equivalenceAwareTranslator, symbol -> Optional.ofNullable(constants.get(symbol)), expressionTranslator)))
+                .local(LocalProperties.translate(localProperties, equivalenceAwareTranslator))
+                .constants(translateConstants(equivalenceAwareTranslator))
+                .equivalences(equivalences.translate(translator))
                 .build();
     }
 
@@ -166,6 +178,20 @@ public class ActualProperties
         return localProperties;
     }
 
+    public SymbolEquivalences getEquivalences()
+    {
+        return equivalences;
+    }
+
+    /**
+     * Matches the desired local properties against the actual ones, treating equivalent symbols as interchangeable.
+     * See {@link LocalProperties#match(List, List, SymbolEquivalences)}.
+     */
+    public List<Optional<LocalProperty<Symbol>>> matchLocalProperties(List<LocalProperty<Symbol>> desired)
+    {
+        return LocalProperties.match(localProperties, desired, equivalences);
+    }
+
     public ActualProperties withReplicatedNulls(boolean replicatedNulls)
     {
         return builderFrom(this)
@@ -180,7 +206,37 @@ public class ActualProperties
 
     public static Builder builderFrom(ActualProperties properties)
     {
-        return new Builder(properties.global, properties.localProperties, properties.constants);
+        return new Builder(properties.global, properties.localProperties, properties.constants, properties.equivalences);
+    }
+
+    public Collection<Symbol> withEquivalentSymbols(Collection<Symbol> columns)
+    {
+        if (equivalences.isEmpty()) {
+            return columns;
+        }
+        Set<Symbol> expanded = new LinkedHashSet<>(columns);
+        columns.forEach(column -> expanded.addAll(equivalences.equivalentsOf(column)));
+        return expanded;
+    }
+
+    // If a symbol does not survive the translation, but an equivalent one does, use the latter
+    public Function<Symbol, Optional<Symbol>> withEquivalences(Function<Symbol, Optional<Symbol>> translator)
+    {
+        if (equivalences.isEmpty()) {
+            return translator;
+        }
+        return symbol -> {
+            Optional<Symbol> translated = translator.apply(symbol);
+            if (translated.isPresent()) {
+                return translated;
+            }
+            return equivalences.equivalentsOf(symbol).stream()
+                    .filter(equivalent -> !equivalent.equals(symbol))
+                    .sorted(Comparator.comparing(Symbol::name))
+                    .map(translator)
+                    .flatMap(Optional::stream)
+                    .findFirst();
+        };
     }
 
     private Map<Symbol, NullableValue> translateConstants(Function<Symbol, Optional<Symbol>> translator)
@@ -198,18 +254,20 @@ public class ActualProperties
         private Global global;
         private List<LocalProperty<Symbol>> localProperties;
         private Map<Symbol, NullableValue> constants;
+        private SymbolEquivalences equivalences = SymbolEquivalences.empty();
         private boolean unordered;
 
         public Builder()
         {
-            this(Global.arbitraryPartition(), ImmutableList.of(), ImmutableMap.of());
+            this(Global.arbitraryPartition(), ImmutableList.of(), ImmutableMap.of(), SymbolEquivalences.empty());
         }
 
-        public Builder(Global global, List<LocalProperty<Symbol>> localProperties, Map<Symbol, NullableValue> constants)
+        public Builder(Global global, List<LocalProperty<Symbol>> localProperties, Map<Symbol, NullableValue> constants, SymbolEquivalences equivalences)
         {
             this.global = requireNonNull(global, "global is null");
             this.localProperties = ImmutableList.copyOf(localProperties);
             this.constants = ImmutableMap.copyOf(constants);
+            this.equivalences = requireNonNull(equivalences, "equivalences is null");
         }
 
         public Builder global(Global global)
@@ -236,6 +294,12 @@ public class ActualProperties
             return this;
         }
 
+        public Builder equivalences(SymbolEquivalences equivalences)
+        {
+            this.equivalences = requireNonNull(equivalences, "equivalences is null");
+            return this;
+        }
+
         public Builder unordered(boolean unordered)
         {
             this.unordered = unordered;
@@ -248,14 +312,14 @@ public class ActualProperties
             if (unordered) {
                 localProperties = filteredCopy(this.localProperties, property -> !property.isOrderSensitive());
             }
-            return new ActualProperties(global, localProperties, constants);
+            return new ActualProperties(global, localProperties, constants, equivalences);
         }
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(global, localProperties, constants.keySet());
+        return Objects.hash(global, localProperties, constants.keySet(), equivalences);
     }
 
     @Override
@@ -270,7 +334,8 @@ public class ActualProperties
         ActualProperties other = (ActualProperties) obj;
         return Objects.equals(this.global, other.global)
                 && Objects.equals(this.localProperties, other.localProperties)
-                && Objects.equals(this.constants.keySet(), other.constants.keySet());
+                && Objects.equals(this.constants.keySet(), other.constants.keySet())
+                && Objects.equals(this.equivalences, other.equivalences);
     }
 
     @Override
@@ -280,6 +345,7 @@ public class ActualProperties
                 .add("globalProperties", global)
                 .add("localProperties", localProperties)
                 .add("constants", constants)
+                .add("equivalences", equivalences)
                 .toString();
     }
 

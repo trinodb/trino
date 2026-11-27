@@ -19,6 +19,7 @@ import com.google.common.collect.PeekingIterator;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.sql.planner.Symbol;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -107,6 +108,40 @@ public final class LocalProperties
             Optional<LocalProperty<T>> simplifiedDesired = desiredProperty.withConstants(constants);
             consumeMoreActuals &= simplifiedDesired.isEmpty(); // Only continue processing actuals if all previous desired properties were fully satisfied
             result.add(simplifiedDesired);
+        }
+        return result;
+    }
+
+    /**
+     * Same as {@link #match(List, List)}, but symbols that are known to be equivalent are interchangeable.
+     * Unsatisfied properties are returned in terms of the symbols of the desired properties.
+     */
+    public static List<Optional<LocalProperty<Symbol>>> match(List<LocalProperty<Symbol>> actuals, List<LocalProperty<Symbol>> desired, SymbolEquivalences equivalences)
+    {
+        if (equivalences.isEmpty()) {
+            return match(actuals, desired);
+        }
+
+        Function<Symbol, Optional<Symbol>> canonical = symbol -> Optional.of(equivalences.representative(symbol));
+        List<LocalProperty<Symbol>> canonicalActuals = translate(actuals, canonical);
+        List<LocalProperty<Symbol>> canonicalDesired = desired.stream()
+                .map(property -> property.translate(canonical).orElseThrow())
+                .collect(Collectors.toList());
+
+        List<Optional<LocalProperty<Symbol>>> canonicalResult = match(canonicalActuals, canonicalDesired);
+        List<Optional<LocalProperty<Symbol>>> result = new ArrayList<>(desired.size());
+        for (int i = 0; i < desired.size(); i++) {
+            LocalProperty<Symbol> original = desired.get(i);
+            Optional<LocalProperty<Symbol>> unsatisfied = canonicalResult.get(i);
+            if (unsatisfied.isPresent() && original instanceof GroupingProperty<Symbol>) {
+                Set<Symbol> unsatisfiedColumns = unsatisfied.get().getColumns();
+                result.add(Optional.of(new GroupingProperty<>(original.getColumns().stream()
+                        .filter(column -> unsatisfiedColumns.contains(equivalences.representative(column)))
+                        .collect(Collectors.toList()))));
+            }
+            else {
+                result.add(unsatisfied.map(_ -> original));
+            }
         }
         return result;
     }

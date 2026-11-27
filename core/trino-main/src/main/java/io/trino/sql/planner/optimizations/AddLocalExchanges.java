@@ -369,7 +369,7 @@ public class AddLocalExchanges
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             List<Symbol> preGroupedSymbols = ImmutableList.of();
-            if (LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isEmpty()) {
+            if (child.getProperties().matchLocalProperties(LocalProperties.grouped(groupingKeys)).get(0).isEmpty()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
@@ -397,7 +397,7 @@ public class AddLocalExchanges
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = child.getProperties().matchLocalProperties(desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
             if (!node.getPartitionBy().isEmpty()) {
@@ -441,7 +441,7 @@ public class AddLocalExchanges
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = child.getProperties().matchLocalProperties(desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
             if (!node.getPartitionBy().isEmpty()) {
@@ -518,7 +518,7 @@ public class AddLocalExchanges
                 desiredProperties.add(new GroupingProperty<>(partitionBy));
             }
             node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = child.getProperties().matchLocalProperties(desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();
             if (!partitionBy.isEmpty()) {
