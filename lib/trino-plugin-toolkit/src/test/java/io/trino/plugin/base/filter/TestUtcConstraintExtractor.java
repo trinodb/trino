@@ -14,6 +14,7 @@
 package io.trino.plugin.base.filter;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
@@ -26,22 +27,28 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -56,7 +63,11 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.time.DayOfWeek.MONDAY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.HOURS;
+import static java.time.temporal.TemporalAdjusters.previousOrSame;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUtcConstraintExtractor
@@ -183,6 +194,216 @@ public class TestUtcConstraintExtractor
                         new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(someDateExpression, castOfColumn)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)))));
+    }
+
+    @Test
+    public void testExtractTimestampTzDateInPredicate()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MICROS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        // date(ts) IN (date '2025-07-01', date '2025-10-15'): days that are not adjacent, which no single range can express
+        LocalDate july = LocalDate.of(2025, 7, 1);
+        LocalDate october = LocalDate.of(2025, 10, 15);
+        long julyMillis = july.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long octoberMillis = october.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+
+        assertThat(extract(
+                constraint(
+                        in(castOfColumn, new Constant(july.toEpochDay(), DATE), new Constant(october.toEpochDay(), DATE)),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle, domain(
+                                Range.range(columnType, timestampTzMicrosFromEpochMillis(julyMillis), true, timestampTzMicrosFromEpochMillis(julyMillis + MILLISECONDS_PER_DAY), false),
+                                Range.range(columnType, timestampTzMicrosFromEpochMillis(octoberMillis), true, timestampTzMicrosFromEpochMillis(octoberMillis + MILLISECONDS_PER_DAY), false)))));
+    }
+
+    @Test
+    public void testExtractTimestampTzDateInPredicateWithUnconvertibleItem()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+        ConnectorExpression july = new Constant(LocalDate.of(2025, 7, 1).toEpochDay(), DATE);
+
+        // A null item, or an item that is not a constant, can't be unwrapped, so the entire IN should be a remaining expression
+        for (ConnectorExpression item : List.of(new Constant(null, DATE), new Variable("some_date", DATE))) {
+            ConnectorExpression inExpression = in(castOfColumn, july, item);
+            UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                    constraint(inExpression, Map.of(timestampTzColumnSymbol, columnHandle, "some_date", new TestingColumnHandle("some_date"))));
+            assertThat(result.tupleDomain())
+                    .isEqualTo(TupleDomain.all());
+            assertThat(result.remainingExpression())
+                    .isEqualTo(inExpression);
+        }
+    }
+
+    @Test
+    public void testExtractTimestampTzDateInPredicateWithOutOfRangeDate()
+    {
+        // A date item no TIMESTAMP WITH TIME ZONE value falls on can't be turned into a range, so the entire IN should
+        // be a remaining expression rather than an error
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+        ConnectorExpression startOf2024 = new Constant(LocalDate.of(2024, 1, 1).toEpochDay(), DATE);
+        for (TimestampWithTimeZoneType columnType : List.of(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MICROS)) {
+            ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+            for (LocalDate date : List.of(LocalDate.of(100_000, 1, 1), LocalDate.of(-100_000, 1, 1))) {
+                ConnectorExpression inExpression = in(castOfColumn, startOf2024, new Constant(date.toEpochDay(), DATE));
+                UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                        constraint(inExpression, Map.of(timestampTzColumnSymbol, columnHandle)));
+                assertThat(result.tupleDomain())
+                        .isEqualTo(TupleDomain.all());
+                assertThat(result.remainingExpression())
+                        .isEqualTo(inExpression);
+            }
+        }
+    }
+
+    @Test
+    public void testExtractDateTruncTimestampTzInPredicate()
+    {
+        assertDateTruncTimestampTzInDomain(
+                "week",
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2024, 1, 8),
+                LocalDate.of(2024, 1, 15),
+                LocalDate.of(2024, 1, 22));
+        assertDateTruncTimestampTzInDomain(
+                "quarter",
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2024, 4, 1),
+                LocalDate.of(2024, 7, 1),
+                LocalDate.of(2024, 10, 1));
+    }
+
+    private static void assertDateTruncTimestampTzInDomain(
+            String unit,
+            LocalDate firstPeriodStart,
+            LocalDate firstPeriodEnd,
+            LocalDate secondPeriodStart,
+            LocalDate secondPeriodEnd)
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+        for (TimestampWithTimeZoneType columnType : List.of(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MICROS)) {
+            ConnectorExpression truncate = new Call(
+                    columnType,
+                    new FunctionName("date_trunc"),
+                    ImmutableList.of(
+                            new Constant(utf8Slice(unit), createVarcharType(17)),
+                            new Variable(timestampTzColumnSymbol, columnType)));
+            Constant firstStart = timestampTzConstant(columnType, firstPeriodStart.toEpochDay() * MILLISECONDS_PER_DAY);
+            Constant firstEnd = timestampTzConstant(columnType, firstPeriodEnd.toEpochDay() * MILLISECONDS_PER_DAY);
+            Constant secondStart = timestampTzConstant(columnType, secondPeriodStart.toEpochDay() * MILLISECONDS_PER_DAY);
+            Constant secondEnd = timestampTzConstant(columnType, secondPeriodEnd.toEpochDay() * MILLISECONDS_PER_DAY);
+
+            assertThat(extract(constraint(in(truncate, firstStart, secondStart), Map.of(timestampTzColumnSymbol, columnHandle))))
+                    .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                            columnHandle, domain(
+                                    Range.range(columnType, firstStart.getValue(), true, firstEnd.getValue(), false),
+                                    Range.range(columnType, secondStart.getValue(), true, secondEnd.getValue(), false)))));
+        }
+    }
+
+    @Test
+    public void testExtractDateTruncTimestampTzInPredicateWithOutOfRangePeriod()
+    {
+        // date_trunc of a value near either end of TIMESTAMP WITH TIME ZONE gives a period that runs past it: the next
+        // period starts after the largest value, or the period starts before the smallest one. Such an item can't be
+        // turned into a range, so the entire IN should be a remaining expression rather than an error
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+        long maxEpochMillis = (1L << 51) - 1; // DateTimeEncoding packs epoch millis into 52 bits
+        ZonedDateTime max = Instant.ofEpochMilli(maxEpochMillis).atZone(UTC); // 73326-09-11 20:14:45.247 UTC
+        Map<String, ZonedDateTime> lastPeriodStarts = ImmutableMap.of(
+                "hour", max.truncatedTo(HOURS),
+                "day", max.truncatedTo(DAYS),
+                "week", max.truncatedTo(DAYS).with(previousOrSame(MONDAY)),
+                "month", max.truncatedTo(DAYS).withDayOfMonth(1),
+                "quarter", max.truncatedTo(DAYS).withMonth(7).withDayOfMonth(1),
+                "year", max.truncatedTo(DAYS).withDayOfYear(1));
+        long startOf2024 = LocalDate.of(2024, 1, 1).toEpochDay() * MILLISECONDS_PER_DAY;
+        for (TimestampWithTimeZoneType columnType : List.of(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MICROS)) {
+            for (Map.Entry<String, ZonedDateTime> lastPeriodStart : lastPeriodStarts.entrySet()) {
+                ConnectorExpression truncate = new Call(
+                        columnType,
+                        new FunctionName("date_trunc"),
+                        ImmutableList.of(
+                                new Constant(utf8Slice(lastPeriodStart.getKey()), createVarcharType(17)),
+                                new Variable(timestampTzColumnSymbol, columnType)));
+                for (long edgeEpochMillis : List.of(lastPeriodStart.getValue().toInstant().toEpochMilli(), -maxEpochMillis - 1)) {
+                    ConnectorExpression inExpression = in(
+                            truncate,
+                            timestampTzConstant(columnType, startOf2024),
+                            timestampTzConstant(columnType, edgeEpochMillis));
+                    UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                            constraint(inExpression, Map.of(timestampTzColumnSymbol, columnHandle)));
+                    assertThat(result.tupleDomain())
+                            .isEqualTo(TupleDomain.all());
+                    assertThat(result.remainingExpression())
+                            .isEqualTo(inExpression);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExtractYearTimestampTzInPredicate()
+    {
+        // The IN reuses every unwrapping its equalities get, not only the date cast
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression extractYear = new Call(
+                BIGINT,
+                new FunctionName("year"),
+                ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        long startOf2024 = timestampTzMillisFromEpochMillis(LocalDate.of(2024, 1, 1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND);
+        long startOf2025 = timestampTzMillisFromEpochMillis(LocalDate.of(2025, 1, 1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND);
+        long startOf2026 = timestampTzMillisFromEpochMillis(LocalDate.of(2026, 1, 1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND);
+        long startOf2027 = timestampTzMillisFromEpochMillis(LocalDate.of(2027, 1, 1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND);
+
+        assertThat(extract(
+                constraint(
+                        in(extractYear, new Constant(2024L, BIGINT), new Constant(2026L, BIGINT)),
+                        Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle, domain(
+                                Range.range(columnType, startOf2024, true, startOf2025, false),
+                                Range.range(columnType, startOf2026, true, startOf2027, false)))));
+    }
+
+    @Test
+    public void testExtractYearTimestampTzInPredicateWithOutOfRangeYear()
+    {
+        // year() returns bigint, so an item can be a year no TIMESTAMP WITH TIME ZONE value has. Such an item can't be
+        // turned into a range, so the entire IN should be a remaining expression rather than an error
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+        for (TimestampWithTimeZoneType columnType : List.of(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MICROS)) {
+            ConnectorExpression extractYear = new Call(
+                    BIGINT,
+                    new FunctionName("year"),
+                    ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+            // 584556074 is a valid java.time year whose start cannot be represented in epoch millis
+            for (long year : List.of(2_147_483_648L, 1_000_000_000L, 584_556_074L, 100_000L, -100_000L)) {
+                ConnectorExpression inExpression = in(extractYear, new Constant(2024L, BIGINT), new Constant(year, BIGINT));
+                UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                        constraint(inExpression, Map.of(timestampTzColumnSymbol, columnHandle)));
+                assertThat(result.tupleDomain())
+                        .isEqualTo(TupleDomain.all());
+                assertThat(result.remainingExpression())
+                        .isEqualTo(inExpression);
+            }
+        }
     }
 
     /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
@@ -906,8 +1127,24 @@ public class TestUtcConstraintExtractor
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 0, UTC_KEY);
     }
 
+    private static Constant timestampTzConstant(TimestampWithTimeZoneType type, long epochMillis)
+    {
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            return new Constant(timestampTzMillisFromEpochMillis(epochMillis), type);
+        }
+        return new Constant(timestampTzMicrosFromEpochMillis(epochMillis), type);
+    }
+
     private static Domain domain(Range first, Range... rest)
     {
         return Domain.create(ValueSet.ofRanges(first, rest), false);
+    }
+
+    private static ConnectorExpression in(ConnectorExpression value, ConnectorExpression... items)
+    {
+        return new Call(
+                BOOLEAN,
+                IN_PREDICATE_FUNCTION_NAME,
+                ImmutableList.of(value, new Call(new ArrayType(value.getType()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, ImmutableList.copyOf(items))));
     }
 }
