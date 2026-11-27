@@ -13,14 +13,18 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.ConfigPropertyMetadata;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
+import io.trino.hdfs.nativefs.NativeFileSystemConfigurationInitializer;
+import io.trino.hdfs.nativefs.NativeFileSystemRegistry;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
@@ -30,13 +34,16 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public final class HdfsFileSystemManager
 {
     private final Bootstrap bootstrap;
+    private final String nativeFileSystemRegistryId;
     private LifeCycleManager lifecycleManager;
 
     public HdfsFileSystemManager(
@@ -55,6 +62,10 @@ public final class HdfsFileSystemManager
         modules.add(new HdfsAuthenticationModule());
         modules.add(new ConnectorContextModule(catalogName, context));
 
+        nativeFileSystemRegistryId = catalogName + "-" + UUID.randomUUID();
+        modules.add(binder -> newSetBinder(binder, ConfigurationInitializer.class).addBinding()
+                .toInstance(new NativeFileSystemConfigurationInitializer(nativeFileSystemRegistryId)));
+
         bootstrap = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, modules)
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(Map.of())
@@ -70,10 +81,33 @@ public final class HdfsFileSystemManager
 
     public TrinoFileSystemFactory create()
     {
+        return create(Map.of());
+    }
+
+    /**
+     * @param nativeFileSystemFactories native file system factories by scheme, exposed to Hadoop
+     *         file systems that resolve child file systems by scheme, such as ViewFS mount links
+     */
+    public TrinoFileSystemFactory create(Map<String, TrinoFileSystemFactory> nativeFileSystemFactories)
+    {
         checkState(lifecycleManager == null, "Already created");
-        Injector injector = bootstrap.initialize();
-        lifecycleManager = injector.getInstance(LifeCycleManager.class);
-        return injector.getInstance(HdfsFileSystemFactory.class);
+        NativeFileSystemRegistry.register(nativeFileSystemRegistryId, nativeFileSystemFactories);
+        try {
+            Injector injector = bootstrap.initialize();
+            lifecycleManager = injector.getInstance(LifeCycleManager.class);
+            return injector.getInstance(HdfsFileSystemFactory.class);
+        }
+        catch (RuntimeException | Error e) {
+            // stop() may not be called when creation fails, so do not keep the factories registered
+            NativeFileSystemRegistry.unregister(nativeFileSystemRegistryId);
+            throw e;
+        }
+    }
+
+    @VisibleForTesting
+    String nativeFileSystemRegistryId()
+    {
+        return nativeFileSystemRegistryId;
     }
 
     public void stop()
@@ -81,5 +115,6 @@ public final class HdfsFileSystemManager
         if (lifecycleManager != null) {
             lifecycleManager.stop();
         }
+        NativeFileSystemRegistry.unregister(nativeFileSystemRegistryId);
     }
 }

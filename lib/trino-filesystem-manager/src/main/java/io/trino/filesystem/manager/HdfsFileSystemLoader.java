@@ -86,10 +86,10 @@ final class HdfsFileSystemLoader
         }
     }
 
-    public TrinoFileSystemFactory create()
+    public TrinoFileSystemFactory create(Map<String, TrinoFileSystemFactory> nativeFileSystemFactories)
     {
         try (var _ = new ThreadContextClassLoader(classLoader)) {
-            return (TrinoFileSystemFactory) manager.getClass().getMethod("create").invoke(manager);
+            return (TrinoFileSystemFactory) manager.getClass().getMethod("create", Map.class).invoke(manager, nativeFileSystemFactories);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);

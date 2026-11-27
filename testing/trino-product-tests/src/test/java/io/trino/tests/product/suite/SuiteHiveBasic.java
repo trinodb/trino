@@ -15,6 +15,7 @@ package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
 import io.trino.tests.product.hive.HiveBasicEnvironment;
+import io.trino.tests.product.hive.HiveViewFsEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
 import java.util.ArrayList;
@@ -33,6 +34,10 @@ public final class SuiteHiveBasic
 
         results.add(SuiteRunner.forEnvironment(HiveBasicEnvironment.class)
                 .includeTag(TestGroup.HdfsNoImpersonation.class)
+                .run());
+
+        results.add(SuiteRunner.forEnvironment(HiveViewFsEnvironment.class)
+                .includeTag(TestGroup.HiveViewFs.class)
                 .run());
 
         SuiteRunner.printSummary(results);

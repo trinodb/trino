@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.manager;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -50,6 +51,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -66,6 +68,9 @@ public class FileSystemModule
 
     // Small, hot metadata files on the coordinator planning path: hits must not do I/O
     private static final CacheRequirements METADATA_CACHE_REQUIREMENTS = new CacheRequirements("filesystem.metadata", Set.of(LOW_LATENCY));
+
+    // Object storage schemes whose native file system is exposed to Hadoop; file systems for local files (file, local) are not exposed
+    private static final Set<String> HADOOP_NATIVE_SCHEMES = ImmutableSet.of("s3", "s3a", "s3n", "gs", "abfs", "abfss", "wasb", "wasbs");
 
     private final String catalogName;
     private final ConnectorContext context;
@@ -162,7 +167,11 @@ public class FileSystemModule
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
-        Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
+        // Expose native object storage file systems to Hadoop, for Hadoop file systems resolving child file systems by scheme, such as ViewFS mount links
+        Map<String, TrinoFileSystemFactory> hadoopNativeFactories = factories.entrySet().stream()
+                .filter(entry -> HADOOP_NATIVE_SCHEMES.contains(entry.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(hdfsLoader -> hdfsLoader.create(hadoopNativeFactories));
 
         Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
                 .map(factories::get)
