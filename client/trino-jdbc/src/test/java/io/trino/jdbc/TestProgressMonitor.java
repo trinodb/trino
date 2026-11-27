@@ -14,19 +14,12 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.JsonMapperProvider;
-import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.TypedQueryData;
-import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
-import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.junit5.StartStop;
 import org.junit.jupiter.api.Test;
@@ -34,7 +27,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -45,7 +37,9 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.trino.jdbc.TestingJdbcUtils.column;
+import static io.trino.jdbc.TestingJdbcUtils.createConnection;
+import static io.trino.jdbc.TestingJdbcUtils.enqueueResults;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -55,18 +49,13 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new JsonMapperProvider()
-            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule()))
-            .get())
-            .jsonCodec(QueryResults.class);
-
     @StartStop
     private final MockWebServer server = new MockWebServer();
 
-    private List<String> createResults()
+    private List<QueryResults> createResults()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", StandardTypes.BIGINT, new ClientTypeSignature(StandardTypes.BIGINT)));
-        return ImmutableList.<String>builder()
+        List<Column> columns = ImmutableList.of(column("_col0", StandardTypes.BIGINT));
+        return ImmutableList.<QueryResults>builder()
                 .add(newQueryResults(null, 1, null, null, "QUEUED"))
                 .add(newQueryResults(1, 2, columns, null, "RUNNING"))
                 .add(newQueryResults(1, 3, columns, null, "RUNNING"))
@@ -75,10 +64,10 @@ public class TestProgressMonitor
                 .build();
     }
 
-    private String newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
+    private QueryResults newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
     {
         String queryId = "20160128_214710_00012_rk68b";
-        QueryResults queryResults = new QueryResults(
+        return new QueryResults(
                 queryId,
                 server.url("/query.html?" + queryId).uri(),
                 partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
@@ -90,22 +79,17 @@ public class TestProgressMonitor
                 ImmutableList.of(),
                 null,
                 OptionalLong.empty());
-
-        return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 
     @Test
     public void test()
             throws SQLException
     {
-        for (String result : createResults()) {
-            server.enqueue(new MockResponse.Builder()
-                    .addHeader(CONTENT_TYPE, "application/json")
-                    .body(result)
-                    .build());
+        for (QueryResults results : createResults()) {
+            enqueueResults(server, results);
         }
 
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection(server)) {
             try (Statement statement = connection.createStatement()) {
                 TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
                 RecordingProgressMonitor progressMonitor = new RecordingProgressMonitor();
@@ -129,13 +113,6 @@ public class TestProgressMonitor
                 assertThat(queryStatsList.get(queryStatsList.size() - 1).getState()).isEqualTo("FINISHED");
             }
         }
-    }
-
-    private Connection createConnection()
-            throws SQLException
-    {
-        String url = format("jdbc:trino://%s", server.url("/").uri().getAuthority());
-        return DriverManager.getConnection(url, "test", null);
     }
 
     private static class RecordingProgressMonitor

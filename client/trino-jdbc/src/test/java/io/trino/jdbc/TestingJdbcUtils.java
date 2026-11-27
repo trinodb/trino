@@ -14,19 +14,56 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.Column;
+import io.trino.client.QueryResults;
+import io.trino.client.TrinoJsonCodec;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TestingJdbcUtils
 {
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+
     private TestingJdbcUtils() {}
+
+    /**
+     * Makes the mock server answer the next request with the given response of the client protocol.
+     */
+    public static void enqueueResults(MockWebServer server, QueryResults queryResults)
+    {
+        server.enqueue(new MockResponse.Builder()
+                .addHeader(CONTENT_TYPE, "application/json")
+                .body(QUERY_RESULTS_CODEC.toJson(queryResults))
+                .build());
+    }
+
+    public static Column column(String name, String type)
+    {
+        return new Column(name, type, new ClientTypeSignature(type));
+    }
+
+    public static Connection createConnection(MockWebServer server)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://%s", server.url("/").uri().getAuthority());
+        return DriverManager.getConnection(url, "test", null);
+    }
 
     public static List<List<Object>> readRows(ResultSet rs)
             throws SQLException
@@ -55,6 +92,15 @@ public final class TestingJdbcUtils
             rows.add(row);
         }
         return rows.build();
+    }
+
+    public static List<String> warningMessages(SQLWarning warning)
+    {
+        ImmutableList.Builder<String> messages = ImmutableList.builder();
+        for (SQLWarning current = warning; current != null; current = current.getNextWarning()) {
+            messages.add(current.getMessage());
+        }
+        return messages.build();
     }
 
     @SafeVarargs

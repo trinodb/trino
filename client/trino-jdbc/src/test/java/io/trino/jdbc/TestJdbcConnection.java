@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.log.Logging;
+import io.airlift.units.DataSize;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
@@ -29,6 +30,7 @@ import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -39,6 +41,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.session.ResourceEstimates;
 import jakarta.annotation.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,6 +64,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
@@ -77,6 +81,7 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.ClientSelectedRole.Type.ROLE;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -504,6 +509,34 @@ public class TestJdbcConnection
         try (Connection connection = createConnection("traceToken=trace%20me")) {
             assertThat(connection.getClientInfo("TraceToken")).isEqualTo("trace me");
         }
+    }
+
+    @Test
+    public void testPath()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("path=hive.default");
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT CURRENT_PATH")) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getString(1)).isEqualTo("hive.default");
+        }
+    }
+
+    @Test
+    public void testResourceEstimates()
+            throws SQLException
+    {
+        String queryId;
+        try (Connection connection = createConnection("resourceEstimates=EXECUTION_TIME:1h;PEAK_MEMORY:1GB");
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT 123")) {
+            queryId = rs.unwrap(TrinoResultSet.class).getQueryId();
+        }
+
+        ResourceEstimates resourceEstimates = server.getQueryManager().getFullQueryInfo(new QueryId(queryId)).getSession().getResourceEstimates();
+        assertThat(resourceEstimates.getExecutionTime()).hasValue(Duration.ofHours(1));
+        assertThat(resourceEstimates.getPeakMemoryBytes()).hasValue(DataSize.of(1, GIGABYTE).toBytes());
     }
 
     @Test
