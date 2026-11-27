@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.function.OperatorType;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -59,14 +60,23 @@ public interface Type
      */
     String getDisplayName();
 
-    /**
-     * True if the type supports equalTo and hash.
-     */
+    /// Returns whether this type supports equality and hashing.
+    ///
+    /// A comparable type must declare [OperatorType#EQUAL] and [OperatorType#XX_HASH_64]
+    /// in its [type operator declaration][#getTypeOperatorDeclaration(TypeOperators)].
+    /// [TypeOperators] uses [OperatorType#XX_HASH_64] if [OperatorType#HASH_CODE] is not declared
+    /// and provides defaults for [OperatorType#IDENTICAL] and [OperatorType#INDETERMINATE].
+    /// Override those defaults if the type needs special handling for unordered values or nested nulls.
     boolean isComparable();
 
-    /**
-     * True if the type supports compareTo.
-     */
+    /// Returns whether this type supports ordering comparisons.
+    ///
+    /// An orderable type must declare [OperatorType#COMPARISON_UNORDERED_FIRST] and
+    /// [OperatorType#COMPARISON_UNORDERED_LAST] in its
+    /// [type operator declaration][#getTypeOperatorDeclaration(TypeOperators)].
+    /// If the type has no unordered values (such as NaN), either comparison operator suffices.
+    /// [TypeOperators] derives [OperatorType#LESS_THAN] and [OperatorType#LESS_THAN_OR_EQUAL]
+    /// from the comparison operators if they are not declared.
     boolean isOrderable();
 
     /**
