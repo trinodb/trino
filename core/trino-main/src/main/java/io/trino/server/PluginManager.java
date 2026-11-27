@@ -121,6 +121,7 @@ public class PluginManager
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
+    private final List<String> sharedPackages;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
 
     @Inject
@@ -143,7 +144,8 @@ public class PluginManager
             HandleResolver handleResolver,
             ExchangeManagerRegistry exchangeManagerRegistry,
             SpoolingManagerRegistry spoolingManagerRegistry,
-            CacheManagerRegistry cacheManagerRegistry)
+            CacheManagerRegistry cacheManagerRegistry,
+            PluginManagerConfig config)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
@@ -164,6 +166,7 @@ public class PluginManager
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.sharedPackages = ImmutableList.copyOf(config.getSharedPackages());
     }
 
     @Override
@@ -173,7 +176,7 @@ public class PluginManager
             return;
         }
 
-        pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
+        pluginsProvider.loadPlugins(this::loadPlugin, (pluginName, urls) -> createClassLoader(pluginName, urls, sharedPackages));
 
         typeRegistry.verifyTypes();
     }
@@ -320,8 +323,22 @@ public class PluginManager
 
     public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
+        return createClassLoader(pluginName, urls, ImmutableList.of());
+    }
+
+    /**
+     * A plugin class loader that also loads the classes and resources of {@code sharedPackages} from the server class
+     * path, as it loads the SPI: one copy for the server and every plugin, for libraries a plugin cannot load itself,
+     * such as a runtime on the server's module path or one that loads native code.
+     */
+    public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls, List<String> sharedPackages)
+    {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES, SPI_PACKAGES_EXCLUDED);
+        List<String> spiPackages = ImmutableList.<String>builder()
+                .addAll(SPI_PACKAGES)
+                .addAll(sharedPackages)
+                .build();
+        return new PluginClassLoader(pluginName, urls, parent, spiPackages, SPI_PACKAGES_EXCLUDED);
     }
 
     public interface PluginsProvider
