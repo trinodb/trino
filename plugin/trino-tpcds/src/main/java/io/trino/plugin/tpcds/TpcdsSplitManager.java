@@ -63,7 +63,6 @@ public class TpcdsSplitManager
         int splitCount = getSplitCount(session, nodes.size());
         int partNumber = 0;
 
-        // sort to ensure the assignment is consistent with TpcdsNodePartitioningProvider
         List<Node> sortedNodes = nodes.stream()
                 .sorted(comparing(node -> node.getHostAndPort().toString()))
                 .collect(toImmutableList());
@@ -79,7 +78,7 @@ public class TpcdsSplitManager
         return new FixedSplitSource(splits.build());
     }
 
-    public static int getSplitCount(ConnectorSession session, int nodeCount)
+    private static int getSplitCount(ConnectorSession session, int nodeCount)
     {
         return TpcdsSessionProperties.getSplitCount(session)
                 .orElseGet(() -> getSplitsPerNode(session) * nodeCount);
