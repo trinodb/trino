@@ -581,6 +581,11 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567890 Asia/Kathmandu' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678901 Asia/Kathmandu' AS DATE)")).matches("DATE '2020-05-01'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu' AS DATE)")).matches("DATE '2020-05-01'");
+
+        // A day before 1970 that starts in a gap: in Cairo, 1940-07-15 started at 01:00
+        assertThat(assertions.expression("CAST(TIMESTAMP '1940-07-15 01:30:00 Africa/Cairo' AS DATE)")).matches("DATE '1940-07-15'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1940-07-15 01:30:00.123456 Africa/Cairo' AS DATE)")).matches("DATE '1940-07-15'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1940-07-14 23:30:00 Africa/Cairo' AS DATE)")).matches("DATE '1940-07-14'");
     }
 
     @Test

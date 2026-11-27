@@ -251,6 +251,16 @@ Domain extraction uses providers as the authority for cast extraction. The
 policy, and truncating `CAST(varchar AS char)` cases are conservative. The
 varchar-to-date provider declines ranges unbounded on either side, because string
 order does not follow year order across year lengths.
+`CAST(timestamp with time zone AS date)` is conservative as well: the date depends on
+the zone each value carries, and a domain selects such values by instant alone. No
+zone is a full day away from UTC, so the provider returns the UTC days of the
+requested dates, widened by one day on each side.
+
+Domain extraction also passes a domain through `at_timezone` when the zone is not a
+constant, a call for which no provider can be bound. The call keeps the instant for
+every zone, so a domain of the call is a domain of its timestamp argument. The call
+can be null or fail for a non-null timestamp, so this step requires a domain that
+excludes null, and it makes the result conservative.
 
 ## Runtime domains and cast preimages
 

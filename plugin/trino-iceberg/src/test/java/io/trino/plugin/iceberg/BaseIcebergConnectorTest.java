@@ -5513,6 +5513,56 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSplitPruningForDateOfAtTimeZoneFilterOnPartitionColumn()
+    {
+        String tableName = "test_split_pruning_date_of_at_timezone";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, zone VARCHAR, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
+        // Row 4 is in April by instant and on May 1 in its own zone
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(1, 'UTC', TIMESTAMP '2025-01-15 10:00:00.000000 UTC'), " +
+                "(2, 'Asia/Jerusalem', TIMESTAMP '2025-02-15 10:00:00.000000 UTC'), " +
+                "(3, 'America/New_York', TIMESTAMP '2025-03-15 10:00:00.000000 UTC'), " +
+                "(4, 'Pacific/Kiritimati', TIMESTAMP '2025-04-30 12:00:00.000000 UTC')", 4);
+
+        // sanity check that table contains exactly one file per month partition
+        assertThat(computeScalar("SELECT count(*) FROM \"" + tableName + "$files\"")).isEqualTo(4L);
+
+        verifySplitCount("SELECT * FROM " + tableName, 4);
+
+        // The date of a value depends on the zone the value carries, and no zone is a full day away from UTC.
+        // A filter on the date therefore prunes to the UTC days it names, widened by one day on each side.
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date(at_timezone(ts, 'Asia/Jerusalem')) = DATE '2025-02-15'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE CAST(at_timezone(ts, 'Asia/Jerusalem') AS date) < DATE '2025-01-20'", 1);
+        // the zone argument may be a column, as in views exposing each row's date in its own zone
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date(at_timezone(ts, zone)) = DATE '2025-02-15'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE CAST(at_timezone(ts, zone) AS date) BETWEEN DATE '2025-03-10' AND DATE '2025-03-20'", 1);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date(at_timezone(ts, zone)) IN (DATE '2025-01-15', DATE '2025-03-15')", 2);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date(at_timezone(ts, zone)) < DATE '2020-01-01'", 0);
+        // date functions over the date compose with it
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date_trunc('week', date(at_timezone(ts, zone))) = DATE '2025-02-10'", 1);
+
+        // the widening keeps the partition of a row whose date in its zone falls in the next month
+        assertThat(query("SELECT id FROM " + tableName + " WHERE date(at_timezone(ts, zone)) = DATE '2025-05-01'"))
+                .matches("VALUES BIGINT '4'");
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE date(at_timezone(ts, zone)) = DATE '2025-05-01'", 1);
+
+        // a filter on a date column that a subquery or a view projects prunes too, also when it references the column twice
+        String dates = "(SELECT id, date(at_timezone(ts, zone)) AS local_date FROM " + tableName + ")";
+        verifySplitCount("SELECT * FROM " + dates + " WHERE local_date BETWEEN DATE '2025-02-10' AND DATE '2025-02-20'", 1);
+        verifySplitCount("SELECT * FROM " + dates + " WHERE local_date = DATE '2025-01-15' OR local_date = DATE '2025-03-15'", 2);
+
+        // a row with a null zone has a null date, and the retained predicate filters it out
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, NULL, TIMESTAMP '2025-02-15 10:00:00.000000 UTC')", 1);
+        assertThat(query("SELECT id FROM " + tableName + " WHERE date(at_timezone(ts, zone)) = DATE '2025-02-15'"))
+                .matches("VALUES BIGINT '2'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testSplitPruningForFilterThroughProjection()
     {
         // The derived table carries its own WHERE clause, so the constraint is derived through both

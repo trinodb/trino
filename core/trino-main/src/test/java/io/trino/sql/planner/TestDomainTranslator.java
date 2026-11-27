@@ -29,12 +29,15 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -57,6 +60,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -87,6 +91,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -2401,6 +2406,122 @@ public class TestDomainTranslator
                 greaterThan(columnOffset, lowLiteral),
                 tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThan(TIMESTAMP_TZ_MILLIS, low)), false)),
                 greaterThan(columnOffset, lowLiteral));
+    }
+
+    @Test
+    public void testCastTimestampWithTimeZoneToDateComparison()
+    {
+        long date = LocalDate.of(2013, 3, 30).toEpochDay();
+        Constant dateLiteral = new Constant(DATE, date);
+        Constant nextWeekLiteral = new Constant(DATE, date + 7);
+
+        // The cast uses the zone each value carries, and no zone is a full day away from UTC.
+        // The values that cast to a date therefore lie within that UTC day widened by one day on each side.
+        // The domain is a superset, so the original predicate is kept.
+        Expression castColumn = cast(C_TIMESTAMP_TZ, DATE);
+        assertPredicateDerives(equal(castColumn, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        assertPredicateDerives(comparison(IDENTICAL, castColumn, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        assertPredicateDerives(
+                greaterThanOrEqual(castColumn, dateLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date - 1))), false)));
+        assertPredicateDerives(
+                greaterThan(castColumn, dateLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date))), false)));
+        assertPredicateDerives(
+                lessThanOrEqual(castColumn, dateLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 2))), false)));
+        assertPredicateDerives(
+                lessThan(castColumn, dateLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 1))), false)));
+        assertPredicateDerives(
+                between(castColumn, dateLiteral, nextWeekLiteral),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 9)));
+        assertPredicateDerives(
+                in(castColumn, DATE, ImmutableList.of(date, date + 7)),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(
+                        ValueSet.ofRanges(
+                                Range.range(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date - 1), true, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 2), false),
+                                Range.range(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 6), true, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 9), false)),
+                        false)));
+        // the widened ranges on both sides of an excluded date cover every instant
+        assertPredicateDerives(notEqual(castColumn, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, Domain.notNull(TIMESTAMP_TZ_MILLIS)));
+        // the negation is derived from the dates that make the comparison false, not by complementing a superset
+        assertPredicateDerives(
+                not(greaterThanOrEqual(castColumn, dateLiteral)),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 1))), false)));
+
+        // the date function is the same cast
+        Expression dateFunction = new Call(functionResolution.resolveFunction("date", fromTypes(TIMESTAMP_TZ_MILLIS)), ImmutableList.of(C_TIMESTAMP_TZ.toSymbolReference()));
+        assertPredicateDerives(equal(dateFunction, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+
+        // a long timestamp with time zone
+        TimestampWithTimeZoneType microsType = createTimestampWithTimeZoneType(6);
+        Symbol microsColumn = new Symbol(microsType, "c_timestamp_tz_micros");
+        assertPredicateDerives(equal(cast(microsColumn, DATE), dateLiteral), tupleDomain(microsColumn, instantRange(microsType, date - 1, date + 2)));
+
+        // at_timezone with a constant zone keeps the instant, so the range passes through it to the column
+        Expression constantZone = cast(atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), stringLiteral("Asia/Jerusalem")), DATE);
+        assertPredicateDerives(equal(constantZone, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        assertPredicateDerives(between(constantZone, dateLiteral, nextWeekLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 9)));
+
+        // date functions over the date compose with the cast
+        Expression month = new Call(
+                functionResolution.resolveFunction("date_trunc", fromTypes(createVarcharType(5), DATE)),
+                ImmutableList.of(new Constant(createVarcharType(5), utf8Slice("month")), constantZone));
+        assertPredicateDerives(
+                equal(month, new Constant(DATE, LocalDate.of(2013, 3, 1).toEpochDay())),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, LocalDate.of(2013, 2, 28).toEpochDay(), LocalDate.of(2013, 4, 2).toEpochDay())));
+        Expression year = new Call(functionResolution.resolveFunction("year", fromTypes(DATE)), ImmutableList.of(constantZone));
+        assertPredicateDerives(
+                equal(year, new Constant(BIGINT, 2013L)),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, LocalDate.of(2012, 12, 31).toEpochDay(), LocalDate.of(2014, 1, 2).toEpochDay())));
+
+        // the range passes through at_timezone for a zone that varies by row too
+        Expression columnZone = cast(atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), C_VARCHAR.toSymbolReference()), DATE);
+        assertPredicateDerives(equal(columnZone, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        assertPredicateDerives(between(columnZone, dateLiteral, nextWeekLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 9)));
+        assertPredicateDerives(
+                in(columnZone, DATE, ImmutableList.of(date, date + 1)),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 3)));
+        assertPredicateDerives(
+                not(greaterThanOrEqual(columnZone, dateLiteral)),
+                tupleDomain(C_TIMESTAMP_TZ, Domain.create(ValueSet.ofRanges(Range.lessThan(TIMESTAMP_TZ_MILLIS, utcMidnight(TIMESTAMP_TZ_MILLIS, date + 1))), false)));
+        Expression coalescedZone = cast(
+                atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), new Coalesce(C_VARCHAR.toSymbolReference(), new Constant(VARCHAR, utf8Slice("GMT")))),
+                DATE);
+        assertPredicateDerives(equal(coalescedZone, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        Expression nestedZones = cast(
+                atTimeZone(atTimeZone(C_TIMESTAMP_TZ.toSymbolReference(), C_VARCHAR.toSymbolReference()), stringLiteral("UTC")),
+                DATE);
+        assertPredicateDerives(equal(nestedZones, dateLiteral), tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, date - 1, date + 2)));
+        Expression monthOfColumnZone = new Call(
+                functionResolution.resolveFunction("date_trunc", fromTypes(createVarcharType(5), DATE)),
+                ImmutableList.of(new Constant(createVarcharType(5), utf8Slice("month")), columnZone));
+        assertPredicateDerives(
+                equal(monthOfColumnZone, new Constant(DATE, LocalDate.of(2013, 3, 1).toEpochDay())),
+                tupleDomain(C_TIMESTAMP_TZ, instantRange(TIMESTAMP_TZ_MILLIS, LocalDate.of(2013, 2, 28).toEpochDay(), LocalDate.of(2013, 4, 2).toEpochDay())));
+
+        // With a zone that varies by row, at_timezone is null for a non-null timestamp and a null zone.
+        // A predicate that selects rows where the date is null also selects that row, and a domain on the column alone would prune it.
+        assertUnsupportedPredicate(comparison(IDENTICAL, columnZone, nullLiteral(DATE)));
+        assertUnsupportedPredicate(not(comparison(IDENTICAL, columnZone, dateLiteral)));
+
+        // the legacy implementation derives nothing from this cast
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(castColumn, dateLiteral));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(columnZone, dateLiteral));
+    }
+
+    private static Domain instantRange(TimestampWithTimeZoneType type, long firstEpochDay, long endEpochDay)
+    {
+        return Domain.create(ValueSet.ofRanges(Range.range(type, utcMidnight(type, firstEpochDay), true, utcMidnight(type, endEpochDay), false)), false);
+    }
+
+    private static Object utcMidnight(TimestampWithTimeZoneType type, long epochDay)
+    {
+        long epochMillis = epochDay * 86_400_000;
+        return type.isShort()
+                ? packDateTimeWithZone(epochMillis, UTC_KEY)
+                : LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 0, UTC_KEY);
     }
 
     private Expression atTimeZone(Expression timestamp, Expression zone)

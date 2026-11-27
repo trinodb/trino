@@ -22,6 +22,7 @@ import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
 import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
@@ -29,6 +30,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.tracing.TracingMetadata;
@@ -37,6 +41,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 import java.time.LocalDate;
+import java.time.zone.ZoneOffsetTransition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -55,16 +60,22 @@ import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.Reals.toReal;
+import static java.lang.Math.floorDiv;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestDomainPreimages
 {
@@ -509,6 +520,123 @@ public class TestDomainPreimages
 
         // A bound longer than the source type keeps every value of the type in range
         assertThat(castPreimage(Domain.singleValue(DATE, date), createVarcharType(9)).includesNullableValue(utf8Slice("2005-9-10"))).isTrue();
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneToDate()
+    {
+        long date = LocalDate.of(2005, 9, 10).toEpochDay();
+        for (TimestampWithTimeZoneType type : List.of(createTimestampWithTimeZoneType(3), createTimestampWithTimeZoneType(6))) {
+            // A value casts to the date it shows in its own zone, which is less than a day away from UTC.
+            // One date therefore maps to its UTC day, widened by one day on each side.
+            assertThat(castPreimage(Domain.singleValue(DATE, date), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(range(type, utcMidnight(type, date - 1), true, utcMidnight(type, date + 2), false)), false));
+            // The null allowance of the result carries over
+            assertThat(castPreimage(Domain.create(ValueSet.of(DATE, date), true), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(range(type, utcMidnight(type, date - 1), true, utcMidnight(type, date + 2), false)), true));
+
+            // Dates are discrete, so an exclusive bound is the inclusive bound one day further in
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(range(DATE, date, true, date + 10, true)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(range(type, utcMidnight(type, date - 1), true, utcMidnight(type, date + 12), false)), false));
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(range(DATE, date, false, date + 10, false)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(range(type, utcMidnight(type, date), true, utcMidnight(type, date + 11), false)), false));
+            // An open range between adjacent dates contains no date
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(range(DATE, date, false, date + 1, false)), false), type))
+                    .isEqualTo(Domain.none(type));
+
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(greaterThanOrEqual(DATE, date)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(greaterThanOrEqual(type, utcMidnight(type, date - 1))), false));
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(greaterThan(DATE, date)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(greaterThanOrEqual(type, utcMidnight(type, date))), false));
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(lessThanOrEqual(DATE, date)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(lessThan(type, utcMidnight(type, date + 2))), false));
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(lessThan(DATE, date)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(lessThan(type, utcMidnight(type, date + 1))), false));
+
+            // The widened ranges of nearby dates merge, and those of distant dates stay apart
+            assertThat(castPreimage(multipleValues(DATE, List.of(date, date + 2)), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(range(type, utcMidnight(type, date - 1), true, utcMidnight(type, date + 4), false)), false));
+            assertThat(castPreimage(multipleValues(DATE, List.of(date, date + 30)), type))
+                    .isEqualTo(Domain.create(
+                            ValueSet.ofRanges(
+                                    range(type, utcMidnight(type, date - 1), true, utcMidnight(type, date + 2), false),
+                                    range(type, utcMidnight(type, date + 29), true, utcMidnight(type, date + 32), false)),
+                            false));
+            // The widened ranges on both sides of an excluded date cover every instant
+            assertThat(castPreimage(Domain.create(ValueSet.of(DATE, date).complement(), false), type)).isEqualTo(Domain.notNull(type));
+
+            assertThat(castPreimage(Domain.none(DATE), type)).isEqualTo(Domain.none(type));
+            assertThat(castPreimage(Domain.onlyNull(DATE), type)).isEqualTo(Domain.onlyNull(type));
+            assertThat(castPreimage(Domain.notNull(DATE), type)).isEqualTo(Domain.notNull(type));
+
+            // A date beyond the instants the type can represent leaves that side unbounded
+            long farFuture = LocalDate.of(100_000, 1, 1).toEpochDay();
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(range(DATE, date, true, farFuture, true)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(greaterThanOrEqual(type, utcMidnight(type, date - 1))), false));
+            assertThat(castPreimage(Domain.create(ValueSet.ofRanges(range(DATE, -farFuture, true, date, true)), false), type))
+                    .isEqualTo(Domain.create(ValueSet.ofRanges(lessThan(type, utcMidnight(type, date + 2))), false));
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneToDateIncludesEveryZone()
+    {
+        TimestampWithTimeZoneType type = createTimestampWithTimeZoneType(3);
+        FunctionPreimages preimages = new FunctionPreimages(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeManager());
+        // The zones furthest from UTC, a zone that skipped a day, a zone whose clock changed one minute after midnight,
+        // and zones whose local mean time before the date line moved was more than 14 hours away from UTC
+        List<String> zones = List.of("UTC", "+14:00", "-14:00", "Pacific/Kiritimati", "Etc/GMT+12", "Pacific/Apia", "America/Goose_Bay", "Asia/Manila", "America/Juneau", "Asia/Jerusalem");
+        List<LocalDate> days = List.of(
+                LocalDate.of(1844, 12, 31),
+                LocalDate.of(1867, 10, 18),
+                LocalDate.of(1970, 1, 1),
+                LocalDate.of(2010, 11, 7),
+                LocalDate.of(2011, 12, 30),
+                LocalDate.of(2025, 3, 28));
+        for (String zone : zones) {
+            TimeZoneKey zoneKey = getTimeZoneKey(zone);
+            for (LocalDate day : days) {
+                long start = (day.toEpochDay() - 2) * 86_400_000;
+                for (long epochMillis = start; epochMillis <= start + 4 * 86_400_000L; epochMillis += 900_000) {
+                    long value = packDateTimeWithZone(epochMillis, zoneKey);
+                    long date = TimestampWithTimeZoneToDateCast.cast(value);
+                    assertThat(preimages.castPreimage(TEST_SESSION, Domain.singleValue(DATE, date), type).includesNullableValue(value))
+                            .describedAs("%s at epoch millis %s casts to %s", zone, epochMillis, LocalDate.ofEpochDay(date))
+                            .isTrue();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneToDateStaysWithinOneDayOfUtcDate()
+    {
+        // The provider relies on the date of a value in its own zone being at most one day away from its UTC date.
+        // Check it around every offset change of every zone, where the two dates differ the most.
+        for (TimeZoneKey zoneKey : TimeZoneKey.getTimeZoneKeys()) {
+            List<Long> instants = new ArrayList<>();
+            instants.add(0L);
+            for (ZoneOffsetTransition transition : zoneKey.getZoneId().getRules().getTransitions()) {
+                instants.add(transition.getInstant().toEpochMilli());
+            }
+            for (long instant : instants) {
+                for (long epochMillis = instant - 36 * 3_600_000L - 1; epochMillis <= instant + 36 * 3_600_000L; epochMillis += 1_800_000) {
+                    long date = TimestampWithTimeZoneToDateCast.cast(packDateTimeWithZone(epochMillis, zoneKey));
+                    long utcDate = floorDiv(epochMillis, 86_400_000L);
+                    if (date < utcDate - 1 || date > utcDate + 1) {
+                        fail("%s at epoch millis %s casts to %s".formatted(zoneKey.getId(), epochMillis, LocalDate.ofEpochDay(date)));
+                    }
+                }
+            }
+        }
+    }
+
+    private static Object utcMidnight(TimestampWithTimeZoneType type, long epochDay)
+    {
+        long epochMillis = epochDay * 86_400_000;
+        return type.isShort()
+                ? packDateTimeWithZone(epochMillis, UTC_KEY)
+                : LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, 0, UTC_KEY);
     }
 
     @Test
