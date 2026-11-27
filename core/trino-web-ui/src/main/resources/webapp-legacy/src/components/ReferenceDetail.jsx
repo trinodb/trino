@@ -55,7 +55,7 @@ export class ReferenceDetail extends React.Component {
         const queryString = getFirstParameter(window.location.search).split('.')
         const queryId = queryString[0]
 
-        $.get('/ui/api/query/' + queryId + '?pruned=true', (query) => {
+        $.get('../api/query/' + queryId + '?pruned=true', (query) => {
             this.setState({
                 initialized: true,
                 ended: query.finalQueryInfo,
