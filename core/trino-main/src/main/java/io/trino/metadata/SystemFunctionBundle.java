@@ -40,6 +40,7 @@ import io.trino.operator.aggregation.ChecksumAggregationFunction;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.CountJoinAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -421,6 +422,7 @@ public final class SystemFunctionBundle
                 .aggregates(SumDataSizeForStats.class)
                 .aggregates(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
+                .aggregates(CountJoinAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)

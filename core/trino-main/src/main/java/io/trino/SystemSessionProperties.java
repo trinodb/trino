@@ -116,6 +116,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
+    public static final String PRE_AGGREGATE_COUNT_JOINS = "pre_aggregate_count_joins";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String ALLOW_UNSAFE_PUSHDOWN = "allow_unsafe_pushdown";
     public static final String PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED = "pre_aggregate_case_aggregations_enabled";
@@ -550,6 +551,11 @@ public final class SystemSessionProperties
                         "Allow pushing aggregations below joins",
                         optimizerConfig.isPushAggregationThroughOuterJoin(),
                         false),
+                booleanProperty(
+                        PRE_AGGREGATE_COUNT_JOINS,
+                        "Experimental multiplicity-aware pre-aggregation for expanding count joins",
+                        false,
+                        true),
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",

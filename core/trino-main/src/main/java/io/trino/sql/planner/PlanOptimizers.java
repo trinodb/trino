@@ -85,6 +85,7 @@ import io.trino.sql.planner.iterative.rule.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
 import io.trino.sql.planner.iterative.rule.OptimizeSingleAnyValueAggregation;
 import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
+import io.trino.sql.planner.iterative.rule.PreAggregateCountJoins;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -835,6 +836,8 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        // After join reordering, before distribution selection and aggregation splitting.
+                        .add(new PreAggregateCountJoins(metadata))
                         .add(new CreatePartialTopN())
                         .add(new PushTopNThroughProject())
                         .add(new PushTopNThroughOuterJoin())
