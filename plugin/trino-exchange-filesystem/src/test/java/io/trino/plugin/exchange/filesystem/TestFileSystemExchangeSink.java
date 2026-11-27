@@ -153,6 +153,12 @@ final class TestFileSystemExchangeSink
         }
 
         @Override
+        public ListenableFuture<List<URI>> listDirectories(URI dir)
+        {
+            return delegate.listDirectories(dir);
+        }
+
+        @Override
         public int getWriteBufferSize()
         {
             return delegate.getWriteBufferSize();

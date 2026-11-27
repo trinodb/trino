@@ -43,6 +43,7 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
 import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeOrphanCleanupJob;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.node.Announcer;
@@ -153,6 +154,7 @@ public class Server
 
             if (injector.getInstance(ServerConfig.class).isCoordinator()) {
                 injector.getInstance(EventListenerManager.class).loadEventListeners();
+                injector.getInstance(ExchangeOrphanCleanupJob.class).start();
             }
 
             injector.getInstance(Key.get(new TypeLiteral<Optional<OAuth2Client>>() {}))

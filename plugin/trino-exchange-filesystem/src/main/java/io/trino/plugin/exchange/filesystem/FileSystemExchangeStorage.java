@@ -35,6 +35,8 @@ public interface FileSystemExchangeStorage
 
     ListenableFuture<List<FileStatus>> listFilesRecursively(URI dir);
 
+    ListenableFuture<List<URI>> listDirectories(URI dir);
+
     int getWriteBufferSize();
 
     @Override

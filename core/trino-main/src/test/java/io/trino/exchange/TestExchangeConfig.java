@@ -14,6 +14,7 @@
 package io.trino.exchange;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -24,6 +25,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 final class TestExchangeConfig
 {
@@ -31,7 +33,10 @@ final class TestExchangeConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeManagerConfig.class)
-                .setExchangeManagerConfigFile(null));
+                .setExchangeManagerConfigFile(null)
+                .setOrphanCleanupEnabled(false)
+                .setOrphanCleanupInterval(new Duration(4, HOURS))
+                .setOrphanCleanupRetention(new Duration(12, HOURS)));
     }
 
     @Test
@@ -40,10 +45,17 @@ final class TestExchangeConfig
     {
         Path exchangeConfig = Files.createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.of("exchange-manager.config-file", exchangeConfig.toString());
+        Map<String, String> properties = ImmutableMap.of(
+                "exchange-manager.config-file", exchangeConfig.toString(),
+                "exchange-manager.orphan-cleanup.enabled", "true",
+                "exchange-manager.orphan-cleanup.interval", "2h",
+                "exchange-manager.orphan-cleanup.retention", "1h");
 
         ExchangeManagerConfig expected = new ExchangeManagerConfig()
-                .setExchangeManagerConfigFile(exchangeConfig.toFile());
+                .setExchangeManagerConfigFile(exchangeConfig.toFile())
+                .setOrphanCleanupEnabled(true)
+                .setOrphanCleanupInterval(new Duration(2, HOURS))
+                .setOrphanCleanupRetention(new Duration(1, HOURS));
 
         assertFullMapping(properties, expected);
     }
