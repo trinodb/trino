@@ -14,9 +14,9 @@
 package io.trino.spi.type;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static java.lang.Math.floorDiv;
@@ -26,9 +26,6 @@ import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
 {
-    private static final String TIMESTAMP_FORMAT_PATTERN = "uuuu-MM-dd HH:mm:ss";
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMAT_PATTERN);
-
     static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -132,51 +129,108 @@ public class Timestamps
         return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
     }
 
-    static String formatTimestamp(int precision, long epochMicros, int picosOfMicro)
+    /**
+     * Formats a timestamp of the given precision. Digits beyond the precision are truncated, not rounded.
+     */
+    public static String formatTimestamp(int precision, long epochMicros, int picosOfMicro)
     {
-        Instant instant = Instant.ofEpochSecond(floorDiv(epochMicros, MICROSECONDS_PER_SECOND));
+        return formatTimestampInZone(precision, epochMicros, picosOfMicro, UTC);
+    }
+
+    public static String formatTimestampInZone(int precision, long epochMicros, int picosOfMicro, ZoneId zoneId)
+    {
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochSecond(floorDiv(epochMicros, MICROSECONDS_PER_SECOND)), zoneId);
         long picoFraction = ((long) floorMod(epochMicros, MICROSECONDS_PER_SECOND)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, UTC);
-
-        StringBuilder builder = new StringBuilder(timestampFormatLength(precision));
-        formatTimestamp(precision, dateTime, picoFraction, builder);
-        return builder.toString();
+        return formatDateTime(precision, dateTime, picoFraction, null);
     }
 
-    private static int timestampFormatLength(int precision)
+    public static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
     {
-        return TIMESTAMP_FORMAT_PATTERN.length() + (precision == 0 ? 0 : precision + 1);
-    }
-
-    static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
-    {
-        Instant instant = Instant.ofEpochMilli(epochMillis);
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zoneId);
         long picoFraction = (long) floorMod(epochMillis, MILLISECONDS_PER_SECOND) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
-
-        String zoneIdString = zoneId.getId();
-        StringBuilder builder = new StringBuilder(timestampFormatLength(precision) + zoneIdString.length() + 1);
-        formatTimestamp(precision, dateTime, picoFraction, builder);
-        return builder.append(' ').append(zoneIdString).toString();
+        return formatDateTime(precision, dateTime, picoFraction, zoneId.getId());
     }
 
-    private static void formatTimestamp(int precision, LocalDateTime dateTime, long picoFraction, StringBuilder builder)
+    /**
+     * Formats a time of day (HH:mm:ss[.fraction]). Digits beyond the precision are truncated, not rounded.
+     */
+    public static String formatTime(int precision, long picos)
     {
-        TIMESTAMP_FORMATTER.formatTo(dateTime, builder);
-        if (precision > 0) {
-            long scaledFraction = picoFraction / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append('.');
-            builder.setLength(builder.length() + precision);
-            int index = builder.length() - 1;
+        char[] buffer = new char[8 + (precision == 0 ? 0 : 1 + precision)];
+        int length = writeTime(buffer, 0, precision, picos);
+        return new String(buffer, 0, length);
+    }
 
-            // Append the fractional the decimal digits in reverse order
-            // comparable to format("%0" + precision + "d", scaledFraction);
-            for (int i = 0; i < precision; i++) {
-                long temp = scaledFraction / 10;
-                int digit = (int) (scaledFraction - (temp * 10));
-                scaledFraction = temp;
-                builder.setCharAt(index - i, (char) ('0' + digit));
-            }
+    public static String formatTimeWithTimeZone(int precision, long picos, int offsetMinutes)
+    {
+        char[] buffer = new char[8 + (precision == 0 ? 0 : 1 + precision) + 6];
+        int length = writeTime(buffer, 0, precision, picos);
+        buffer[length++] = offsetMinutes >= 0 ? '+' : '-';
+        length = writeDigits(buffer, length, Math.abs(offsetMinutes / 60), 2);
+        buffer[length++] = ':';
+        length = writeDigits(buffer, length, Math.abs(offsetMinutes % 60), 2);
+        return new String(buffer, 0, length);
+    }
+
+    private static String formatDateTime(int precision, LocalDateTime dateTime, long picoFraction, String zone)
+    {
+        // Sign, up to nine year digits, -MM-dd, space, HH:mm:ss, fraction, and optional zone.
+        char[] buffer = new char[1 + 9 + 3 + 3 + 1 + 8 + (precision == 0 ? 0 : 1 + precision) + (zone == null ? 0 : zone.length() + 1)];
+        int length = writeDate(buffer, dateTime.toLocalDate());
+        buffer[length++] = ' ';
+        long picos = dateTime.toLocalTime().toSecondOfDay() * PICOSECONDS_PER_SECOND + picoFraction;
+        length = writeTime(buffer, length, precision, picos);
+        if (zone != null) {
+            buffer[length++] = ' ';
+            zone.getChars(0, zone.length(), buffer, length);
+            length += zone.length();
         }
+        return new String(buffer, 0, length);
+    }
+
+    // Matches the "uuuu-MM-dd" pattern: at least four year digits, with a sign when the year is negative or has more than four digits
+    private static int writeDate(char[] buffer, LocalDate date)
+    {
+        int year = date.getYear();
+        int offset = 0;
+        if (year < 0) {
+            buffer[offset++] = '-';
+        }
+        else if (year > 9999) {
+            buffer[offset++] = '+';
+        }
+        int yearDigits = 4;
+        for (int remaining = Math.abs(year) / 10_000; remaining != 0; remaining /= 10) {
+            yearDigits++;
+        }
+        offset = writeDigits(buffer, offset, Math.abs(year), yearDigits);
+        buffer[offset++] = '-';
+        offset = writeDigits(buffer, offset, date.getMonthValue(), 2);
+        buffer[offset++] = '-';
+        return writeDigits(buffer, offset, date.getDayOfMonth(), 2);
+    }
+
+    private static int writeTime(char[] buffer, int offset, int precision, long picos)
+    {
+        offset = writeDigits(buffer, offset, picos / PICOSECONDS_PER_HOUR, 2);
+        buffer[offset++] = ':';
+        offset = writeDigits(buffer, offset, (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR, 2);
+        buffer[offset++] = ':';
+        offset = writeDigits(buffer, offset, (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE, 2);
+        if (precision > 0) {
+            buffer[offset++] = '.';
+            offset = writeDigits(buffer, offset, (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision], precision);
+        }
+        return offset;
+    }
+
+    private static int writeDigits(char[] buffer, int offset, long value, int digits)
+    {
+        int end = offset + digits;
+        for (int index = end - 1; index >= offset; index--) {
+            buffer[index] = (char) ('0' + value % 10);
+            value /= 10;
+        }
+        return end;
     }
 }

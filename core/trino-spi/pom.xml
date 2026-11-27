@@ -329,6 +329,18 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.concurrent.CompletableFuture&lt;?&gt; io.trino.spi.connector.ConnectorMetadata::refreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method java.lang.String io.trino.spi.type.Timestamps::formatTimestamp(int, long, int)</old>
+                                    <new>method java.lang.String io.trino.spi.type.Timestamps::formatTimestamp(int, long, int)</new>
+                                    <justification>Expose the shared timestamp formatter so engine callers reuse it</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method java.lang.String io.trino.spi.type.Timestamps::formatTimestampWithTimeZone(int, long, int, java.time.ZoneId)</old>
+                                    <new>method java.lang.String io.trino.spi.type.Timestamps::formatTimestampWithTimeZone(int, long, int, java.time.ZoneId)</new>
+                                    <justification>Expose the shared timestamp formatter so engine callers reuse it</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

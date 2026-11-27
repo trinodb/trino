@@ -21,26 +21,28 @@ import io.trino.json.JsonItems;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.SqlDate;
-import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlNumber;
-import io.trino.spi.type.SqlTime;
-import io.trino.spi.type.SqlTimeWithTimeZone;
-import io.trino.spi.type.SqlTimestamp;
-import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -55,7 +57,7 @@ import io.trino.util.variant.VariantUtil;
 import tools.jackson.core.JsonGenerator;
 
 import java.io.IOException;
-import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
@@ -69,10 +71,24 @@ import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.formatDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.formatTime;
+import static io.trino.spi.type.Timestamps.formatTimeWithTimeZone;
+import static io.trino.spi.type.Timestamps.formatTimestamp;
+import static io.trino.spi.type.Timestamps.formatTimestampWithTimeZone;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -83,6 +99,8 @@ import static java.util.stream.Collectors.joining;
 public final class JsonEncodingUtils
 {
     private JsonEncodingUtils() {}
+
+    private static final boolean VALIDATE_VALUES = JsonEncodingUtils.class.desiredAssertionStatus();
 
     private static final BigintEncoder BIGINT_ENCODER = new BigintEncoder();
     private static final BooleanEncoder BOOLEAN_ENCODER = new BooleanEncoder();
@@ -125,14 +143,19 @@ public final class JsonEncodingUtils
             case JsonType _ -> JSON_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
-            // TODO: add specialized Short/Long decimal encoders
+            case DecimalType decimalType -> decimalType.isShort() ? new ShortDecimalEncoder(decimalType) : new LongDecimalEncoder(decimalType);
+            case DateType _ -> new DateEncoder();
+            case TimeType timeType -> new TimeEncoder(timeType, supportsParametricDateTime);
+            case TimeWithTimeZoneType timeType -> new TimeWithTimeZoneEncoder(timeType, supportsParametricDateTime);
+            case TimestampType timestampType -> new TimestampEncoder(timestampType, supportsParametricDateTime);
+            case TimestampWithTimeZoneType timestampType -> new TimestampWithTimeZoneEncoder(timestampType, supportsParametricDateTime);
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
             case MapType mapType -> new MapEncoder(mapType, supportsParametricInterval, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
                     .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsParametricInterval, supportsVariant, supportsVariantBinary))
                     .toArray(TypeEncoder[]::new));
-            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime, supportsParametricInterval);
+            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricInterval);
         };
     }
 
@@ -519,17 +542,206 @@ public final class JsonEncodingUtils
         }
     }
 
+    private static void validateValue(Type type, Block block, int position)
+    {
+        // Keep getObjectValue's range/precision checks in tests without allocating SQL wrappers in production.
+        if (VALIDATE_VALUES) {
+            type.getObjectValue(block, position);
+        }
+    }
+
+    private record ShortDecimalEncoder(DecimalType type)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            // Precision digits, an optional leading zero, decimal point, and sign.
+            char[] buffer = new char[type.getPrecision() + 3];
+            int start = formatDecimal(type.getLong(block, position), type.getScale(), buffer);
+            generator.writeString(buffer, start, buffer.length - start);
+        }
+    }
+
+    private record LongDecimalEncoder(DecimalType type)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            // Precision digits, an optional leading zero, decimal point, and sign.
+            char[] buffer = new char[type.getPrecision() + 3];
+            int start = formatDecimal(valueBlock.getInt128High(valuePosition), valueBlock.getInt128Low(valuePosition), type.getScale(), buffer);
+            generator.writeString(buffer, start, buffer.length - start);
+        }
+    }
+
+    private static final class DateEncoder
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(DATE, block, position);
+            generator.writeString(LocalDate.ofEpochDay(DATE.getInt(block, position)).toString());
+        }
+    }
+
+    private record TimeEncoder(TimeType type, boolean supportsParametricDateTime)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            long picos = type.getLong(block, position);
+            int precision = type.getPrecision();
+            if (!supportsParametricDateTime) {
+                picos = round(picos, 9) % PICOSECONDS_PER_DAY;
+                precision = 3;
+            }
+            generator.writeString(formatTime(precision, picos));
+        }
+    }
+
+    private record TimeWithTimeZoneEncoder(TimeWithTimeZoneType type, boolean supportsParametricDateTime)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            long picos;
+            int offsetMinutes;
+            if (type.isShort()) {
+                long packed = type.getLong(block, position);
+                picos = unpackTimeNanos(packed) * PICOSECONDS_PER_NANOSECOND;
+                offsetMinutes = unpackOffsetMinutes(packed);
+            }
+            else {
+                Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+                int valuePosition = block.getUnderlyingValuePosition(position);
+                picos = valueBlock.getFixed12First(valuePosition);
+                offsetMinutes = valueBlock.getFixed12Second(valuePosition);
+            }
+            int precision = type.getPrecision();
+            if (!supportsParametricDateTime) {
+                picos = round(picos, 9) % PICOSECONDS_PER_DAY;
+                precision = 3;
+            }
+            generator.writeString(formatTimeWithTimeZone(precision, picos, offsetMinutes));
+        }
+    }
+
+    private record TimestampEncoder(TimestampType type, boolean supportsParametricDateTime)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            long epochMicros;
+            int picosOfMicro;
+            if (type.isShort()) {
+                epochMicros = type.getLong(block, position);
+                picosOfMicro = 0;
+            }
+            else {
+                Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+                int valuePosition = block.getUnderlyingValuePosition(position);
+                epochMicros = valueBlock.getFixed12First(valuePosition);
+                picosOfMicro = valueBlock.getFixed12Second(valuePosition);
+            }
+            int precision = type.getPrecision();
+            if (!supportsParametricDateTime) {
+                epochMicros = round(epochMicros, 3);
+                picosOfMicro = 0;
+                precision = 3;
+            }
+            generator.writeString(formatTimestamp(precision, epochMicros, picosOfMicro));
+        }
+    }
+
+    private record TimestampWithTimeZoneEncoder(TimestampWithTimeZoneType type, boolean supportsParametricDateTime)
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+            validateValue(type, block, position);
+            long packedEpochMillis;
+            int picosOfMilli;
+            if (type.isShort()) {
+                packedEpochMillis = type.getLong(block, position);
+                picosOfMilli = 0;
+            }
+            else {
+                Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+                int valuePosition = block.getUnderlyingValuePosition(position);
+                packedEpochMillis = valueBlock.getFixed12First(valuePosition);
+                picosOfMilli = valueBlock.getFixed12Second(valuePosition);
+            }
+            long epochMillis = unpackMillisUtc(packedEpochMillis);
+            int precision = type.getPrecision();
+            if (!supportsParametricDateTime) {
+                if (round(picosOfMilli, 9) == PICOSECONDS_PER_MILLISECOND) {
+                    epochMillis++;
+                }
+                picosOfMilli = 0;
+                precision = 3;
+            }
+            generator.writeString(formatTimestampWithTimeZone(precision, epochMillis, picosOfMilli, unpackZoneKey(packedEpochMillis).getZoneId()));
+        }
+    }
+
     private static final class TypeObjectValueEncoder
             implements TypeEncoder
     {
         private final Type type;
-        private final boolean supportsParametricDateTime;
         private final boolean supportsParametricInterval;
 
-        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval)
+        public TypeObjectValueEncoder(Type type, boolean supportsParametricInterval)
         {
             this.type = requireNonNull(type, "type is null");
-            this.supportsParametricDateTime = supportsParametricDateTime;
             this.supportsParametricInterval = supportsParametricInterval;
         }
 
@@ -542,35 +754,17 @@ public final class JsonEncodingUtils
                 return;
             }
 
-            Object value = roundParametricTypes(type.getObjectValue(block, position));
+            Object value = type.getObjectValue(block, position);
 
             switch (value) {
-                case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
-                case SqlDate dateValue -> generator.writeString(dateValue.toString());
-                case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
                 // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
                 // When it has the capability, they are also sent as strings.
                 case SqlNumber number -> generator.writeString(number.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(supportsParametricInterval ? intervalValue.toString() : intervalValue.formatLegacy());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
-                case SqlTime timeValue -> generator.writeString(timeValue.toString());
-                case SqlTimeWithTimeZone timeWithTimeZone -> generator.writeString(timeWithTimeZone.toString());
-                case SqlTimestamp timestamp -> generator.writeString(timestamp.toString());
-                case SqlTimestampWithTimeZone timestampWithTimeZone -> generator.writeString(timestampWithTimeZone.toString());
                 case SqlVarbinary sqlVarbinary -> generator.writeBinary(sqlVarbinary.getBytes());
                 default -> generator.writePOJO(value);
             }
-        }
-
-        private Object roundParametricTypes(Object value)
-        {
-            return switch (value) {
-                case SqlTimestamp sqlTimestamp when !supportsParametricDateTime -> sqlTimestamp.roundTo(3);
-                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone when !supportsParametricDateTime -> sqlTimestampWithTimeZone.roundTo(3);
-                case SqlTime sqlTime when !supportsParametricDateTime -> sqlTime.roundTo(3);
-                case SqlTimeWithTimeZone sqlTimeWithTimeZone when !supportsParametricDateTime -> sqlTimeWithTimeZone.roundTo(3);
-                default -> value;
-            };
         }
     }
 }

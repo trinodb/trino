@@ -24,6 +24,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Timestamps;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -68,7 +69,6 @@ public final class DateTimes
                     "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
                     "\\s*(?<timezone>.+)?)?");
     private static final String TIMESTAMP_FORMATTER_PATTERN = "uuuu-MM-dd HH:mm:ss";
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMATTER_PATTERN);
 
     /**
      * The fields of a date and time with no time zone, read straight from the bytes.
@@ -404,7 +404,8 @@ public final class DateTimes
      */
     public static String formatTimestamp(int precision, long epochMicros, int picosOfMicro, ZoneId zoneId)
     {
-        return formatTimestamp(precision, epochMicros, picosOfMicro, zoneId, TIMESTAMP_FORMATTER);
+        checkArgument(picosOfMicro >= 0 && picosOfMicro < PICOSECONDS_PER_MICROSECOND, "picosOfMicro is out of range [0, 1_000_000]");
+        return Timestamps.formatTimestampInZone(precision, epochMicros, picosOfMicro, zoneId);
     }
 
     /**
@@ -426,14 +427,7 @@ public final class DateTimes
 
     public static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
     {
-        Instant instant = Instant.ofEpochMilli(epochMillis);
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
-        long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
-
-        String zoneIdString = zoneId.getId();
-        StringBuilder builder = new StringBuilder(estimateTimestampFormatLength(precision) + zoneIdString.length() + 1);
-        formatTimestampIntoBuilder(builder, precision, dateTime, picoFraction, TIMESTAMP_FORMATTER);
-        return builder.append(' ').append(zoneIdString).toString();
+        return Timestamps.formatTimestampWithTimeZone(precision, epochMillis, picosOfMilli, zoneId);
     }
 
     private static int estimateTimestampFormatLength(int precision)

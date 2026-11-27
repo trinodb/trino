@@ -23,8 +23,6 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 
-import java.time.format.DateTimeFormatter;
-
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.type.DateTimes.formatTimestamp;
@@ -33,21 +31,19 @@ import static java.time.ZoneOffset.UTC;
 @ScalarOperator(value = CAST, neverFails = true)
 public final class TimestampToJsonCast
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-
     private TimestampToJsonCast() {}
 
     @LiteralParameters("p")
     @SqlType(JSON)
     public static Json cast(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER)));
+        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp, 0, UTC)));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(JSON)
     public static Json cast(@LiteralParameter("p") int precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER)));
+        return JsonItemBuilder.encodeVarchar(Slices.utf8Slice(formatTimestamp(precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC)));
     }
 }
