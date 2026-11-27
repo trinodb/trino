@@ -57,6 +57,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,14 +66,15 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentModule
@@ -82,12 +84,17 @@ public class ConfluentModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
+        configBinder(binder).bindConfig(ConfluentSchemaRegistrySecurityConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
         binder.bind(ContentSchemaProvider.class).to(ConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class)
                 .addBinding()
                 .to(SchemaRegistryClientTtlProvider.class)
+                .in(SINGLETON);
+        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class)
+                .addBinding()
+                .to(SchemaRegistryClientSecurityProvider.class)
                 .in(SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         // Each SchemaRegistry object should have a new instance of SchemaProvider
@@ -117,10 +124,21 @@ public class ConfluentModule
                 .map(HostAddress::getHostText)
                 .collect(toImmutableList());
 
-        Map<String, ?> schemaRegistryClientProperties = propertiesProviders.stream()
-                .map(SchemaRegistryClientPropertiesProvider::getSchemaRegistryClientProperties)
-                .flatMap(properties -> properties.entrySet().stream())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Object> schemaRegistryClientProperties = new HashMap<>();
+        Map<String, String> propertySources = new HashMap<>();
+        for (SchemaRegistryClientPropertiesProvider provider : propertiesProviders) {
+            String source = provider.getClass().getName();
+            provider.getSchemaRegistryClientProperties().forEach((name, value) -> {
+                if (value == null) {
+                    throw new TrinoException(CONFIGURATION_INVALID, format("Schema registry client property '%s' set by %s has no value", name, source));
+                }
+                String otherSource = propertySources.putIfAbsent(name, source);
+                if (otherSource != null) {
+                    throw new TrinoException(CONFIGURATION_INVALID, format("Schema registry client property '%s' is set by both %s and %s", name, otherSource, source));
+                }
+                schemaRegistryClientProperties.put(name, value);
+            });
+        }
 
         return new ClassLoaderSafeSchemaRegistryClient(
                 new CachedSchemaRegistryClient(
