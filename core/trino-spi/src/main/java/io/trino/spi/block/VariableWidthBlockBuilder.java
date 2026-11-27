@@ -47,6 +47,8 @@ public class VariableWidthBlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
     static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new long[] {0});
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
+    private static final byte[] EMPTY_BYTES = new byte[0];
+    private static final int[] INITIAL_OFFSETS = {0};
 
     private final BlockBuilderStatus blockBuilderStatus;
 
@@ -54,13 +56,13 @@ public class VariableWidthBlockBuilder
     private final int initialEntryCount;
     private final int initialSliceOutputSize;
 
-    private byte[] bytes = new byte[0];
+    private byte[] bytes = EMPTY_BYTES;
 
     private boolean hasNullValue;
     private boolean hasNonNullValue;
     @Nullable
     private long[] valueIsValid;
-    private int[] offsets = new int[1];
+    private int[] offsets = INITIAL_OFFSETS;
 
     private int positionCount;
 
@@ -72,8 +74,6 @@ public class VariableWidthBlockBuilder
 
         initialEntryCount = expectedEntries;
         initialSliceOutputSize = min(expectedBytes, MAX_ARRAY_SIZE);
-
-        updateRetainedSize();
     }
 
     @Override
@@ -390,6 +390,11 @@ public class VariableWidthBlockBuilder
     @Override
     public VariableWidthBlock buildValueBlock()
     {
+        if (offsets == INITIAL_OFFSETS) {
+            // The block exposes its raw offsets, so don't give it the shared initial array.
+            offsets = new int[1];
+            updateRetainedSize();
+        }
         return new VariableWidthBlock(0, positionCount, Slices.wrappedBuffer(bytes, 0, offsets[positionCount]), offsets, hasNullValue ? valueIsValid : null);
     }
 
@@ -471,7 +476,9 @@ public class VariableWidthBlockBuilder
 
     private void updateRetainedSize()
     {
-        arraysRetainedSizeInBytes = sizeOf(valueIsValid) + sizeOf(offsets) + sizeOf(bytes);
+        arraysRetainedSizeInBytes = sizeOf(valueIsValid) +
+                (offsets == INITIAL_OFFSETS ? 0 : sizeOf(offsets)) +
+                (bytes == EMPTY_BYTES ? 0 : sizeOf(bytes));
     }
 
     @Override
