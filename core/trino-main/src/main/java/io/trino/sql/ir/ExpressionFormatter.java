@@ -20,6 +20,7 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.planner.Symbol;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -129,6 +130,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitSensitiveExpression(SensitiveExpression node, Void context)
+        {
+            return SensitiveExpression.REDACTED;
+        }
+
+        @Override
         protected String visitLambda(Lambda node, Void context)
         {
             return "(" +
@@ -179,11 +186,28 @@ public final class ExpressionFormatter
         @Override
         protected String visitLogical(Logical node, Void context)
         {
-            return "(" +
-                    node.terms().stream()
-                            .map(term -> process(term, context))
-                            .collect(joining(" " + node.operator().toString() + " ")) +
-                    ")";
+            // Sensitive terms print as one marker: their number depends on how the policy relates to the query
+            List<String> terms = new ArrayList<>();
+            boolean sensitive = false;
+            for (Expression term : node.terms()) {
+                if (isSensitive(term)) {
+                    if (sensitive) {
+                        continue;
+                    }
+                    sensitive = true;
+                }
+                terms.add(process(term, context));
+            }
+            if (terms.size() == 1) {
+                return terms.getFirst();
+            }
+            return "(" + String.join(" " + node.operator() + " ", terms) + ")";
+        }
+
+        private static boolean isSensitive(Expression expression)
+        {
+            return expression instanceof SensitiveExpression ||
+                    (expression instanceof Logical logical && logical.terms().stream().allMatch(Formatter::isSensitive));
         }
 
         @Override

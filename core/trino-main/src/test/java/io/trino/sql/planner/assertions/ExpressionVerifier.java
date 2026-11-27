@@ -32,6 +32,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 
@@ -155,6 +156,16 @@ public final class ExpressionVerifier
         }
 
         return process(actual.value(), expected.value());
+    }
+
+    @Override
+    protected Boolean visitSensitiveExpression(SensitiveExpression actual, Expression expectedExpression)
+    {
+        if (!(expectedExpression instanceof SensitiveExpression expected)) {
+            return false;
+        }
+
+        return process(actual.expression(), expected.expression());
     }
 
     @Override

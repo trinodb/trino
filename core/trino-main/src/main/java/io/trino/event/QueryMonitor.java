@@ -63,10 +63,12 @@ import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
+import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageCpuDistribution;
 import io.trino.spi.eventlistener.StageOutputBufferMetrics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.eventlistener.StageTaskStatistics;
+import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -94,6 +96,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Suppliers.memoize;
@@ -264,7 +267,10 @@ public class QueryMonitor
         logQueryTimeline(queryInfo);
     }
 
-    public void queryCompletedEvent(QueryInfo queryInfo)
+    /**
+     * Unlike {@code queryInfo}, the lineage includes the parts that only sensitive expressions use.
+     */
+    public void queryCompletedEvent(QueryInfo queryInfo, List<TableInfo> referencedTables, List<RoutineInfo> routines, Set<Input> inputs)
     {
         Map<Boolean, QueryCompletedEvent> memo = new HashMap<>();
         QueryStats queryStats = queryInfo.getQueryStats();
@@ -273,14 +279,14 @@ public class QueryMonitor
             QueryCompletedEvent queryCompletedEvent = memo.get(requiresAnonymizedPlan);
             if (queryCompletedEvent == null) {
                 queryCompletedEvent = new QueryCompletedEvent(
-                        createQueryMetadata(queryInfo, requiresAnonymizedPlan),
+                        createQueryMetadata(queryInfo, referencedTables, routines, requiresAnonymizedPlan),
                         createQueryStatistics(queryInfo),
                         createQueryContext(
                                 queryInfo.getSession(),
                                 queryInfo.getResourceGroupId(),
                                 queryInfo.getQueryType(),
                                 queryInfo.getRetryPolicy()),
-                        getQueryIOMetadata(queryInfo),
+                        getQueryIOMetadata(queryInfo, inputs),
                         queryInfo.getSelectColumnsLineageInfo(),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getStages()),
                         queryInfo.getWarnings(),
@@ -294,7 +300,7 @@ public class QueryMonitor
         logQueryTimeline(queryInfo);
     }
 
-    private QueryMetadata createQueryMetadata(QueryInfo queryInfo, boolean requiresAnonymizedPlan)
+    private QueryMetadata createQueryMetadata(QueryInfo queryInfo, List<TableInfo> referencedTables, List<RoutineInfo> routines, boolean requiresAnonymizedPlan)
     {
         Anonymizer anonymizer = requiresAnonymizedPlan ? new CounterBasedAnonymizer() : new NoOpAnonymizer();
         return new QueryMetadata(
@@ -305,8 +311,8 @@ public class QueryMonitor
                 Optional.ofNullable(queryInfo.getUpdateType()),
                 queryInfo.getPreparedQuery(),
                 queryInfo.getState().toString(),
-                queryInfo.getReferencedTables(),
-                queryInfo.getRoutines(),
+                referencedTables,
+                routines,
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo, anonymizer),
                 createJsonQueryPlan(queryInfo, anonymizer),
@@ -452,12 +458,12 @@ public class QueryMonitor
         return Optional.empty();
     }
 
-    private static QueryIOMetadata getQueryIOMetadata(QueryInfo queryInfo)
+    private static QueryIOMetadata getQueryIOMetadata(QueryInfo queryInfo, Set<Input> queryInputs)
     {
         Multimap<FragmentNode, OperatorStats> planNodeStats = extractPlanNodeStats(queryInfo);
 
-        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builderWithExpectedSize(queryInfo.getInputs().size());
-        for (Input input : queryInfo.getInputs()) {
+        ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builderWithExpectedSize(queryInputs.size());
+        for (Input input : queryInputs) {
             // Note: input table can be mapped to multiple operators
             Collection<OperatorStats> inputTableOperatorStats = planNodeStats.get(new FragmentNode(input.fragmentId(), input.planNodeId()));
 
@@ -533,10 +539,10 @@ public class QueryMonitor
 
     private static void extractPlanNodeStats(StageInfo stageInfo, ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats)
     {
-        PlanFragment fragment = stageInfo.plan();
-        if (fragment == null) {
+        if (stageInfo.plan() == null) {
             return;
         }
+        PlanFragment fragment = stageInfo.plan().fragment();
 
         List<OperatorStats> operatorSummaries = stageInfo.stageStats().getOperatorSummaries();
         Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.stageStats().getSplitSourceMetrics();

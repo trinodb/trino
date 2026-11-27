@@ -45,6 +45,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.planner.iterative.rule.DeriveTableScanConstraintThroughProject.DeriveTableScanConstraintThroughProjectWithFilter;
 import io.trino.sql.planner.iterative.rule.DeriveTableScanConstraintThroughProject.DeriveTableScanConstraintThroughProjectWithoutFilter;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -181,6 +182,55 @@ public class TestDeriveTableScanConstraintThroughProject
                                                         "orders",
                                                         ImmutableMap.of("orderstatus", O_OR_F_DOMAIN),
                                                         ImmutableMap.of("orderstatus", "orderstatus"))))));
+    }
+
+    @Test
+    public void testDoesNotDeriveConstraintOnColumnOfSensitiveResidualFilter()
+    {
+        // whether the domain narrows what a sensitive filter enforces on the column would reveal the policy
+        tester().assertThat(withFilterRule)
+                .on(p -> p.filter(
+                        X_O_OR_F,
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
+                                        .build(),
+                                p.filter(
+                                        new SensitiveExpression(notNull()),
+                                        p.tableScan(
+                                                ordersTableHandle,
+                                                ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE)),
+                                                ImmutableMap.of(p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn))))))
+                .doesNotFire();
+
+        // a sensitive filter on another column leaves the derivation as it is
+        Expression sensitive = new SensitiveExpression(comparison(GREATER_THAN, new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 0L)));
+        tester().assertThat(withFilterRule)
+                .on(p -> p.filter(
+                        X_O_OR_F,
+                        p.project(
+                                Assignments.builder()
+                                        .put(p.symbol("x", WIDE_STATUS_TYPE), new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))
+                                        .build(),
+                                p.filter(
+                                        sensitive,
+                                        p.tableScan(
+                                                ordersTableHandle,
+                                                ImmutableList.of(p.symbol("orderstatus", STATUS_TYPE), p.symbol("orderkey", BIGINT)),
+                                                ImmutableMap.of(
+                                                        p.symbol("orderstatus", STATUS_TYPE), orderStatusColumn,
+                                                        p.symbol("orderkey", BIGINT), new TpchColumnHandle("orderkey", BIGINT)))))))
+                .matches(
+                        filter(
+                                X_O_OR_F,
+                                project(
+                                        ImmutableMap.of("x", expression(new Cast(new Reference(STATUS_TYPE, "orderstatus"), WIDE_STATUS_TYPE))),
+                                        filter(
+                                                sensitive,
+                                                constrainedTableScanWithTableLayout(
+                                                        "orders",
+                                                        ImmutableMap.of("orderstatus", O_OR_F_DOMAIN),
+                                                        ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey"))))));
     }
 
     @Test

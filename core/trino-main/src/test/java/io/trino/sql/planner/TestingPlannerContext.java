@@ -52,6 +52,7 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.SqlJsonPathType;
 import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -168,6 +169,7 @@ public final class TestingPlannerContext
                             Type.class, new TypeDeserializer(typeManager),
                             TypeDescriptor.class, new TypeDescriptorDeserializer(),
                             Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
+                    .withKeyDeserializers(ImmutableMap.of(TypeDescriptor.class, new TypeDescriptorKeyDeserializer()))
                     .withJsonSerializers(ImmutableMap.of(
                             Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))
                     .get();

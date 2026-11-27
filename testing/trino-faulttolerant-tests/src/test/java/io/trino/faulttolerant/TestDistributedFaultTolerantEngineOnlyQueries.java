@@ -151,7 +151,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                             .getStages();
                     assertThat(stages).anyMatch(stage -> stage.state() == ABORTED && stage.tasks().isEmpty() && !stage.tables().isEmpty());
                     assertThat(stages).allSatisfy(stage -> assertThat(stage.tables().keySet()).isEqualTo(
-                            searchFrom(stage.plan().getRoot())
+                            searchFrom(stage.plan().fragment().getRoot())
                                     .where(TableScanNode.class::isInstance)
                                     .findAll().stream()
                                     .map(PlanNode::getId)

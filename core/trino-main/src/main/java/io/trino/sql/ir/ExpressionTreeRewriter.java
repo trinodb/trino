@@ -407,6 +407,24 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitSensitiveExpression(SensitiveExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSensitiveExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.expression(), context.get());
+            if (node.expression() != expression) {
+                return new SensitiveExpression(expression);
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

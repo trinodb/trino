@@ -928,7 +928,7 @@ public class TestQueryStateMachine
                     false,
                     Optional.empty(),
                     new NodeVersion("test"));
-            stateMachine.setInputs(INPUTS);
+            stateMachine.setInputs(INPUTS, INPUTS);
             stateMachine.setOutput(OUTPUT);
             stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
             if (setPath != null) {
