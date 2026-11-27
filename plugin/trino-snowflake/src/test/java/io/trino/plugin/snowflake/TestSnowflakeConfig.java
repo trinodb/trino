@@ -14,6 +14,7 @@
 package io.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
 public class TestSnowflakeConfig
 {
@@ -32,7 +34,9 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setWarehouse(null)
-                .setHttpProxy(null));
+                .setHttpProxy(null)
+                .setPrivateKey(null)
+                .setPrivateKeyPassphrase(null));
     }
 
     @Test
@@ -44,6 +48,8 @@ public class TestSnowflakeConfig
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
                 .put("snowflake.http-proxy", "MYPROXY")
+                .put("snowflake.connection-private-key", "MYPRIVATEKEY")
+                .put("snowflake.connection-private-key.passphrase", "MYPASSPHRASE")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
@@ -51,8 +57,21 @@ public class TestSnowflakeConfig
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE")
-                .setHttpProxy("MYPROXY");
+                .setHttpProxy("MYPROXY")
+                .setPrivateKey("MYPRIVATEKEY")
+                .setPrivateKeyPassphrase("MYPASSPHRASE");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testPassphraseRequiresPrivateKey()
+    {
+        assertFailsValidation(
+                new SnowflakeConfig()
+                        .setPrivateKeyPassphrase("MYPASSPHRASE"),
+                "privateKeyPassphraseAllowed",
+                "snowflake.connection-private-key.passphrase is only allowed when snowflake.connection-private-key is set",
+                AssertTrue.class);
     }
 }
