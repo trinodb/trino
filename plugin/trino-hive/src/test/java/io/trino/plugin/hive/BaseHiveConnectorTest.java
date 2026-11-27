@@ -8818,25 +8818,74 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testWriteInvalidPrecisionTimestamp()
+    public void testCoerceTimestampPrecisionWithCtas()
     {
         Session session = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
-        assertQueryFails(
-                session,
-                "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123456789'",
-                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
-        assertQueryFails(
-                session,
-                "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(9))",
-                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
-        assertQueryFails(
-                session,
-                "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123'",
-                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
-        assertQueryFails(
-                session,
-                "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
-                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(session, sql),
+                "test_timestamp_precision_ctas",
+                """
+                WITH (format = 'ORC') AS
+                SELECT TIMESTAMP '2001-02-03 11:22:33.123456789' AS rounded,
+                       TIMESTAMP '2001-02-03 11:22:33.456' AS widened,
+                       TIMESTAMP '2001-02-03 11:22:33.654321' AS unchanged
+                """)) {
+            assertThat(query(session, "SELECT rounded, widened, unchanged FROM " + table.getName()))
+                    .matches(
+                            """
+                            VALUES (TIMESTAMP '2001-02-03 11:22:33.123457',
+                                    TIMESTAMP '2001-02-03 11:22:33.456000',
+                                    TIMESTAMP '2001-02-03 11:22:33.654321')
+                            """);
+            Session nanos = withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS);
+            assertThat(query(nanos, "SELECT rounded FROM " + table.getName()))
+                    .matches("VALUES TIMESTAMP '2001-02-03 11:22:33.123457000'");
+        }
+    }
+
+    @Test
+    public void testCoerceTimestampPrecisionWithDdl()
+    {
+        Session session = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(session, sql),
+                "test_timestamp_precision_ddl",
+                "(created timestamp(9))")) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN added timestamp(3)");
+            assertQuery(
+                    session,
+                    "DESCRIBE " + table.getName(),
+                    "VALUES ('created', 'timestamp(6)', '', ''), ('added', 'timestamp(6)', '', '')");
+        }
+    }
+
+    @Test
+    public void testCoerceNestedTimestampPrecisionWithCtas()
+    {
+        Session session = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(session, sql),
+                "test_nested_timestamp_precision_ctas",
+                """
+                WITH (format = 'ORC') AS
+                SELECT CAST(ROW(
+                    7,
+                    ARRAY[TIMESTAMP '2001-02-03 11:22:33.123456789'],
+                    MAP(ARRAY[TIMESTAMP '2001-02-03 11:22:33.234567891'], ARRAY[TIMESTAMP '2001-02-03 11:22:33.345']),
+                    8)
+                    AS ROW(id INTEGER, items ARRAY(TIMESTAMP(9)), pairs MAP(TIMESTAMP(9), TIMESTAMP(3)), version INTEGER)) AS payload
+                """)) {
+            assertThat(query(session, "SELECT payload FROM " + table.getName()))
+                    .matches(
+                            """
+                            SELECT CAST(ROW(
+                                7,
+                                ARRAY[TIMESTAMP '2001-02-03 11:22:33.123457'],
+                                MAP(ARRAY[TIMESTAMP '2001-02-03 11:22:33.234568'], ARRAY[TIMESTAMP '2001-02-03 11:22:33.345000']),
+                                8)
+                                AS ROW(id INTEGER, items ARRAY(TIMESTAMP(6)), pairs MAP(TIMESTAMP(6), TIMESTAMP(6)), version INTEGER))
+                            """);
+        }
     }
 
     @Test
