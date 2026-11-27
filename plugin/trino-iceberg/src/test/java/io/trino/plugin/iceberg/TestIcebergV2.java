@@ -1481,6 +1481,7 @@ public class TestIcebergV2
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1491,6 +1492,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
@@ -1503,6 +1505,7 @@ public class TestIcebergV2
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1525,6 +1528,7 @@ public class TestIcebergV2
             TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1537,6 +1541,7 @@ public class TestIcebergV2
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
@@ -1554,6 +1559,7 @@ public class TestIcebergV2
             TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
                     TESTING_TYPE_MANAGER,
                     table,
+                    table.schema(),
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -1614,9 +1620,11 @@ public class TestIcebergV2
     private TableStatistics tableStatistics(String tableName, Set<IcebergColumnHandle> projectedColumns)
     {
         OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+        Table table = loadTable(tableName);
         return TableStatisticsReader.makeTableStatistics(
                 TESTING_TYPE_MANAGER,
-                loadTable(tableName),
+                table,
+                table.schema(),
                 snapshotId,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -1736,12 +1744,7 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_reading_snapshot_reference_cleanup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
             String tableName = table.getName();
-            Table icebergTable = loadTable(tableName);
-            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
-            icebergTable.manageSnapshots()
-                    .createTag("test-tag", refSnapshotId)
-                    .createBranch("test-branch", refSnapshotId)
-                    .commit();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
                             "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
@@ -1759,6 +1762,181 @@ public class TestIcebergV2
                     ".*?Cannot find snapshot with reference name: test-wrong-ref");
             assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'TEST-TAG'",
                     ".*?Cannot find snapshot with reference name: TEST-TAG");
+        }
+    }
+
+    @Test
+    public void testReadingSnapshotReferenceAfterSchemaEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_schema_", "(id integer, data varchar)", ImmutableList.of("(1, 'a')"))) {
+            String tableName = table.getName();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
+
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN data TO payload");
+
+            // A filter on the renamed column resolves through the same schema the scan is bound to
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE payload = 'a'"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'main' WHERE payload = 'a'"))
+                    .matches("VALUES 1");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN data varchar");
+
+            // Branch reads resolve names against the table's current schema and match data by field ID,
+            // so the renamed column keeps its values and the reused name is a distinct, empty column
+            assertThat(query("SELECT payload FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES VARCHAR 'a'");
+            assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES CAST(NULL AS varchar)");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE data = 'a'"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT data FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES VARCHAR 'a'");
+
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN payload");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN data");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN extra double");
+
+            // Branches read with the table's current schema
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES (1, CAST(NULL AS double))");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'main'"))
+                    .matches("VALUES (1, CAST(NULL AS double))");
+
+            // Tags and snapshot IDs read with the schema of the snapshot they point to
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES (1, VARCHAR 'a')");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId))
+                    .matches("VALUES (1, VARCHAR 'a')");
+        }
+    }
+
+    @Test
+    public void testReadingBranchReferenceWithDeleteFilesAfterSchemaEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_branch_reference_delete_files_", "(id integer, data varchar)", ImmutableList.of("(1, 'a')", "(2, 'b')"))) {
+            String tableName = table.getName();
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            createTagAndBranchAtCurrentSnapshot(tableName);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN extra double");
+
+            // A filter on a column added after the branch head binds against the table's current schema,
+            // including when the branch head carries delete files
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE extra IS NULL"))
+                    .matches("VALUES 2");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE extra = 1.0"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'main' WHERE extra IS NULL"))
+                    .matches("VALUES 2, 3");
+            assertQueryFails("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE extra IS NULL",
+                    ".*Column 'extra' cannot be resolved");
+        }
+    }
+
+    @Test
+    public void testReadingSnapshotReferenceAfterPartitionEvolution()
+    {
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_partition_", "(id integer, part integer)", ImmutableList.of("(1, 10)"))) {
+            String tableName = table.getName();
+            createTagAndBranchAtCurrentSnapshot(tableName);
+
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20)", 1);
+
+            // Partition evolution is metadata-only; the refs still point at the
+            // pre-evolution snapshot, so only the old data is visible through them
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'"))
+                    .matches("VALUES (1, 10)");
+            assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'"))
+                    .matches("VALUES (1, 10)");
+            assertThat(query("SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE part = 10"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (1, 10), (2, 20)");
+        }
+    }
+
+    @Test
+    public void testMetadataQueryOnSnapshotReferenceAfterPartitionColumnRename()
+    {
+        try (TestTable table = newTrinoTable("test_branch_metadata_query_", "(id integer, part integer) WITH (partitioning = ARRAY['part'])", ImmutableList.of("(1, 10)"))) {
+            String tableName = table.getName();
+            createTagAndBranchAtCurrentSnapshot(tableName);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20)", 1);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO p2");
+
+            Session session = Session.builder(getSession())
+                    .setSystemProperty("optimize_metadata_queries", "true")
+                    .build();
+            assertThat(query(session, "SELECT max(p2) FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE p2 = 10"))
+                    .matches("VALUES 10");
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotReferenceAfterColumnDrop()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_reference_stats_drop_", "(id integer, part integer, data varchar) WITH (partitioning = ARRAY['part'])", ImmutableList.of("(1, 10, 'a')", "(2, 20, 'b')"))) {
+            String tableName = table.getName();
+            createTagAndBranchAtCurrentSnapshot(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN data");
+
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE data = 'a' AND part = 10)"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                            "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotAfterPartitionColumnTypeChange()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_stats_type_change_", "WITH (partitioning = ARRAY['part']) AS SELECT * FROM (VALUES (1, REAL '1.5'), (2, REAL '2.5')) t(id, part)")) {
+            String tableName = table.getName();
+            long snapshotId = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN part SET DATA TYPE double");
+
+            assertThat(query("SHOW STATS FOR (SELECT * FROM " + tableName + " FOR VERSION AS OF " + snapshotId + ")"))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('id', NULL, 2e0, 0e0, NULL, '1', '2'), " +
+                            "('part', NULL, 2e0, 0e0, NULL, '1.5', '2.5'), " +
+                            "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+            String expectedFilteredStatistics = "VALUES " +
+                    "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)";
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + " WHERE part = 1.5)"))
+                    .skippingTypesCheck()
+                    .matches(expectedFilteredStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + snapshotId + " WHERE \"$partition\".part = 1.5)"))
+                    .skippingTypesCheck()
+                    .matches(expectedFilteredStatistics);
+        }
+    }
+
+    @Test
+    public void testStatisticsOnSnapshotReferenceAfterColumnRename()
+    {
+        try (TestTable table = newTrinoTable("test_snapshot_reference_stats_", "(id integer, part integer) WITH (partitioning = ARRAY['part'])", ImmutableList.of("(1, 10)", "(2, 20)"))) {
+            String tableName = table.getName();
+            long refSnapshotId = createTagAndBranchAtCurrentSnapshot(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO p2");
+
+            String expectedStatistics = "VALUES " +
+                    "('id', NULL, 1e0, 0e0, NULL, '1', '1'), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)";
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-tag' WHERE part = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId + " WHERE part = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
+            assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " FOR VERSION AS OF 'test-branch' WHERE p2 = 10)"))
+                    .skippingTypesCheck()
+                    .matches(expectedStatistics);
         }
     }
 
@@ -2240,6 +2418,17 @@ public class TestIcebergV2
         operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
 
         return table;
+    }
+
+    private long createTagAndBranchAtCurrentSnapshot(String tableName)
+    {
+        Table icebergTable = loadTable(tableName);
+        long snapshotId = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createTag("test-tag", snapshotId)
+                .createBranch("test-branch", snapshotId)
+                .commit();
+        return snapshotId;
     }
 
     private BaseTable loadTable(String tableName)

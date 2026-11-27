@@ -388,6 +388,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.snapshotScan;
 import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
@@ -738,14 +739,7 @@ public class IcebergMetadata
                     .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Storage table metadata not found for materialized view " + tableName));
 
             if (endVersion.isPresent()) {
-                long snapshotId = getSnapshotIdFromVersion(session, storageTable, endVersion.get());
-                return tableHandleForSnapshot(
-                        session,
-                        tableName,
-                        storageTable,
-                        OptionalLong.of(snapshotId),
-                        schemaFor(storageTable, snapshotId),
-                        Optional.empty());
+                return tableHandleForVersion(session, tableName, storageTable, endVersion.get());
             }
             return tableHandleForCurrentSnapshot(session, tableName, storageTable);
         }
@@ -772,16 +766,24 @@ public class IcebergMetadata
         }
 
         if (endVersion.isPresent()) {
-            long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
-            return tableHandleForSnapshot(
-                    session,
-                    tableName,
-                    table,
-                    OptionalLong.of(snapshotId),
-                    schemaFor(table, snapshotId),
-                    Optional.empty());
+            return tableHandleForVersion(session, tableName, table, endVersion.get());
         }
         return tableHandleForCurrentSnapshot(session, tableName, table);
+    }
+
+    private IcebergTableHandle tableHandleForVersion(ConnectorSession session, SchemaTableName tableName, BaseTable table, ConnectorTableVersion version)
+    {
+        ResolvedVersion resolved = resolveVersion(session, table, version);
+        // Branches use the current table schema; other versions use the snapshot's schema.
+        Schema schema = resolved.branch().isPresent() ? table.schema() : schemaFor(table, resolved.snapshotId());
+        return tableHandleForSnapshot(
+                session,
+                tableName,
+                table,
+                OptionalLong.of(resolved.snapshotId()),
+                schema,
+                Optional.empty(),
+                resolved.branch());
     }
 
     // TODO: Remove when Iceberg v3 is fully supported
@@ -807,7 +809,8 @@ public class IcebergMetadata
                 table,
                 getCurrentSnapshotId(table),
                 table.schema(),
-                Optional.of(table.spec()));
+                Optional.of(table.spec()),
+                Optional.empty());
     }
 
     private IcebergTableHandle tableHandleForSnapshot(
@@ -816,7 +819,8 @@ public class IcebergMetadata
             BaseTable table,
             OptionalLong tableSnapshotId,
             Schema tableSchema,
-            Optional<PartitionSpec> partitionSpec)
+            Optional<PartitionSpec> partitionSpec,
+            Optional<String> branch)
     {
         validateTableForTrino(table, tableSnapshotId);
         Map<String, String> tableProperties = table.properties();
@@ -841,7 +845,8 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                branch);
     }
 
     private Optional<IcebergTablePartitioning> getTablePartitioning(ConnectorSession session, Table icebergTable)
@@ -873,18 +878,19 @@ public class IcebergMetadata
                 partitionColumns));
     }
 
-    private static long getSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version)
+    private static ResolvedVersion resolveVersion(ConnectorSession session, Table table, ConnectorTableVersion version)
     {
         io.trino.spi.type.Type versionType = version.getVersionType();
         return switch (version.getPointerType()) {
-            case TEMPORAL -> getTemporalSnapshotIdFromVersion(session, table, version, versionType);
-            case TARGET_ID -> getTargetSnapshotIdFromVersion(table, version, versionType);
+            case TEMPORAL -> new ResolvedVersion(getTemporalSnapshotIdFromVersion(session, table, version, versionType), Optional.empty());
+            case TARGET_ID -> resolveTargetVersion(table, version, versionType);
         };
     }
 
-    private static long getTargetSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
+    private static ResolvedVersion resolveTargetVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
     {
         long snapshotId;
+        Optional<String> branch = Optional.empty();
         if (versionType == BIGINT) {
             snapshotId = (long) version.getVersion();
         }
@@ -895,6 +901,9 @@ public class IcebergMetadata
                 throw new TrinoException(INVALID_ARGUMENTS, "Cannot find snapshot with reference name: " + refName);
             }
             snapshotId = ref.snapshotId();
+            if (ref.isBranch()) {
+                branch = Optional.of(refName);
+            }
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
@@ -903,8 +912,10 @@ public class IcebergMetadata
         if (table.snapshot(snapshotId) == null) {
             throw new TrinoException(INVALID_ARGUMENTS, "Iceberg snapshot ID does not exists: " + snapshotId);
         }
-        return snapshotId;
+        return new ResolvedVersion(snapshotId, branch);
     }
+
+    private record ResolvedVersion(long snapshotId, Optional<String> branch) {}
 
     private static long getTemporalSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
     {
@@ -1050,8 +1061,7 @@ public class IcebergMetadata
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
             Supplier<Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec>> lazyUniquePartitions = Suppliers.memoize(() -> {
-                TableScan tableScan = icebergTable.newScan()
-                        .useSnapshot(table.getSnapshotId().orElseThrow())
+                TableScan tableScan = snapshotScan(icebergTable, table)
                         .filter(toIcebergExpression(enforcedPredicate))
                         .planWith(icebergPlanningExecutor);
 
@@ -3953,7 +3963,8 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.getBranch());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -4056,7 +4067,8 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.getBranch()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -4230,7 +4242,8 @@ public class IcebergMetadata
                 false, // recordScannedFiles does not affect stats
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
-                Optional.empty()); // forAnalyze does not affect stats
+                Optional.empty(), // forAnalyze does not affect stats
+                Optional.empty()); // branch does not affect stats
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
