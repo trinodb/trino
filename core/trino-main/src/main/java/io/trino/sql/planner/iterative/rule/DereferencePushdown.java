@@ -19,6 +19,7 @@ import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 
@@ -102,6 +103,14 @@ final class DereferencePushdown
             @Override
             protected Void visitLambda(Lambda node, ImmutableList.Builder<Expression> context)
             {
+                return null;
+            }
+
+            @Override
+            protected Void visitLet(Let node, ImmutableList.Builder<Expression> context)
+            {
+                // Only the value is in the outer scope. The body may reference the local binding.
+                process(node.value(), context);
                 return null;
             }
         }.process(expression, builder);
