@@ -21,6 +21,7 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
@@ -32,6 +33,7 @@ import io.jsonwebtoken.JwtParser;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
+import io.trino.server.InternalAuthenticationManager;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
@@ -92,6 +94,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
@@ -109,6 +112,7 @@ import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN;
+import static jakarta.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
@@ -295,6 +299,78 @@ public class TestResourceSecurity
             try (Response response = client.newCall(request).execute()) {
                 assertThat(requireNonNull(response.body()).string())
                         .isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
+            }
+        }
+    }
+
+    @Test
+    public void testPasswordAuthenticatorMetrics()
+            throws Exception
+    {
+        String failingUser = "failing-user@allowed";
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .buildOrThrow())
+                .setSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION)
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(
+                    (user, password) -> {
+                        if (user.equals(failingUser)) {
+                            throw new RuntimeException("Authenticator failure");
+                        }
+                        return authenticate(user, password);
+                    },
+                    TestResourceSecurity::authenticate2);
+            PasswordAuthenticator authenticator = server.getInstance(Key.get(PasswordAuthenticator.class));
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            String location = getAuthorizedUserLocation(baseUri);
+
+            // a request without credentials is an authentication challenge, not a failed authentication
+            assertBasicAuthenticationChallenge(location, Headers.of());
+            assertAuthenticationCounts(authenticator, 0, 0);
+
+            // malformed credentials are not verified by the password authenticators
+            assertResponseCode(client, location, SC_UNAUTHORIZED, "", "");
+            assertAuthenticationCounts(authenticator, 0, 0);
+
+            assertResponseCode(client, location, SC_OK, TEST_USER_LOGIN, TEST_PASSWORD);
+            assertAuthenticationCounts(authenticator, 1, 0);
+
+            // rejected by the first password authenticator, accepted by the second
+            assertResponseCode(client, location, SC_OK, TEST_USER_LOGIN, TEST_PASSWORD2);
+            assertAuthenticationCounts(authenticator, 2, 0);
+
+            // rejected by all password authenticators
+            assertBasicAuthenticationChallenge(location, Headers.of(AUTHORIZATION, Credentials.basic(TEST_USER_LOGIN, "invalid")));
+            assertAuthenticationCounts(authenticator, 2, 1);
+
+            // an authenticator error is not a rejection of the credentials
+            assertResponseCode(client, location, SC_INTERNAL_SERVER_ERROR, failingUser, TEST_PASSWORD);
+            assertAuthenticationCounts(authenticator, 2, 1);
+
+            // internal requests are not authenticated with the password authenticator
+            String internalBearer = server.getInstance(Key.get(InternalAuthenticationManager.class))
+                    .filterRequest(prepareGet().setUri(baseUri).build())
+                    .getHeader(HeaderName.of("X-Trino-Internal-Bearer"));
+            assertResponseCode(client, getManagementLocation(baseUri), SC_OK, Headers.of("X-Trino-Internal-Bearer", internalBearer));
+            assertAuthenticationCounts(authenticator, 2, 1);
+
+            // the metrics request is authenticated with the password authenticator, so it is a success too
+            Request metricsRequest = new Request.Builder()
+                    .url(getLocation(baseUri, "/metrics"))
+                    .header(AUTHORIZATION, Credentials.basic(MANAGEMENT_USER_LOGIN, MANAGEMENT_PASSWORD))
+                    .build();
+            try (Response response = client.newCall(metricsRequest).execute()) {
+                assertThat(response.code()).isEqualTo(SC_OK);
+                assertThat(requireNonNull(response.body()).string())
+                        .contains("# TYPE trino_server_security_name_PasswordAuthenticator_AuthenticationSuccess counter\n")
+                        .contains("\ntrino_server_security_name_PasswordAuthenticator_AuthenticationSuccess 3\n")
+                        .contains("# TYPE trino_server_security_name_PasswordAuthenticator_AuthenticationFailure counter\n")
+                        .contains("\ntrino_server_security_name_PasswordAuthenticator_AuthenticationFailure 1\n");
             }
         }
     }
@@ -1480,6 +1556,25 @@ public class TestResourceSecurity
         }
         assertResponseCode(client, getManagementLocation(baseUri), SC_OK);
         assertResponseCode(client, getManagementLocation(baseUri), SC_OK, "unknown", "something");
+    }
+
+    private void assertBasicAuthenticationChallenge(String url, Headers headers)
+            throws IOException
+    {
+        Request request = new Request.Builder()
+                .url(url)
+                .headers(headers)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            assertThat(response.code()).isEqualTo(SC_UNAUTHORIZED);
+            assertThat(response.headers(WWW_AUTHENTICATE)).containsExactly(BasicAuthCredentials.AUTHENTICATE_HEADER);
+        }
+    }
+
+    private static void assertAuthenticationCounts(PasswordAuthenticator authenticator, long success, long failure)
+    {
+        assertThat(authenticator.getAuthenticationSuccess().getTotalCount()).isEqualTo(success);
+        assertThat(authenticator.getAuthenticationFailure().getTotalCount()).isEqualTo(failure);
     }
 
     private static void assertOk(OkHttpClient client, String url)
