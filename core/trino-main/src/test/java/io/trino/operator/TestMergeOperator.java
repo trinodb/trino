@@ -50,6 +50,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -169,6 +170,25 @@ public class TestMergeOperator
                 .buildPage();
         assertPageEquals(ImmutableList.of(BIGINT), getOnlyElement(pullAvailablePages(operator)), expected);
         operator.close();
+    }
+
+    @Test
+    public void testFetchFinishesWithOpenSplit()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        try (MergeOperator operator = createMergeOperator(types, ImmutableList.of(0), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), OptionalLong.of(2))) {
+            operator.addSplit(createRemoteSplit(TASK_1_ID));
+            operator.noMoreSplits();
+            assertThat(operator.getOutput()).isNull();
+            assertOperatorIsBlocked(operator);
+
+            Page page = rowPagesBuilder(types).row(1).row(2).buildPage();
+            taskBuffers.getUnchecked(TASK_1_ID).addPage(page, false);
+            assertOperatorIsUnblocked(operator);
+            assertPageEquals(types, getOnlyElement(pullAvailablePages(operator)), page);
+            assertThat(operator.isFinished()).isTrue();
+        }
     }
 
     @Test
@@ -352,6 +372,11 @@ public class TestMergeOperator
 
     private MergeOperator createMergeOperator(List<Type> sourceTypes, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
     {
+        return createMergeOperator(sourceTypes, outputChannels, sortChannels, sortOrder, OptionalLong.empty());
+    }
+
+    private MergeOperator createMergeOperator(List<Type> sourceTypes, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder, OptionalLong fetch)
+    {
         int mergeOperatorId = operatorId.getAndIncrement();
         MergeOperator.MergeOperatorFactory factory = new MergeOperator.MergeOperatorFactory(
                 mergeOperatorId,
@@ -362,7 +387,8 @@ public class TestMergeOperator
                 sourceTypes,
                 outputChannels,
                 sortChannels,
-                sortOrder);
+                sortOrder,
+                fetch);
         DriverContext driverContext = createTaskContext(executor, executor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();

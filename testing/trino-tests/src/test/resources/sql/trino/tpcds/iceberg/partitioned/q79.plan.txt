@@ -1,6 +1,6 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, UNKNOWN, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, PARTITIONED):
                     final aggregation over (ss_ticket_number, ss_customer_sk, ss_addr_sk, s_city)

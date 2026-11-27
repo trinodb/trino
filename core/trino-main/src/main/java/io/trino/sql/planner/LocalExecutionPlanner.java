@@ -298,6 +298,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -900,13 +901,13 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             if (node.getOrderingScheme().isPresent()) {
-                return createMergeSource(node, context);
+                return createMergeSource(node, context, OptionalLong.empty());
             }
 
             return createRemoteSource(node, context);
         }
 
-        private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
+        private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context, OptionalLong fetch)
         {
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
             checkArgument(node.getRetryPolicy() == NONE, "unexpected retry policy: %s", node.getRetryPolicy());
@@ -933,7 +934,8 @@ public class LocalExecutionPlanner
                     types,
                     outputChannels,
                     sortChannels,
-                    sortOrder);
+                    sortOrder,
+                    fetch);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
@@ -1901,6 +1903,13 @@ public class LocalExecutionPlanner
         {
             // Limit with ties should be rewritten at this point
             checkState(node.getTiesResolvingScheme().isEmpty(), "Limit with ties not supported");
+
+            if (node.getSource() instanceof ExchangeNode exchange && exchange.getOrderingScheme().isPresent()) {
+                return createLocalMerge(exchange, context, OptionalLong.of(node.getCount()));
+            }
+            if (node.getSource() instanceof RemoteSourceNode remoteSource && remoteSource.getOrderingScheme().isPresent()) {
+                return createMergeSource(remoteSource, context, OptionalLong.of(node.getCount()));
+            }
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3661,7 +3670,7 @@ public class LocalExecutionPlanner
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
             if (node.getOrderingScheme().isPresent()) {
-                return createLocalMerge(node, context);
+                return createLocalMerge(node, context, OptionalLong.empty());
             }
 
             return createLocalExchange(node, context);
@@ -3678,7 +3687,7 @@ public class LocalExecutionPlanner
                     && exchangeNode.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters();
         }
 
-        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
+        private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context, OptionalLong fetch)
         {
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
             checkState(node.getSources().size() == 1, "single source is expected");
@@ -3733,7 +3742,8 @@ public class LocalExecutionPlanner
                     types,
                     orderingCompiler,
                     sortChannels,
-                    orderings);
+                    orderings,
+                    fetch);
             return new PhysicalOperation(operatorFactory, layout);
         }
 

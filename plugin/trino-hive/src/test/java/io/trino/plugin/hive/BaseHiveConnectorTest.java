@@ -53,6 +53,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
@@ -8598,13 +8599,25 @@ public abstract class BaseHiveConnectorTest
         @Language("SQL") String expected = "SELECT custkey FROM customer ORDER BY 1 NULLS FIRST LIMIT 100";
         @Language("SQL") String actual = format("SELECT custkey FROM %s ORDER BY 1 NULLS FIRST LIMIT 100", tableName);
         Session session = getSession();
-        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 0));
+        assertQuery(session, actual, expected, assertPreSortedLimitOnTableScanCount(0));
 
         session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "propagate_table_scan_sorting_properties", "true")
                 .build();
-        assertQuery(session, actual, expected, assertPartialLimitWithPreSortedInputsCount(session, 1));
+        assertQuery(session, actual, expected, assertPreSortedLimitOnTableScanCount(1));
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private static Consumer<Plan> assertPreSortedLimitOnTableScanCount(int expectedCount)
+    {
+        return plan -> assertThat(searchFrom(plan.getRoot())
+                .where(node -> node instanceof LimitNode limit
+                        && limit.isPartial()
+                        && limit.requiresPreSortedInputs()
+                        && limit.getSource() instanceof TableScanNode)
+                .count())
+                .as("partial limits using the table scan ordering")
+                .isEqualTo(expectedCount);
     }
 
     @Test

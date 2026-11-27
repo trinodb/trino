@@ -1,6 +1,6 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        local exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, UNKNOWN, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (channel, col_name, d_year, d_qoy, i_category)
                     local exchange (REPARTITION, HASH, [channel, col_name, d_year, d_qoy, i_category])

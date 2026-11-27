@@ -27,6 +27,7 @@ import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -45,6 +46,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMergeSortedPages
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
+
+    @Test
+    public void testFetchStopsBeforeReadingNextPage()
+    {
+        List<Type> types = ImmutableList.of(INTEGER);
+        Page first = rowPagesBuilder(types).row(1).row(3).buildPage();
+        Page second = rowPagesBuilder(types).row(2).row(4).buildPage();
+        WorkProcessor<Page> pages = WorkProcessor.of(first).transform(page -> {
+            if (page == null) {
+                throw new AssertionError("Read past the fetch count");
+            }
+            return WorkProcessor.TransformationState.ofResult(page);
+        });
+        AggregatedMemoryContext memory = newSimpleAggregatedMemoryContext();
+        WorkProcessor<Page> merged = MergeSortedPages.mergeSortedPages(
+                ImmutableList.of(pages, WorkProcessor.of(second)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(0),
+                types,
+                (builder, _) -> builder.getPositionCount() == 1,
+                false,
+                OptionalLong.of(3),
+                memory,
+                new DriverYieldSignal());
+
+        assertThat(toMaterializedResult(types, ImmutableList.copyOf(merged.iterator())))
+                .containsExactlyElementsOf(resultBuilder(types).row(1).row(2).row(3).build());
+        assertThat(memory.getBytes()).isZero();
+    }
 
     @Test
     public void testSingleStream()
