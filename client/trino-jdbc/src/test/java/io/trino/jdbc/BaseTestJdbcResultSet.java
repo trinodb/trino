@@ -32,7 +32,9 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.sql.Struct;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -1591,6 +1593,52 @@ public abstract class BaseTestJdbcResultSet
         TimeZone timeZone = TimeZone.getTimeZone(id);
         verify(timeZone.getID().equals(id), "Unsupported time zone: %s", id);
         return timeZone;
+    }
+
+    @Test
+    public void testRowAsStruct()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            // named row: getSQLTypeName reflects full type, getAttributes returns values in field order
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Trino') AS row(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+                Struct struct = (Struct) rs.getObject(column);
+                assertThat(struct.getSQLTypeName()).isEqualTo("row(a_bigint bigint,a_varchar varchar(17))");
+                assertThat(struct.getAttributes()).isEqualTo(new Object[] {42L, "Trino"});
+            });
+
+            // anonymous row: getSQLTypeName has no field names, getAttributes preserves order
+            checkRepresentation(connectedStatement.getStatement(), "ROW(42, 'Trino')", Types.JAVA_OBJECT, (rs, column) -> {
+                Struct struct = (Struct) rs.getObject(column);
+                assertThat(struct.getSQLTypeName()).isEqualTo("row(integer,varchar(5))");
+                assertThat(struct.getAttributes()).isEqualTo(new Object[] {42, "Trino"});
+            });
+
+            // mixed named/unnamed row: getSQLTypeName renders named and unnamed fields, getAttributes includes nulls
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(NULL, NULL) AS row(field1 integer, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+                Struct struct = (Struct) rs.getObject(column);
+                assertThat(struct.getSQLTypeName()).isEqualTo("row(field1 integer,varchar(17))");
+                assertThat(struct.getAttributes()).isEqualTo(new Object[] {null, null});
+            });
+
+            // nested row: inner Row is also a Struct with its own type name
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(ROW(ROW(42))) AS row(a row(b row(c integer))))", Types.JAVA_OBJECT, (rs, column) -> {
+                Struct outer = (Struct) rs.getObject(column);
+                assertThat(outer.getSQLTypeName()).isEqualTo("row(a row(b row(c integer)))");
+                Struct middle = (Struct) outer.getAttributes()[0];
+                assertThat(middle.getSQLTypeName()).isEqualTo("row(b row(c integer))");
+                Struct inner = (Struct) middle.getAttributes()[0];
+                assertThat(inner.getSQLTypeName()).isEqualTo("row(c integer)");
+                assertThat(inner.getAttributes()).isEqualTo(new Object[] {42});
+            });
+
+            // getAttributes(typeMap) is not supported
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Trino') AS row(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+                Struct struct = (Struct) rs.getObject(column);
+                assertSqlExceptionThrownBy(() -> struct.getAttributes(Map.of()))
+                        .isInstanceOf(SQLFeatureNotSupportedException.class);
+            });
+        }
     }
 
     private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, Object expectedRepresentation)
