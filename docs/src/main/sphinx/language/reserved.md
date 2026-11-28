@@ -100,8 +100,8 @@ be quoted (using double quotes) in order to be used as an identifier.
 Tokens that identify names of catalogs, schemas, tables, columns, functions, or
 other objects, are identifiers.
 
-Identifiers must start with a letter, and subsequently include alphanumeric
-characters and underscores. Identifiers with other characters must be delimited
+Identifiers must start with a letter or underscore, and subsequently include
+alphanumeric characters and underscores. Identifiers with other characters must be delimited
 with double quotes (`"`). When delimited with double quotes, identifiers can use
 any character. Escape a `"` with another preceding double quote in a delimited
 identifier.
@@ -113,6 +113,7 @@ Following are some valid examples:
 ```sql
 tablename
 SchemaName
+_private_column
 example_catalog.a_schema."table$partitions"
 "identifierWith""double""quotes"
 ```
