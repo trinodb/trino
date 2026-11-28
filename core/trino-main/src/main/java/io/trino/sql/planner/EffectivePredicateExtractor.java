@@ -541,6 +541,7 @@ public class EffectivePredicateExtractor
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                        .filter(entry -> entry.getKey().type().isComparable())
                         .map(this::entryToEquality)
                         .collect(toImmutableList());
 
