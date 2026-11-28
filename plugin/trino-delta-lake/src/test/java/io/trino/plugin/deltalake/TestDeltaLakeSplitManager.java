@@ -258,6 +258,7 @@ public class TestDeltaLakeSplitManager
                 new FileFormatDataSourceStats(),
                 jsonCodec(LastCheckpoint.class),
                 new DeltaLakeConfig(),
+                new ParquetWriterConfig(),
                 newDirectExecutorService());
 
         TransactionLogReaderFactory transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(fileSystemFactory);
