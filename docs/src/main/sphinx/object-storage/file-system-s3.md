@@ -128,6 +128,28 @@ support:
     for all requests sent to S3. Defaults to `Trino`.
 :::
 
+(fs-s3-compatible)=
+## S3-compatible storage systems
+
+In addition to [Amazon S3](https://aws.amazon.com/s3/), the native S3 support
+is designed to work with S3-compatible object storage systems. Point Trino at a
+compatible system by setting `s3.endpoint` to its service URL, together with
+`s3.region` and, if the system requires it, `s3.path-style-access`:
+
+```properties
+fs.s3.enabled=true
+s3.endpoint=https://storage.example.com
+s3.region=us-east-1
+s3.path-style-access=true
+s3.aws-access-key=example-access-key
+s3.aws-secret-key=example-secret-key
+```
+
+Replace the placeholder endpoint, region, and keys with the values for your
+storage system. Commonly used S3-compatible providers include Backblaze B2,
+Cloudflare R2, and MinIO. As noted above, only Amazon S3 and MinIO are tested
+for compatibility, so validate other systems against your own workload.
+
 ## Authentication
 
 Use the following properties to configure the authentication to S3 with access
