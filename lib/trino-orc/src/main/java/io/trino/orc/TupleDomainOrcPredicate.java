@@ -46,6 +46,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -66,6 +67,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
@@ -139,6 +141,13 @@ public class TupleDomainOrcPredicate
         BloomFilter bloomFilter = columnStatistics.getBloomFilter();
         if (bloomFilter == null) {
             // no bloom filter so we can't exclude this section
+            return true;
+        }
+
+        // The reader cuts a value longer than a bounded varchar to its length, but the bloom filter holds the stored value.
+        // A cut value has exactly the bounded length, so a predicate value of that length may match a value that is not in the filter.
+        if (stripeDomain.getType() instanceof VarcharType varcharType && !varcharType.isUnbounded() &&
+                discreteValues.get().stream().anyMatch(value -> countCodePoints((Slice) value) >= varcharType.getBoundedLength())) {
             return true;
         }
 
@@ -250,8 +259,11 @@ public class TupleDomainOrcPredicate
         else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
-        else if (type instanceof VarcharType && columnStatistics.getStringStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
+        else if (type instanceof VarcharType varcharType && columnStatistics.getStringStatistics() != null) {
+            // The reader cuts a value longer than a bounded varchar to its length, while the statistics describe the stored value.
+            // Cutting the minimum the same way keeps it below every value the reader returns. The maximum is kept, as a cut value
+            // never sorts above the value it was cut from.
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), min -> truncateToLength(min, varcharType), Function.identity());
         }
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
