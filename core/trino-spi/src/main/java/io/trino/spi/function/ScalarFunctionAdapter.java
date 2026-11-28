@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -28,6 +29,7 @@ import io.trino.spi.type.TypeOperators;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -215,6 +217,9 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Instance method cannot be adapted to no instance");
         }
 
+        // a varargs collector would otherwise re-collect arguments when the canonical type changes the trailing parameter
+        methodHandle = methodHandle.asFixedArity().asType(getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
+
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, returnType, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());
 
@@ -242,6 +247,89 @@ public final class ScalarFunctionAdapter
             parameterIndex += expectedArgumentConvention.getParameterCount();
         }
         return methodHandle;
+    }
+
+    private static MethodType getCanonicalMethodType(
+            MethodType methodType,
+            Type returnType,
+            List<Type> argumentTypes,
+            InvocationConvention convention)
+    {
+        int expectedParameterCount = (convention.supportsInstanceFactory() ? 1 : 0)
+                + (convention.supportsSession() ? 1 : 0)
+                + convention.getArgumentConventions().stream().mapToInt(InvocationArgumentConvention::getParameterCount).sum()
+                + convention.getReturnConvention().getParameterCount();
+        if (methodType.parameterCount() != expectedParameterCount) {
+            throw new IllegalArgumentException("Method handle %s has %s parameters, but the invocation convention %s requires %s".formatted(methodType, methodType.parameterCount(), convention, expectedParameterCount));
+        }
+
+        int parameterIndex = convention.supportsInstanceFactory() ? 1 : 0;
+        if (convention.supportsSession()) {
+            methodType = relatedParameterType(methodType, parameterIndex++, ConnectorSession.class);
+        }
+
+        for (int argumentIndex = 0; argumentIndex < argumentTypes.size(); argumentIndex++) {
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            Type argumentType = argumentTypes.get(argumentIndex);
+            switch (argumentConvention) {
+                case NEVER_NULL -> methodType = canonicalParameterType(methodType, parameterIndex, argumentType.getJavaType());
+                case BOXED_NULLABLE -> methodType = canonicalParameterType(methodType, parameterIndex, wrap(argumentType.getJavaType()));
+                case NULL_FLAG -> methodType = canonicalParameterType(methodType, parameterIndex, argumentType.getJavaType())
+                        .changeParameterType(parameterIndex + 1, boolean.class);
+                case VALUE_BLOCK_POSITION, VALUE_BLOCK_POSITION_NOT_NULL -> methodType = relatedParameterType(methodType, parameterIndex, ValueBlock.class);
+                case BLOCK_POSITION, BLOCK_POSITION_NOT_NULL, FLAT, IN_OUT, FUNCTION -> {}
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        return switch (convention.getReturnConvention()) {
+            // a primitive return stays as declared, e.g. an int for a long type, which the adapter has always allowed
+            case FAIL_ON_NULL, DEFAULT_ON_NULL -> methodType.returnType().isPrimitive()
+                    ? methodType
+                    : canonicalReturnType(methodType, returnType.getJavaType());
+            case NULLABLE_RETURN -> canonicalReturnType(methodType, wrap(returnType.getJavaType()));
+            case BLOCK_BUILDER, FLAT_RETURN -> methodType;
+        };
+    }
+
+    private static MethodType canonicalParameterType(MethodType methodType, int parameterIndex, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.parameterType(parameterIndex);
+        // asType widens primitives and casts unrelated references, which would hide a mismatch until a row is processed
+        boolean compatible = declaredType.isPrimitive()
+                ? declaredType == canonicalType
+                : declaredType.isAssignableFrom(wrap(canonicalType));
+        if (!compatible) {
+            throw new WrongMethodTypeException("Parameter %s of %s is declared as %s, which cannot accept %s".formatted(parameterIndex, methodType, declaredType.getSimpleName(), canonicalType.getSimpleName()));
+        }
+        return methodType.changeParameterType(parameterIndex, canonicalType);
+    }
+
+    // For a parameter that may be declared as a supertype or as a specialization of the canonical type.
+    private static MethodType relatedParameterType(MethodType methodType, int parameterIndex, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.parameterType(parameterIndex);
+        if (declaredType.isPrimitive() || !(declaredType.isAssignableFrom(canonicalType) || canonicalType.isAssignableFrom(declaredType))) {
+            throw new WrongMethodTypeException("Parameter %s of %s is declared as %s, which is unrelated to %s".formatted(parameterIndex, methodType, declaredType.getSimpleName(), canonicalType.getSimpleName()));
+        }
+        return methodType.changeParameterType(parameterIndex, canonicalType);
+    }
+
+    private static MethodType canonicalReturnType(MethodType methodType, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.returnType();
+        // asType would invent a null for a void return, so it stays as declared
+        if (declaredType == void.class) {
+            return methodType;
+        }
+        // A reference may be a supertype, which is cast down when the function returns, or a subtype.
+        boolean compatible = declaredType.isPrimitive()
+                ? wrap(declaredType) == wrap(canonicalType)
+                : declaredType.isAssignableFrom(wrap(canonicalType)) || wrap(canonicalType).isAssignableFrom(declaredType);
+        if (!compatible) {
+            throw new WrongMethodTypeException("Return type of %s is declared as %s, which cannot be converted to %s".formatted(methodType, declaredType.getSimpleName(), canonicalType.getSimpleName()));
+        }
+        return methodType.changeReturnType(canonicalType);
     }
 
     private static MethodHandle adaptReturn(
@@ -301,11 +389,6 @@ public final class ScalarFunctionAdapter
             InvocationArgumentConvention expectedArgumentConvention,
             InvocationReturnConvention returnConvention)
     {
-        // For value block, cast specialized parameter to ValueBlock
-        if ((actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL) && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(parameterIndex, ValueBlock.class));
-        }
-
         if (actualArgumentConvention == expectedArgumentConvention) {
             return methodHandle;
         }
