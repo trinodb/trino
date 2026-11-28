@@ -33,4 +33,10 @@ public class DefaultIcebergFileNameProvider
         }
         return format.addExtension(name);
     }
+
+    @Override
+    public String newSortTempFilePrefix(ConnectorSession session)
+    {
+        return "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
+    }
 }

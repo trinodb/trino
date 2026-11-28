@@ -113,7 +113,6 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.FileContent.DATA;
 import static org.apache.iceberg.TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX;
@@ -526,8 +525,7 @@ public class IcebergPageSink
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
             if (!sortFields.isEmpty() && sortedWritingEnabled) {
-                String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
-                Location tempFilePrefix = tempDirectory.appendPath(tempName);
+                Location tempFilePrefix = tempDirectory.appendPath(fileNameProvider.newSortTempFilePrefix(session));
                 WriteContext writerContext = createWriter(outputPath, partitionData);
                 IcebergFileWriter sortedFileWriter = new IcebergSortingFileWriter(
                         fileSystem,

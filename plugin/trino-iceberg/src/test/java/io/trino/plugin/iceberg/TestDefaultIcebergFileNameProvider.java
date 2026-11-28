@@ -39,7 +39,9 @@ final class TestDefaultIcebergFileNameProvider
         assertThat(provider.newFileName(SESSION, DATA, AVRO)).matches(prefix + "\\.avro");
         assertThat(provider.newFileName(SESSION, POSITION_DELETES, PARQUET)).matches(prefix + "\\.parquet");
         assertThat(provider.newFileName(SESSION, POSITION_DELETES, PUFFIN)).matches("dv-" + prefix + "\\.puffin");
+        assertThat(provider.newSortTempFilePrefix(SESSION)).matches("sorting-file-writer-" + prefix);
 
         assertThat(provider.newFileName(SESSION, DATA, PARQUET)).isNotEqualTo(provider.newFileName(SESSION, DATA, PARQUET));
+        assertThat(provider.newSortTempFilePrefix(SESSION)).isNotEqualTo(provider.newSortTempFilePrefix(SESSION));
     }
 }

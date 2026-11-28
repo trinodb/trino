@@ -27,4 +27,13 @@ public interface IcebergFileNameProvider
      * A deletion vector is requested as {@link FileContent#POSITION_DELETES} in {@link FileFormat#PUFFIN}.
      */
     String newFileName(ConnectorSession session, FileContent content, FileFormat format);
+
+    /**
+     * Returns the name prefix of the temporary files a sorted write spills to before it writes the
+     * sorted data file. The connector chooses the directory, and names each temporary file by
+     * appending a period and a sequence number to the prefix. The prefix must not contain path
+     * separators, and must be unique across all writers of all tables, because sorted writes to
+     * different tables can share a local staging directory.
+     */
+    String newSortTempFilePrefix(ConnectorSession session);
 }
