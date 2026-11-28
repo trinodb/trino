@@ -129,6 +129,7 @@ public class MergeOperator
 
     private final List<WorkProcessor<Page>> pageProducers = new ArrayList<>();
     private final Closer closer = Closer.create();
+    private final LocalMemoryContext memoryContext;
 
     private WorkProcessor<Page> mergedPages;
     private boolean closed;
@@ -150,8 +151,7 @@ public class MergeOperator
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
 
-        LocalMemoryContext memoryContext = operatorContext.newLocalUserMemoryContext(MergeOperator.class.getSimpleName());
-        // memory footprint of deserializer does not change over time
+        memoryContext = operatorContext.newLocalUserMemoryContext(MergeOperator.class.getSimpleName());
         memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
         closer.register(memoryContext::close);
     }
@@ -186,6 +186,7 @@ public class MergeOperator
         pageProducers.add(client.pages()
                 .map(serializedPage -> {
                     Page page = deserializer.deserialize(serializedPage);
+                    memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
                     operatorContext.recordNetworkInput(serializedPage.length(), page.getPositionCount());
                     return page;
                 }));

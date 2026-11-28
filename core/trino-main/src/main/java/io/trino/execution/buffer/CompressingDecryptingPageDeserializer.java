@@ -32,7 +32,6 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -43,11 +42,14 @@ import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_CIPHER_NA
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_HEADER_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPageUncompressedSizeInBytes;
 import static io.trino.execution.buffer.PagesSerdeUtil.readRawPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.util.Ciphers.is256BitSecretKeySpec;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.crypto.Cipher.DECRYPT_MODE;
 
@@ -64,8 +66,7 @@ public class CompressingDecryptingPageDeserializer
             Optional<Decompressor> decompressor,
             int decompressorRetainedSize,
             Optional<SecretKey> encryptionKey,
-            int blockSizeInBytes,
-            OptionalInt maxCompressedBlockSizeInBytes)
+            int blockSizeInBytes)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
@@ -74,8 +75,7 @@ public class CompressingDecryptingPageDeserializer
                 requireNonNull(decompressor, "decompressor is null"),
                 decompressorRetainedSize,
                 encryptionKey,
-                blockSizeInBytes,
-                maxCompressedBlockSizeInBytes);
+                blockSizeInBytes);
     }
 
     @Override
@@ -105,12 +105,15 @@ public class CompressingDecryptingPageDeserializer
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
+        private final int blockSizeInBytes;
+        private int maxDecompressedBlockSize;
 
-        private SerializedPageInput(Optional<Decompressor> decompressor, int decompressorRetainedSize, Optional<SecretKey> encryptionKey, int blockSizeInBytes, OptionalInt maxCompressedBlockSizeInBytes)
+        private SerializedPageInput(Optional<Decompressor> decompressor, int decompressorRetainedSize, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.decompressorRetainedSize = decompressorRetainedSize;
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+            this.blockSizeInBytes = blockSizeInBytes;
 
             buffers = new ReadBuffer[
                     (decompressor.isPresent() ? 1 : 0) // decompression buffer
@@ -118,29 +121,10 @@ public class CompressingDecryptingPageDeserializer
                             + 1 // input buffer
                     ];
             if (decompressor.isPresent()) {
-                int bufferSize = blockSizeInBytes
-                        // to guarantee a single long can always be read entirely
-                        + Long.BYTES;
-                buffers[0] = new ReadBuffer(Slices.allocate(bufferSize));
-                buffers[0].setPosition(bufferSize);
+                buffers[0] = new ReadBuffer(Slices.EMPTY_SLICE);
             }
             if (encryptionKey.isPresent()) {
-                int bufferSize;
-                if (decompressor.isPresent()) {
-                    // to store compressed block size
-                    bufferSize = maxCompressedBlockSizeInBytes.orElseThrow()
-                            // to store compressed block size
-                            + Integer.BYTES
-                            // to guarantee a single long can always be read entirely
-                            + Long.BYTES;
-                }
-                else {
-                    bufferSize = blockSizeInBytes
-                            // to guarantee a single long can always be read entirely
-                            + Long.BYTES;
-                }
-                buffers[buffers.length - 2] = new ReadBuffer(Slices.allocate(bufferSize));
-                buffers[buffers.length - 2].setPosition(bufferSize);
+                buffers[buffers.length - 2] = new ReadBuffer(Slices.EMPTY_SLICE);
 
                 try {
                     cipher = Optional.of(Cipher.getInstance(SERIALIZED_PAGE_CIPHER_NAME));
@@ -160,6 +144,9 @@ public class CompressingDecryptingPageDeserializer
             ReadBuffer buffer = new ReadBuffer(page);
             buffer.setPosition(SERIALIZED_PAGE_HEADER_SIZE);
             buffers[buffers.length - 1] = buffer;
+
+            // every block of the page decompresses to at most the smaller of the block size and the page size
+            maxDecompressedBlockSize = min(blockSizeInBytes, getSerializedPageUncompressedSizeInBytes(page));
             return positionCount;
         }
 
@@ -348,9 +335,6 @@ public class CompressingDecryptingPageDeserializer
                 return;
             }
 
-            ReadBuffer sink = buffers[buffers.length - 2];
-            int bytesPreserved = sink.rollOver();
-
             int encryptedSize = source.readInt();
             int ivSize = cipher.orElseThrow().getBlockSize();
             IvParameterSpec iv = new IvParameterSpec(
@@ -358,8 +342,14 @@ public class CompressingDecryptingPageDeserializer
                     source.getSlice().byteArrayOffset() + source.getPosition(),
                     ivSize);
             source.setPosition(source.getPosition() + ivSize);
+            if (encryptedSize < 0 || encryptedSize > source.available()) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Invalid encrypted block size %s with %s bytes left in the page", encryptedSize, source.available()));
+            }
 
             Cipher cipher = initCipher(encryptionKey.get(), iv);
+            ReadBuffer sink = buffers[buffers.length - 2];
+            // grows with the pages, up to a partly read long plus one block, its compression marker and the cipher padding
+            int bytesPreserved = sink.rollOver(cipher.getOutputSize(encryptedSize), Long.BYTES + blockSizeInBytes + Integer.BYTES + cipher.getBlockSize());
             int decryptedSize;
             try {
                 // Do not refactor into single doFinal call, performance and allocation rate are significantly worse
@@ -407,7 +397,8 @@ public class CompressingDecryptingPageDeserializer
             }
 
             ReadBuffer sink = buffers[0];
-            int bytesPreserved = sink.rollOver();
+            // grows with the pages, up to a partly read long plus one block
+            int bytesPreserved = sink.rollOver(maxDecompressedBlockSize, blockSizeInBytes + Long.BYTES);
 
             int compressedBlockMarker = source.readInt();
             int blockSize = getCompressedBlockSize(compressedBlockMarker);
@@ -541,7 +532,7 @@ public class CompressingDecryptingPageDeserializer
     {
         private static final int INSTANCE_SIZE = instanceSize(ReadBuffer.class);
 
-        private final Slice slice;
+        private Slice slice;
         private int position;
         private int limit;
 
@@ -577,12 +568,23 @@ public class CompressingDecryptingPageDeserializer
             this.limit = limit;
         }
 
-        public int rollOver()
+        /**
+         * Moves the unread bytes to the start and grows the buffer to fit {@code bytesToAppend} more bytes after them.
+         * When it grows, the new capacity is double the old one, capped at {@code maxCapacity}, or the required size if larger.
+         */
+        public int rollOver(int bytesToAppend, int maxCapacity)
         {
             int bytesToCopy = available();
-            if (bytesToCopy != 0) {
-                slice.setBytes(0, slice, position, bytesToCopy);
+            int requiredCapacity = bytesToCopy + bytesToAppend;
+            Slice target = slice;
+            if (slice.length() < requiredCapacity) {
+                int newCapacity = max(requiredCapacity, min(maxCapacity, slice.length() * 2));
+                target = Slices.allocate(newCapacity);
             }
+            if (bytesToCopy != 0) {
+                target.setBytes(0, slice, position, bytesToCopy);
+            }
+            slice = target;
             position = 0;
             return bytesToCopy;
         }

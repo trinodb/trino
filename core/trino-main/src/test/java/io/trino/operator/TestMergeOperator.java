@@ -32,6 +32,8 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
@@ -57,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
@@ -347,6 +350,36 @@ public class TestMergeOperator
                 .buildPage();
 
         assertPageEquals(types, getOnlyElement(pullAvailablePages(operator)), expected);
+        operator.close();
+    }
+
+    @Test
+    public void testMemoryReservationTracksDeserializer()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        MergeOperator operator = createMergeOperator(types, ImmutableList.of(0, 1), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST));
+        operator.addSplit(createRemoteSplit(TASK_1_ID));
+        operator.noMoreSplits();
+
+        List<Page> pages = ImmutableList.of(createSequencePage(types, 10, 0, 0), createSequencePage(types, 10_000, 10, 10));
+        taskBuffers.getUnchecked(TASK_1_ID).addPages(pages, true);
+
+        long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!operator.isFinished() && System.nanoTime() - endTime < 0) {
+            if (operator.getOutput() == null) {
+                Thread.sleep(10);
+            }
+        }
+        assertThat(operator.isFinished()).isTrue();
+
+        PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
+        PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
+        for (Page page : pages) {
+            deserializer.deserialize(serializer.serialize(page));
+        }
+        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes())
+                .isEqualTo(deserializer.getRetainedSizeInBytes());
         operator.close();
     }
 
