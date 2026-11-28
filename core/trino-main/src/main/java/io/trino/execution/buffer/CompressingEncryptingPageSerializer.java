@@ -34,7 +34,6 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -49,6 +48,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_UNCOMPRES
 import static io.trino.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.util.Ciphers.is256BitSecretKeySpec;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
@@ -70,8 +70,7 @@ public class CompressingEncryptingPageSerializer
             BlockEncodingSerde blockEncodingSerde,
             Optional<Compressor> compressor,
             Optional<SecretKey> encryptionKey,
-            int blockSizeInBytes,
-            OptionalInt maxCompressedBlockSize)
+            int blockSizeInBytes)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
@@ -79,8 +78,7 @@ public class CompressingEncryptingPageSerializer
         output = new SerializedPageOutput(
                 requireNonNull(compressor, "compressor is null"),
                 encryptionKey,
-                blockSizeInBytes,
-                maxCompressedBlockSize);
+                blockSizeInBytes);
     }
 
     @Override
@@ -130,34 +128,30 @@ public class CompressingEncryptingPageSerializer
         private final Optional<Cipher> cipher;
 
         private final WriteBuffer[] buffers;
+        private final boolean hasBlockBuffer;
+        private final int blockSizeInBytes;
         private int uncompressedSize;
 
         private SerializedPageOutput(
                 Optional<Compressor> compressor,
                 Optional<SecretKey> encryptionKey,
-                int blockSizeInBytes,
-                OptionalInt maxCompressedBlockSize)
+                int blockSizeInBytes)
         {
             this.compressor = requireNonNull(compressor, "compressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+            this.blockSizeInBytes = blockSizeInBytes;
 
             buffers = new WriteBuffer[
                     (compressor.isPresent() ? 1 : 0) // compression buffer
                             + (encryptionKey.isPresent() ? 1 : 0) // encryption buffer
                             + 1 // output buffer
                     ];
-            if (compressor.isPresent()) {
-                buffers[0] = new WriteBuffer(blockSizeInBytes);
+            hasBlockBuffer = buffers.length > 1;
+            // compression and encryption buffers grow as pages need them
+            for (int i = 0; i < buffers.length - 1; i++) {
+                buffers[i] = new WriteBuffer(0);
             }
             if (encryptionKey.isPresent()) {
-                int bufferSize = blockSizeInBytes;
-                if (compressor.isPresent()) {
-                    bufferSize = maxCompressedBlockSize.orElseThrow()
-                            // to store compressed block size
-                            + Integer.BYTES;
-                }
-                buffers[buffers.length - 2] = new WriteBuffer(bufferSize);
-
                 try {
                     cipher = Optional.of(Cipher.getInstance(SERIALIZED_PAGE_CIPHER_NAME));
                 }
@@ -179,6 +173,10 @@ public class CompressingEncryptingPageSerializer
 
             buffers[buffers.length - 1] = buffer;
             uncompressedSize = 0;
+
+            if (hasBlockBuffer) {
+                buffers[0].growTo(min(blockSizeInBytes, sizeInBytes), blockSizeInBytes);
+            }
         }
 
         @Override
@@ -378,8 +376,15 @@ public class CompressingEncryptingPageSerializer
 
         private void ensureCapacityFor(int bytes)
         {
-            if (buffers[0].remainingCapacity() >= bytes) {
+            WriteBuffer buffer = buffers[0];
+            if (buffer.remainingCapacity() >= bytes) {
                 return;
+            }
+            if (hasBlockBuffer) {
+                buffer.growTo(buffer.getPosition() + bytes, blockSizeInBytes);
+                if (buffer.remainingCapacity() >= bytes) {
+                    return;
+                }
             }
             // expand page output buffer
             buffers[buffers.length - 1].ensureCapacityFor(bytes);
@@ -399,7 +404,13 @@ public class CompressingEncryptingPageSerializer
             WriteBuffer sinkBuffer = buffers[1];
 
             int maxCompressedLength = compressor.maxCompressedLength(sourceBuffer.getPosition());
-            sinkBuffer.ensureCapacityFor(maxCompressedLength + Integer.BYTES);
+            if (encryptionKey.isPresent()) {
+                // the encryption buffer holds one block at a time
+                sinkBuffer.growTo(maxCompressedLength + Integer.BYTES, compressor.maxCompressedLength(blockSizeInBytes) + Integer.BYTES);
+            }
+            else {
+                sinkBuffer.ensureCapacityFor(maxCompressedLength + Integer.BYTES);
+            }
 
             int uncompressedSize = sourceBuffer.getPosition();
             int compressedSize = compressor.compress(
@@ -737,6 +748,20 @@ public class CompressingEncryptingPageSerializer
         public int remainingCapacity()
         {
             return slice.length() - position;
+        }
+
+        /**
+         * Grows the capacity to {@code minCapacity} or double the current capacity, whichever is larger, without exceeding {@code maxCapacity}.
+         */
+        public void growTo(int minCapacity, int maxCapacity)
+        {
+            if (slice.length() >= min(minCapacity, maxCapacity)) {
+                return;
+            }
+            int newCapacity = min(maxCapacity, max(minCapacity, slice.length() * 2));
+            Slice newSlice = Slices.allocate(newCapacity);
+            newSlice.setBytes(0, slice, 0, position);
+            slice = newSlice;
         }
 
         public int getPosition()

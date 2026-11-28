@@ -31,6 +31,8 @@ import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
 import io.trino.operator.ExchangeOperator.ExchangeOperatorFactory;
@@ -54,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
@@ -278,14 +281,19 @@ public class TestExchangeOperator
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
         operator.noMoreSplits();
-        taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
+        List<Page> pages = ImmutableList.of(PAGE, createSequencePage(TYPES, 10_000, 0));
+        taskBuffers.getUnchecked(TASK_1_ID).addPages(pages, true);
         assertEventually(() -> assertThat(getExchangeClientStatus(operator).getBufferedPages()).isEqualTo(2));
 
-        assertThat(operator.getOutput()).isNotNull();
-        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes())
-                .isEqualTo(getExchangeClientStatus(operator).getBufferedBytes() + SERDE_FACTORY.createDeserializer(Optional.empty()).getRetainedSizeInBytes());
+        PageSerializer serializer = SERDE_FACTORY.createSerializer(Optional.empty());
+        PageDeserializer deserializer = SERDE_FACTORY.createDeserializer(Optional.empty());
+        for (Page page : pages) {
+            assertThat(operator.getOutput()).isNotNull();
+            deserializer.deserialize(serializer.serialize(page));
+            assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes())
+                    .isEqualTo(getExchangeClientStatus(operator).getBufferedBytes() + deserializer.getRetainedSizeInBytes());
+        }
 
-        waitForPages(operator, 1);
         waitForFinished(operator);
     }
 

@@ -19,7 +19,6 @@ import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -159,11 +158,10 @@ public class TaskOutputOperator
         if (serializer == null) {
             Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), outputBuffer);
             serializer = serdeFactory.createSerializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
-            LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
-            memoryContext.setBytes(serializer.getRetainedSizeInBytes());
         }
 
         outputBuffer.enqueue(splitAndSerializePage(page, serializer));
+        operatorContext.localUserMemoryContext().setBytes(serializer.getRetainedSizeInBytes());
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
         updateMetrics();
     }

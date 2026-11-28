@@ -56,7 +56,6 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -211,7 +210,7 @@ public class TestPagePartitionerPool
                 false,
                 OptionalInt.empty(),
                 outputBuffer,
-                createTestingPagesSerdeFactory(LZ4),
+                createTestingPagesSerdeFactory(),
                 DataSize.ofBytes(maxPageSize.toBytes() * partitionFunction.partitionCount()),
                 new PositionsAppenderFactory(new BlockTypeOperators()),
                 Optional.empty(),

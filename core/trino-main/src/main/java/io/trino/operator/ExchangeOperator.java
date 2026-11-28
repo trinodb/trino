@@ -260,10 +260,10 @@ public class ExchangeOperator
         if (deserializer == null) {
             Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), exchangeDataSource);
             deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
-            deserializerMemoryContext.setBytes(deserializer.getRetainedSizeInBytes());
         }
 
         Page deserializedPage = deserializer.deserialize(page);
+        deserializerMemoryContext.setBytes(deserializer.getRetainedSizeInBytes());
         operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
 

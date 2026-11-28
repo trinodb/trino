@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -44,6 +45,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_HEADER_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -54,6 +56,7 @@ import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -201,6 +204,82 @@ public class TestPagesSerde
             Page deserialized = deserializer.deserialize(serialized);
             assertPageEquals(ImmutableList.of(BIGINT), deserialized, page);
         }
+    }
+
+    @Test
+    public void testRoundTripMixedPageSizes()
+    {
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DOUBLE);
+        Iterator<LineItem> iterator = new LineItemGenerator(1, 1, 1).iterator();
+        List<Page> pages = ImmutableList.of(
+                generatePage(types, 1, iterator),
+                generatePage(types, 300, iterator),
+                generatePage(types, 450, iterator),
+                generatePage(types, 30000, iterator),
+                generatePage(types, 20, iterator),
+                generatePage(types, 3000, iterator));
+        testRoundTrip(types, pages);
+    }
+
+    @Test
+    public void testSmallPageBuffersIndependentOfBlockSize()
+    {
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DOUBLE);
+        Page page = generatePage(types, 10, new LineItemGenerator(1, 1, 1).iterator());
+        for (Optional<SecretKey> encryptionKey : ImmutableList.of(Optional.<SecretKey>empty(), Optional.of(createRandomAesEncryptionKey()))) {
+            for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+                assertThat(retainedSizesAfterRoundTrip(types, page, compressionCodec, encryptionKey, 1024 * 1024))
+                        .isEqualTo(retainedSizesAfterRoundTrip(types, page, compressionCodec, encryptionKey, 64 * 1024));
+            }
+        }
+    }
+
+    @Test
+    public void testBuffersBoundedByBlockSize()
+    {
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DOUBLE);
+        Iterator<LineItem> iterator = new LineItemGenerator(1, 1, 1).iterator();
+        Page smallPage = generatePage(types, 10, iterator);
+        Page largePage = generatePage(types, 3000, iterator);
+        int blockSizeInBytes = 1009;
+        for (Optional<SecretKey> encryptionKey : ImmutableList.of(Optional.<SecretKey>empty(), Optional.of(createRandomAesEncryptionKey()))) {
+            for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+                PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, blockSizeInBytes);
+                PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
+                PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+                long serializerInitialSize = serializer.getRetainedSizeInBytes();
+                long deserializerInitialSize = deserializer.getRetainedSizeInBytes();
+                for (Page page : ImmutableList.of(smallPage, largePage, smallPage)) {
+                    assertPageEquals(types, deserializer.deserialize(serializer.serialize(page)), page);
+                    assertThat(serializer.getRetainedSizeInBytes()).isLessThanOrEqualTo(serializerInitialSize + 3L * blockSizeInBytes);
+                    assertThat(deserializer.getRetainedSizeInBytes()).isLessThanOrEqualTo(deserializerInitialSize + 3L * blockSizeInBytes);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testInvalidEncryptedBlockSize()
+    {
+        Optional<SecretKey> encryptionKey = Optional.of(createRandomAesEncryptionKey());
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, NONE);
+        Page page = generatePage(ImmutableList.of(BIGINT), 10, new LineItemGenerator(1, 1, 1).iterator());
+        Slice serialized = serdeFactory.createSerializer(encryptionKey).serialize(page).copy();
+        serialized.setInt(SERIALIZED_PAGE_HEADER_SIZE, 1 << 30);
+
+        PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+        assertThatThrownBy(() -> deserializer.deserialize(serialized))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Invalid encrypted block size 1073741824");
+    }
+
+    private List<Long> retainedSizesAfterRoundTrip(List<Type> types, Page page, CompressionCodec compressionCodec, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+    {
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, blockSizeInBytes);
+        PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
+        PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+        assertPageEquals(types, deserializer.deserialize(serializer.serialize(page)), page);
+        return ImmutableList.of(serializer.getRetainedSizeInBytes(), deserializer.getRetainedSizeInBytes());
     }
 
     @Test
