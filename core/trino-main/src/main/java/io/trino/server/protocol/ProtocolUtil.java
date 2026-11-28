@@ -44,8 +44,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.analyzer.TypeDescriptorTranslator;
+import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
@@ -73,6 +75,8 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.StandardTypes.VARIANT;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
+import static io.trino.type.collation.Collations.withoutCollations;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
 import static java.util.HashSet.newHashSet;
@@ -94,7 +98,7 @@ public final class ProtocolUtil
     public static String formatType(Type type, boolean supportsParametricInterval)
     {
         if (supportsParametricInterval) {
-            return type.getDisplayName();
+            return displayName(type);
         }
         String base = type.getTypeDescriptor().getBase();
         if (base.equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || base.equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH)) {
@@ -106,8 +110,17 @@ public final class ProtocolUtil
             case RowType row -> row.getFields().stream()
                     .map(field -> field.getName().map(name -> "\"" + name.replace("\"", "\"\"") + "\" ").orElse("") + formatType(field.getType(), false))
                     .collect(Collectors.joining(", ", "row(", ")"));
-            default -> type.getDisplayName();
+            default -> displayName(type);
         };
+    }
+
+    // clients see a collated character string as its type without the collation
+    private static String displayName(Type type)
+    {
+        if (hasNonDefaultCollation(type)) {
+            return TypeSyntax.toSql(withoutCollations(type.getTypeDescriptor()));
+        }
+        return type.getDisplayName();
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
@@ -158,6 +171,8 @@ public final class ProtocolUtil
                         })
                         .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
+            // clients see a collated type as its type without the collation
+            case CollatedDataType collated -> formatType(collated.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval);
             case IntervalDataType intervalType -> supportsParametricInterval
                     ? ExpressionFormatter.formatExpression(type)
                     : toClientBase(TypeDescriptorTranslator.toTypeDescriptor(intervalType).getBase());
@@ -190,7 +205,10 @@ public final class ProtocolUtil
             return new ClientTypeSignature(JSON);
         }
 
+        // The client signature has no text parameter kind, so a text argument (such as a collation name)
+        // is omitted and the client sees the type without it
         return new ClientTypeSignature(toClientBase(descriptor.getBase()), descriptor.getParameters().stream()
+                .filter(parameter -> !(parameter instanceof TypeParameter.Text))
                 .map(parameter -> toClientTypeSignatureParameter(descriptor.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                 .collect(toImmutableList()));
     }
@@ -227,6 +245,7 @@ public final class ProtocolUtil
                 yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
+            case TypeParameter.Text _ -> throw new IllegalArgumentException("Text type parameters are not sent to clients: " + parameter);
         };
     }
 

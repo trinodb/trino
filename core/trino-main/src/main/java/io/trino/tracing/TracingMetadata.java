@@ -101,6 +101,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
@@ -1407,6 +1408,12 @@ public class TracingMetadata
     public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
     {
         return delegate.getDomainProjection(session, resolvedFunction);
+    }
+
+    @Override
+    public Signature getDeclaredSignature(Session session, ResolvedFunction resolvedFunction)
+    {
+        return delegate.getDeclaredSignature(session, resolvedFunction);
     }
 
     @Override

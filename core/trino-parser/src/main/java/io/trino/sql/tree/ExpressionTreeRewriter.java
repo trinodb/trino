@@ -75,6 +75,8 @@ public final class ExpressionTreeRewriter<C>
                 case ArrayWildcardSubscript node -> visitExpression(node);
                 case AtLocal node -> visitAtLocal(node, context);
                 case AtTimeZone node -> visitAtTimeZone(node, context);
+                case CollateExpression node -> visitCollateExpression(node, context);
+                case CollationFor node -> visitCollationFor(node, context);
                 case Cast node -> visitCast(node, context);
                 case CoalesceExpression node -> visitCoalesceExpression(node, context);
                 case CurrentCatalog node -> visitCurrentCatalog(node, context);
@@ -92,6 +94,7 @@ public final class ExpressionTreeRewriter<C>
                 case Format node -> visitFormat(node, context);
                 case FunctionCall node -> visitFunctionCall(node, context);
                 case GenericDataType node -> visitGenericDataType(node, context);
+                case CollatedDataType node -> visitCollatedDataType(node, context);
                 case GroupingOperation node -> visitGroupingOperation(node, context);
                 case Identifier node -> visitIdentifier(node, context);
                 case IfExpression node -> visitIfExpression(node, context);
@@ -232,6 +235,38 @@ public final class ExpressionTreeRewriter<C>
                 return new AtTimeZone(node.getLocation().orElseThrow(), value, timeZone);
             }
 
+            return node;
+        }
+
+        private Expression visitCollateExpression(CollateExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollateExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            if (value != node.getValue()) {
+                return new CollateExpression(node.getLocation(), value, node.getCollation(), node.getPadAttribute());
+            }
+            return node;
+        }
+
+        private Expression visitCollationFor(CollationFor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollationFor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            if (value != node.getValue()) {
+                return new CollationFor(node.getLocation(), value);
+            }
             return node;
         }
 
@@ -1093,6 +1128,24 @@ public final class ExpressionTreeRewriter<C>
 
             if (name != node.getName() || !sameElements(rewrittenArguments, node.getArguments())) {
                 return new GenericDataType(node.getLocation(), name, rewrittenArguments);
+            }
+
+            return node;
+        }
+
+        private Expression visitCollatedDataType(CollatedDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCollatedDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            DataType type = rewrite(node.getType(), context.get());
+            Identifier collation = rewrite(node.getCollation(), context.get());
+            if (type != node.getType() || collation != node.getCollation()) {
+                return new CollatedDataType(node.getLocation(), type, collation, node.getPadAttribute());
             }
 
             return node;

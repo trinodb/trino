@@ -15,6 +15,8 @@ package io.trino.spi.connector;
 
 public enum ConnectorCapabilities
 {
+    /// The connector stores and compares columns of collated character string types.
+    COLLATED_COLUMNS,
     DEFAULT_COLUMN_VALUE,
     NOT_NULL_COLUMN_CONSTRAINT,
     MATERIALIZED_VIEW_GRACE_PERIOD,

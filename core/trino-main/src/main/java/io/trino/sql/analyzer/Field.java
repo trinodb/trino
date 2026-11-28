@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.CollationSemantics.CollationShape;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
@@ -31,6 +32,8 @@ public class Field
     private final Type type;
     private final boolean hidden;
     private final boolean aliased;
+    // The derivations of the strings a field contains, when they are not implicit from its type
+    private final Optional<CollationShape> collation;
 
     public static Builder builder()
     {
@@ -96,7 +99,7 @@ public class Field
                 .build();
     }
 
-    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumnName, boolean aliased)
+    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumnName, boolean aliased, Optional<CollationShape> collation)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
@@ -113,6 +116,7 @@ public class Field
         this.originBranch = originBranch;
         this.originColumnName = originColumnName;
         this.aliased = aliased;
+        this.collation = requireNonNull(collation, "collation is null");
     }
 
     public Builder rebuild()
@@ -123,6 +127,14 @@ public class Field
     public Optional<QualifiedObjectName> getOriginTable()
     {
         return originTable;
+    }
+
+    /// The derivations of the strings a field contains, when they are not implicit from the
+    /// field's type: coercible for a string computed only from literals, or none for one that
+    /// combines different implicit collations.
+    public Optional<CollationShape> getCollation()
+    {
+        return collation;
     }
 
     public Optional<String> getOriginBranch()
@@ -222,6 +234,7 @@ public class Field
         private Optional<String> originBranch = Optional.empty();
         private Optional<String> originColumnName = Optional.empty();
         private boolean aliased;
+        private Optional<CollationShape> collation = Optional.empty();
 
         private Builder() {}
 
@@ -235,6 +248,7 @@ public class Field
             this.originBranch = field.originBranch;
             this.originColumnName = field.originColumnName;
             this.aliased = field.aliased;
+            this.collation = field.collation;
         }
 
         public Builder relationAlias(Optional<QualifiedName> relationAlias)
@@ -285,10 +299,16 @@ public class Field
             return this;
         }
 
+        public Builder collation(Optional<CollationShape> collation)
+        {
+            this.collation = requireNonNull(collation, "collation is null");
+            return this;
+        }
+
         public Field build()
         {
             requireNonNull(type, "type is null");
-            return new Field(relationAlias, name, type, hidden, originTable, originBranch, originColumnName, aliased);
+            return new Field(relationAlias, name, type, hidden, originTable, originBranch, originColumnName, aliased, collation);
         }
     }
 }

@@ -200,6 +200,61 @@ you need to use `\+01F600` for a grinning face emoji.
 Single quotes in string literals can be escaped by using another single quote: 
 `'I am big, it''s the pictures that got small!'`
 
+(varchar-collations)=
+#### Collations
+
+A `VARCHAR` type can have a collation, a rule for comparing strings, written after the
+type:
+
+```sql
+SELECT CAST(name AS varchar COLLATE unicode_ci) = 'ALICE' FROM (VALUES 'alice') t(name)
+CREATE TABLE users (email varchar(320) COLLATE unicode_ci, name varchar COLLATE unicode)
+```
+
+The collation decides how values of the type compare, sort, and group. A value is
+unchanged by its collation: `'Alice'` and `'ALICE'` are different strings that a
+case-insensitive collation considers equal. Without a collation, a `VARCHAR` uses the
+default collation, `ucs_basic`, which compares strings by Unicode code point.
+
+Trino supports these collations:
+
+| Name         | Ordering                                         | Distinguishes                   |
+| ------------ | ------------------------------------------------ | ------------------------------- |
+| `ucs_basic`  | Unicode code points                              | Every code point                |
+| `unicode`    | Unicode Collation Algorithm (ISO/IEC 14651)      | Base letters, accents, and case |
+| `unicode_ci` | Unicode Collation Algorithm, case-insensitive    | Base letters and accents        |
+
+`ucs_basic` and `unicode` are the collations the SQL standard defines for Unicode text.
+A collation name is an identifier: unquoted, it is case-insensitive, and quoted, it must be
+written in lower case. A name that is not in the list is an error.
+Use {doc}`/sql/show-collations` to list the names.
+
+A collation can disregard trailing spaces. Add `PAD SPACE` after its name:
+
+```sql
+CREATE TABLE codes (code varchar(10) COLLATE ucs_basic PAD SPACE)
+SELECT * FROM t WHERE code COLLATE unicode_ci PAD SPACE = 'A1'
+```
+
+A `PAD SPACE` collation compares the shorter of two strings as though it were extended
+with spaces to the length of the longer. `'A1  '` equals `'A1'`, and grouping and sorting
+treat them as one value. Leading and inner spaces remain significant, and so do other
+trailing characters: a tab sorts below a space, so `'A1' || chr(9)` sorts before `'A1'`,
+as it does for `char` values. `ucs_basic PAD SPACE` pads with the space character.
+`unicode PAD SPACE` and `unicode_ci PAD SPACE` pad the collation's weights, so a
+character the collation ignores, such as a zero-width space, does not count toward the
+padding. `NO PAD`, the default for every collation name, treats every character as
+significant. Collations that differ only in their pad attribute are different
+collations.
+
+Changing a collation is a cast, `CAST(x AS varchar COLLATE unicode)`, or the shorthand
+`x COLLATE unicode` described in {doc}`/functions/collation`. Values of different
+collations never convert implicitly.
+
+The order a collation produces can change when Trino upgrades the ICU library it uses.
+Only the memory connector stores collated columns. Clients see collated columns as
+their type without the collation.
+
 #### Methods
 
 The following instance methods are available on `VARCHAR` values. Each returns a

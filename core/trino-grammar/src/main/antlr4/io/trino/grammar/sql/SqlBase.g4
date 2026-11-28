@@ -192,6 +192,8 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
+    | SHOW COLLATIONS
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCollations
     | SHOW COLUMNS (FROM | IN) qualifiedName
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
@@ -631,6 +633,7 @@ valueExpression
     : primaryExpression                                                                 #valueExpressionDefault
     | valueExpression AT timeZoneSpecifier                                              #atTimeZone
     | valueExpression AT LOCAL                                                          #atLocal
+    | valueExpression COLLATE collation=identifier padAttribute?                        #collate
     | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
@@ -679,6 +682,7 @@ primaryExpression
     | '(' expression ')'                                                                  #parenthesizedExpression
     | '(' valueExpression ')' intervalQualifier                                           #intervalValueExpression
     | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | COLLATION FOR '(' valueExpression ')'                                               #collationFor
     | jsonFunction                                                                        #jsonFunctionExpression
     ;
 
@@ -862,6 +866,7 @@ type
     | ARRAY '<' type '>'                                                           #legacyArrayType
     | MAP '<' keyType=type ',' valueType=type '>'                                  #legacyMapType
     | type ARRAY ('[' INTEGER_VALUE ']')?                                          #arrayType
+    | type COLLATE collation=identifier padAttribute?                              #collatedType
     | identifier ('(' typeParameter (',' typeParameter)* ')')?                     #genericType
     ;
 
@@ -880,6 +885,11 @@ intervalQualifier
 rowField
     : type
     | identifier type;
+
+padAttribute
+    : PAD SPACE
+    | NO PAD
+    ;
 
 typeParameter
     : INTEGER_VALUE | type
@@ -1143,7 +1153,7 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | ASYMMETRIC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
-    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
+    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLLATE | COLLATION | COLLATIONS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDE | EXCLUDING | EXECUTE | EXPLAIN
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
@@ -1156,11 +1166,11 @@ nonReserved
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OTHERS | OUTPUT | OVER | OVERFLOW | OVERLAY
-    | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PIVOT | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | PAD | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PIVOT | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
+    | SHOW | SIMPLE | SOME | SPACE | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1199,6 +1209,9 @@ CASE: 'CASE';
 CAST: 'CAST';
 CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
+COLLATE: 'COLLATE';
+COLLATION: 'COLLATION';
+COLLATIONS: 'COLLATIONS';
 COLUMN: 'COLUMN';
 COLUMNS: 'COLUMNS';
 COMMENT: 'COMMENT';
@@ -1366,6 +1379,7 @@ OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
 OVERLAY: 'OVERLAY';
+PAD: 'PAD';
 PARTIAL: 'PARTIAL';
 OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
@@ -1425,6 +1439,7 @@ SETS: 'SETS';
 SHOW: 'SHOW';
 SIMPLE: 'SIMPLE';
 SOME: 'SOME';
+SPACE: 'SPACE';
 STALE: 'STALE';
 START: 'START';
 STATS: 'STATS';

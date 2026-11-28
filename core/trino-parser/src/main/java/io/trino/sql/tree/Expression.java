@@ -30,6 +30,8 @@ public abstract sealed class Expression
                 AtTimeZone,
                 Cast,
                 CoalesceExpression,
+                CollateExpression,
+                CollationFor,
                 CurrentCatalog,
                 CurrentDate,
                 CurrentPath,

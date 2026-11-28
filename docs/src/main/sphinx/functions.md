@@ -36,6 +36,7 @@ AI                  <functions/ai>
 Array               <functions/array>
 Binary              <functions/binary>
 Bitwise             <functions/bitwise>
+Collation           <functions/collation>
 Color               <functions/color>
 Comparison          <functions/comparison>
 Conditional         <functions/conditional>

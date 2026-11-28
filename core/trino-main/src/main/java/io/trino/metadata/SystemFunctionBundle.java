@@ -126,6 +126,7 @@ import io.trino.operator.scalar.BitwiseFunctions;
 import io.trino.operator.scalar.CharMethods;
 import io.trino.operator.scalar.CharToVarcharCast;
 import io.trino.operator.scalar.CharacterStringCasts;
+import io.trino.operator.scalar.CollationKeyFunction;
 import io.trino.operator.scalar.ColorFunctions;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.operator.scalar.ConcatWsFunction;
@@ -667,6 +668,7 @@ public final class SystemFunctionBundle
                 .function(ROW_FIELDS_FUNCTION)
                 .function(new GenericReadValueOperator(typeOperators))
                 .function(new GenericEqualOperator(typeOperators))
+                .function(CollationKeyFunction.COLLATION_KEY)
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))
                 .function(new GenericIdenticalOperator(typeOperators))

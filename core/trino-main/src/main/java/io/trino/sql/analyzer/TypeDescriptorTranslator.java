@@ -17,8 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
+import com.google.common.collect.ImmutableList;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Collation;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
@@ -29,6 +31,7 @@ import io.trino.spi.type.TypeTemplates;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ReservedIdentifiers;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.CollatedDataType;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DataTypeParameter;
@@ -40,6 +43,7 @@ import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.type.IntervalDayTimeType;
@@ -55,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -65,6 +70,8 @@ import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
+import static io.trino.sql.ExpressionFormatter.formatExpression;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -195,6 +202,7 @@ public final class TypeDescriptorTranslator
     {
         return switch (type) {
             case GenericDataType genericDataType -> toTypeTemplate(genericDataType, typeVariables, numericVariables);
+            case CollatedDataType collatedDataType -> toTypeTemplate(collatedDataType, typeVariables, numericVariables);
             case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
             case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
             case IntervalDataType intervalDataType -> toTypeTemplate(intervalDataType, numericVariables);
@@ -270,6 +278,21 @@ public final class TypeDescriptorTranslator
             parameters.add(toTemplateParameter(parameter, typeVariables, numericVariables));
         }
         return new TypeTemplate.TypeApplication(canonicalize(type.getName()), parameters);
+    }
+
+    // ISO/IEC 9075-2 6.1 allows a collate clause only for character string types, and a collated
+    // type carries its collation as a trailing text parameter
+    private static TypeTemplate toTypeTemplate(CollatedDataType type, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        if (!(toTypeTemplate(type.getType(), typeVariables, numericVariables) instanceof TypeTemplate.TypeApplication(String base, List<TemplateParameter> parameters))
+                || !base.equals(VARCHAR)
+                || parameters.stream().anyMatch(TemplateParameter.TextArgument.class::isInstance)) {
+            throw new TrinoException(TYPE_MISMATCH, "COLLATE is not supported for type " + formatExpression(type.getType()));
+        }
+        return new TypeTemplate.TypeApplication(base, ImmutableList.<TemplateParameter>builder()
+                .addAll(parameters)
+                .add(new TemplateParameter.TextArgument(collationDescriptor(type.getCollation(), type.getPadAttribute())))
+                .build());
     }
 
     private static TemplateParameter toTemplateParameter(DataTypeParameter parameter, Set<String> typeVariables, Set<String> numericVariables)
@@ -534,7 +557,7 @@ public final class TypeDescriptorTranslator
         return new IntervalDataType(Optional.empty(), qualifier);
     }
 
-    private static String canonicalize(Identifier identifier)
+    static String canonicalize(Identifier identifier)
     {
         if (identifier.isDelimited()) {
             return identifier.getValue();
@@ -587,13 +610,22 @@ public final class TypeDescriptorTranslator
                                         toDataType(typeParameter.type()));
                             })
                             .collect(toImmutableList()));
-            case VARCHAR -> new GenericDataType(
-                    Optional.empty(),
-                    new Identifier(typeDescriptor.getBase(), false),
-                    typeDescriptor.getParameters().stream()
-                            .filter(parameter -> ((TypeParameter.Numeric) parameter).value() != UNBOUNDED_LENGTH)
-                            .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
-                            .collect(toImmutableList()));
+            case VARCHAR -> {
+                DataType varchar = new GenericDataType(
+                        Optional.empty(),
+                        new Identifier(typeDescriptor.getBase(), false),
+                        typeDescriptor.getParameters().stream()
+                                .filter(parameter -> parameter instanceof TypeParameter.Numeric(long length) && length != UNBOUNDED_LENGTH)
+                                .map(parameter -> (DataTypeParameter) new NumericParameter(Optional.empty(), parameter.toString()))
+                                .collect(toImmutableList()));
+                yield collation(typeDescriptor)
+                        .<DataType>map(collation -> new CollatedDataType(
+                                Optional.empty(),
+                                varchar,
+                                new Identifier(collation.name(), requiresDelimiting(collation.name())),
+                                Optional.of(PadAttribute.PAD_SPACE).filter(_ -> collation.isPadSpace())))
+                        .orElse(varchar);
+            }
             default -> new GenericDataType(
                     Optional.empty(),
                     new Identifier(typeDescriptor.getBase(), false),
@@ -601,6 +633,21 @@ public final class TypeDescriptorTranslator
                             .map(TypeDescriptorTranslator::toTypeParameter)
                             .collect(toImmutableList()));
         };
+    }
+
+    // The descriptor of a COLLATE clause; NO PAD is the default pad attribute, so it is not recorded
+    private static String collationDescriptor(Identifier collation, Optional<PadAttribute> padAttribute)
+    {
+        Collation named = collationRegistry().getCollation(canonicalize(collation));
+        return (padAttribute.orElse(PadAttribute.NO_PAD) == PadAttribute.PAD_SPACE ? named.withPadSpace() : named).descriptor();
+    }
+
+    private static Optional<Collation> collation(TypeDescriptor typeDescriptor)
+    {
+        return typeDescriptor.getParameters().stream()
+                .filter(TypeParameter.Text.class::isInstance)
+                .map(parameter -> Collation.fromDescriptor(((TypeParameter.Text) parameter).value()))
+                .findFirst();
     }
 
     private static boolean requiresDelimiting(String identifier)

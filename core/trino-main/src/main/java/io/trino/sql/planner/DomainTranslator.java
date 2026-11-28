@@ -117,6 +117,7 @@ import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.type.BooleanOperators.NOT_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 public final class DomainTranslator
@@ -552,6 +553,10 @@ public final class DomainTranslator
 
         private boolean isOrderPreserving(Cast cast)
         {
+            if (hasNonDefaultCollation(cast.expression().type()) || hasNonDefaultCollation(cast.type())) {
+                // the source values of a constant under a collation are not bounded by the constant's cast
+                return false;
+            }
             if (cast.expression().type() instanceof CharType && cast.type() instanceof VarcharType) {
                 // CHAR -> VARCHAR trims trailing spaces, so it has no inverse on the value side: a VARCHAR constant
                 // carrying trailing spaces has no CHAR preimage. Peeling the cast and rounding the constant back to
@@ -810,6 +815,11 @@ public final class DomainTranslator
 
         private Optional<ExtractionResult> createComparisonExtractionResult(ComparisonOperator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
+            if (value != null && hasNonDefaultCollation(type)) {
+                // A domain cannot hold collated strings, and its values could replace the column although
+                // strings equal under the collation need not be identical
+                return Optional.empty();
+            }
             if (value == null) {
                 return switch (comparisonOperator) {
                     case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL -> Optional.of(new ExtractionResult(TupleDomain.none(), TRUE));
@@ -1037,7 +1047,7 @@ public final class DomainTranslator
             }
             Symbol symbol = Symbol.from(reference);
             Type type = reference.type();
-            if (isStructural(type) && complement) {
+            if ((isStructural(type) && complement) || hasNonDefaultCollation(type)) {
                 return Optional.empty();
             }
             Predicate<Object> isEqualToItself = isStructural(type) ? equalToItself(plannerContext.getTypeOperators(), type) : _ -> true;

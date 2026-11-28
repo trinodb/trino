@@ -61,6 +61,7 @@ import static io.trino.type.IntervalYearMonthType.createIntervalYearMonthType;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.type.collation.Collations.withoutCollations;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -185,9 +186,17 @@ public final class TypeCoercion
     /// not implicitly coerce to the target. A positive result means only that the assignment is permitted,
     /// not that it always succeeds — at execution it may fail rather than silently lose data (for example,
     /// storing a longer string into a shorter character column).
+    ///
+    /// A stored string takes the target's collation (ISO/IEC 9075-2 9.2), so the collations of the
+    /// source and target do not affect assignability.
     public boolean isStoreAssignable(Type sourceType, Type targetType)
     {
-        return isCompatible(sourceType, targetType);
+        return isCompatible(withoutCollation(sourceType), withoutCollation(targetType));
+    }
+
+    private Type withoutCollation(Type type)
+    {
+        return withoutCollations(type, lookupType);
     }
 
     public boolean canCoerce(Type fromType, Type toType)
@@ -218,7 +227,13 @@ public final class TypeCoercion
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
+                VarcharType fromVarchar = (VarcharType) fromType;
+                VarcharType toVarchar = (VarcharType) toType;
+                // Changing collation is a cast; the analyzer decides when collations combine
+                if (!fromVarchar.getCollation().equals(toVarchar.getCollation())) {
+                    return TypeCompatibility.incompatible();
+                }
+                Type commonSuperType = getCommonSuperTypeForVarchar(fromVarchar, toVarchar);
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.CHAR)) {
@@ -351,10 +366,10 @@ public final class TypeCoercion
     private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
         if (firstType.isUnbounded() || secondType.isUnbounded()) {
-            return createUnboundedVarcharType();
+            return createUnboundedVarcharType().withCollation(firstType.getCollation());
         }
 
-        return createVarcharType(Math.max(firstType.getBoundedLength(), secondType.getBoundedLength()));
+        return createVarcharType(Math.max(firstType.getBoundedLength(), secondType.getBoundedLength()), firstType.getCollation());
     }
 
     private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
@@ -516,10 +531,11 @@ public final class TypeCoercion
             };
             case StandardTypes.VARCHAR -> switch (resultTypeBase) {
                 case StandardTypes.CHAR -> {
-                    if (charVarcharCoercion == SQL_STANDARD) {
+                    VarcharType varcharType = (VarcharType) sourceType;
+                    // char types have no collation, so a collated value cannot become one implicitly
+                    if (charVarcharCoercion == SQL_STANDARD || !varcharType.getCollation().isDefault()) {
                         yield Optional.empty();
                     }
-                    VarcharType varcharType = (VarcharType) sourceType;
                     if (varcharType.isUnbounded()) {
                         yield Optional.of(createCharType(CharType.MAX_LENGTH));
                     }

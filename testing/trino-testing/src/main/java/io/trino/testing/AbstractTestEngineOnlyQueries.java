@@ -5723,7 +5723,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testShowInformationSchemaTables()
     {
         assertThat(computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet())
-                .isEqualTo(Set.of("applicable_roles", "columns", "enabled_roles", "roles", "schemata", "table_privileges", "tables", "views"));
+                .isEqualTo(Set.of("applicable_roles", "collations", "columns", "enabled_roles", "roles", "schemata", "table_privileges", "tables", "views"));
     }
 
     @Test

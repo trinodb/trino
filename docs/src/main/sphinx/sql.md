@@ -68,6 +68,7 @@ sql/set-session-authorization
 sql/set-time-zone
 sql/show-branches
 sql/show-catalogs
+sql/show-collations
 sql/show-columns
 sql/show-create-function
 sql/show-create-materialized-view

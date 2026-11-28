@@ -49,6 +49,9 @@ import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.CollateExpression;
+import io.trino.sql.tree.CollatedDataType;
+import io.trino.sql.tree.CollationFor;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -212,6 +215,7 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PathElement;
@@ -284,6 +288,7 @@ import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowCollations;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
 import io.trino.sql.tree.ShowFunctions;
@@ -1661,6 +1666,15 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCollations(SqlBaseParser.ShowCollationsContext context)
+    {
+        return new ShowCollations(
+                getLocation(context),
+                visitIfPresent(context.pattern, StringLiteral.class).map(StringLiteral::getValue),
+                visitIfPresent(context.escape, StringLiteral.class).map(StringLiteral::getValue));
+    }
+
+    @Override
     public Node visitShowCatalogs(SqlBaseParser.ShowCatalogsContext context)
     {
         return new ShowCatalogs(
@@ -2639,6 +2653,30 @@ class AstBuilder
         return new AtLocal(
                 getLocation(context.AT()),
                 (Expression) visit(context.valueExpression()));
+    }
+
+    @Override
+    public Node visitCollate(SqlBaseParser.CollateContext context)
+    {
+        return new CollateExpression(
+                getLocation(context.COLLATE()),
+                (Expression) visit(context.valueExpression()),
+                (Identifier) visit(context.collation),
+                padAttribute(context.padAttribute()));
+    }
+
+    private static Optional<PadAttribute> padAttribute(SqlBaseParser.PadAttributeContext context)
+    {
+        if (context == null) {
+            return Optional.empty();
+        }
+        return Optional.of(context.SPACE() != null ? PadAttribute.PAD_SPACE : PadAttribute.NO_PAD);
+    }
+
+    @Override
+    public Node visitCollationFor(SqlBaseParser.CollationForContext context)
+    {
+        return new CollationFor(getLocation(context), (Expression) visit(context.valueExpression()));
     }
 
     @Override
@@ -3882,6 +3920,12 @@ class AstBuilder
                 .collect(toImmutableList());
 
         return new GenericDataType(getLocation(context), (Identifier) visit(context.identifier()), parameters);
+    }
+
+    @Override
+    public Node visitCollatedType(SqlBaseParser.CollatedTypeContext context)
+    {
+        return new CollatedDataType(getLocation(context), (DataType) visit(context.type()), (Identifier) visit(context.collation), padAttribute(context.padAttribute()));
     }
 
     @Override

@@ -24,12 +24,15 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSyntax;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.CharVarcharCoercion;
+import io.trino.type.collation.Collations;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,6 +78,22 @@ class FunctionBinder
     }
 
     Optional<CatalogFunctionBinding> tryBindFunction(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    {
+        Optional<CatalogFunctionBinding> match = tryBindFunctionWithTypes(charVarcharCoercion, parameterTypes, candidates);
+        if (match.isPresent()) {
+            return match;
+        }
+        // String functions are declared over default-collation types. When no declaration accepts
+        // the collated arguments, bind them as default-collation strings, including the strings
+        // nested in arrays, maps, and rows. A declaration that does accept them, such as one over a
+        // type variable, keeps the collation. A declaration over a type variable can also bind this
+        // way strings it cannot unify, such as a collated string and a char; the analyzer rejects a
+        // call that would then compare a collated string without its collation.
+        return withoutCollations(parameterTypes)
+                .flatMap(uncollated -> tryBindFunctionWithTypes(charVarcharCoercion, uncollated, candidates));
+    }
+
+    private Optional<CatalogFunctionBinding> tryBindFunctionWithTypes(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
         if (candidates.isEmpty()) {
             return Optional.empty();
@@ -128,8 +147,52 @@ class FunctionBinder
 
     private boolean canBindSignature(CharVarcharCoercion charVarcharCoercion, Signature declaredSignature, GroundSignature actualSignature)
     {
+        // String casts are declared over default-collation types and do not depend on the collation,
+        // so a cast to, from, or between collated types binds as the cast between the default types.
+        // The bound signature keeps the actual, collated types.
         return new SignatureBinder(metadata, typeManager, declaredSignature, false, charVarcharCoercion)
-                .canBind(fromTypeDescriptors(actualSignature.argumentTypes()), actualSignature.returnType());
+                .canBind(fromTypeDescriptors(actualSignature.argumentTypes().stream()
+                                .map(FunctionBinder::withoutCollation)
+                                .collect(toImmutableList())),
+                        withoutCollation(actualSignature.returnType()));
+    }
+
+    /// The arguments with the collation removed from character string types, or empty when no argument
+    /// is collated.
+    private static Optional<List<TypeDescriptorProvider>> withoutCollations(List<TypeDescriptorProvider> parameterTypes)
+    {
+        boolean collated = false;
+        ImmutableList.Builder<TypeDescriptorProvider> uncollated = ImmutableList.builder();
+        for (TypeDescriptorProvider parameterType : parameterTypes) {
+            if (parameterType.hasDependency()) {
+                uncollated.add(parameterType);
+                continue;
+            }
+            TypeDescriptor descriptor = parameterType.getTypeDescriptor();
+            TypeDescriptor withoutCollation = Collations.withoutCollations(descriptor);
+            if (!withoutCollation.equals(descriptor)) {
+                collated = true;
+                uncollated.add(new TypeDescriptorProvider(withoutCollation));
+            }
+            else {
+                uncollated.add(parameterType);
+            }
+        }
+        if (!collated) {
+            return Optional.empty();
+        }
+        return Optional.of(uncollated.build());
+    }
+
+    /// The descriptor of a character string type with its collation removed, or the descriptor itself.
+    static TypeDescriptor withoutCollation(TypeDescriptor descriptor)
+    {
+        if (descriptor.getBase().equals(StandardTypes.VARCHAR)
+                && descriptor.getParameters().size() == 2
+                && descriptor.getParameters().get(1) instanceof TypeParameter.Text) {
+            return new TypeDescriptor(descriptor.getBase(), descriptor.getParameters().getFirst());
+        }
+        return descriptor;
     }
 
     private static boolean possibleExactCastMatch(GroundSignature signature, Signature declaredSignature)

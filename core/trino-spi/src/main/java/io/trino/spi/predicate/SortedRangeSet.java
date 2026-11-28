@@ -343,7 +343,9 @@ public final class SortedRangeSet
      */
     private static boolean isSliceOrderedType(Type type)
     {
-        return type instanceof VarcharType || type instanceof VarbinaryType || type instanceof UuidType;
+        // a string with a non-default collation is not ordered by its bytes; the generic path compares
+        // it with the value sets' type operators, which have no collation comparisons, so it fails
+        return (type instanceof VarcharType varcharType && varcharType.getCollation().isDefault()) || type instanceof VarbinaryType || type instanceof UuidType;
     }
 
     private static SortedRangeSet fromOrderedSliceValues(Type type, Slice[] values)

@@ -42,6 +42,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 
 /// Shared range accumulation, cast admission, and round-trip boundary conversion.
 final class CastPreimages
@@ -174,6 +175,10 @@ final class CastPreimages
 
     static boolean eligible(Context context, Type source, Type target)
     {
+        if (hasNonDefaultCollation(source) || hasNonDefaultCollation(target)) {
+            // a collation does not order strings as their truncations bound them
+            return false;
+        }
         if (source instanceof DecimalType sourceDecimal && target instanceof DecimalType targetDecimal) {
             // Increasing scale preserves every successful source value even if reduced
             // integer precision makes the cast fail for other values.

@@ -132,6 +132,7 @@ import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowCollations;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
 import io.trino.sql.tree.ShowFunctions;
@@ -186,6 +187,7 @@ public final class StatementUtils
             .add(basicStatement(DescribeInput.class, DESCRIBE))
             .add(basicStatement(DescribeOutput.class, DESCRIBE))
             .add(basicStatement(ShowCatalogs.class, DESCRIBE))
+            .add(basicStatement(ShowCollations.class, DESCRIBE))
             .add(basicStatement(ShowColumns.class, DESCRIBE))
             .add(basicStatement(ShowCreate.class, DESCRIBE))
             .add(basicStatement(ShowFunctions.class, DESCRIBE))

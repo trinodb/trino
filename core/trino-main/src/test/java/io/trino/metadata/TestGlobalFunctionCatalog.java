@@ -144,6 +144,7 @@ public class TestGlobalFunctionCatalog
             case TypeTemplate.TypeApplication(_, List<TemplateParameter> parameters) -> parameters.stream().allMatch(parameter -> switch (parameter) {
                 case TemplateParameter.TypeArgument(_, TypeTemplate type) -> isGround(type);
                 case TemplateParameter.NumericArgument(NumericExpression value) -> value instanceof NumericExpression.Literal;
+                case TemplateParameter.TextArgument _ -> true;
             });
         };
     }

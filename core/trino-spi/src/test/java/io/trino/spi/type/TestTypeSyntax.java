@@ -16,9 +16,11 @@ package io.trino.spi.type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.textParameter;
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +63,18 @@ class TestTypeSyntax
         assertThat(TypeSyntax.toSql(new TypeDescriptor("row", List.of(
                 new TypeParameter.Type(Optional.of("a\"b"), new TypeDescriptor("bigint", List.of()))))))
                 .isEqualTo("row(\"a\"\"b\" bigint)");
+    }
+
+    @Test
+    void testTextParameter()
+    {
+        // A text parameter renders single-quoted, with embedded quotes doubled, in both the structural
+        // and the generic SQL form; a type that spells it differently does so in its own rendering.
+        TypeDescriptor descriptor = new TypeDescriptor("example", List.of(numericParameter(3), textParameter("it's")));
+        assertThat(descriptor.toString()).isEqualTo("example(3,'it''s')");
+        assertThat(TypeSyntax.toSql(descriptor)).isEqualTo("example(3,'it''s')");
+        assertThat(TypeSyntax.toSql(TypeTemplates.fromTypeDescriptor(descriptor))).isEqualTo("example(3,'it''s')");
+        assertThat(TypeTemplates.bind(TypeTemplates.fromTypeDescriptor(descriptor), Map.of(), Map.of())).isEqualTo(descriptor);
     }
 
     @Test

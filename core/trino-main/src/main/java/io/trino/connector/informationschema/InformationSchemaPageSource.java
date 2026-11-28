@@ -34,6 +34,7 @@ import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.ArrayDeque;
 import java.util.Iterator;
@@ -63,6 +64,8 @@ import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
+import static io.trino.type.collation.Collations.displayName;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -221,11 +224,21 @@ public class InformationSchemaPageSource
                 case ROLES -> addRolesRecords();
                 case APPLICABLE_ROLES -> addApplicableRolesRecords();
                 case ENABLED_ROLES -> addEnabledRolesRecords();
+                case COLLATIONS -> addCollationsRecords();
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {
             flushPageBuilder();
         }
+    }
+
+    // The SQL spelling of the collation of a character string column, or null for the default collation and other types
+    private static String collationName(Type type)
+    {
+        if (type instanceof VarcharType varcharType && !varcharType.getCollation().isDefault()) {
+            return displayName(varcharType.getCollation());
+        }
+        return null;
     }
 
     private void addColumnsRecords(QualifiedTablePrefix prefix)
@@ -247,6 +260,7 @@ public class InformationSchemaPageSource
                         column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
                         column.getType().getDisplayName(),
+                        collationName(column.getType()),
                         column.getComment().orElse(null),
                         column.getExtraInfo().orElse(null),
                         column.getComment().orElse(null));
@@ -367,6 +381,17 @@ public class InformationSchemaPageSource
                     grant.getGrantee().getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
+            if (isLimitExhausted()) {
+                return;
+            }
+        }
+    }
+
+    private void addCollationsRecords()
+    {
+        for (String name : collationRegistry().collationNames()) {
+            // every predefined collation is NO PAD; its PAD SPACE variant is spelled with the pad attribute
+            addRecord(name, "NO PAD");
             if (isLimitExhausted()) {
                 return;
             }

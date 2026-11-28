@@ -119,6 +119,7 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -473,6 +474,17 @@ public class TestConnectorExpressionTranslator
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testCollatedExpressionsAreNotTranslated()
+    {
+        // a connector compares strings by its own rules, so collated strings are evaluated by the engine
+        Type collated = VARCHAR_TYPE.withCollation(collationRegistry().getCollation("unicode_ci"));
+        Reference value = new Reference(VARCHAR_TYPE, "varchar_symbol_1");
+        assertTranslationToConnectorExpression(TEST_SESSION, new Cast(value, collated), Optional.empty());
+        assertTranslationToConnectorExpression(TEST_SESSION, comparison(ComparisonOperator.EQUAL, new Cast(value, collated), new Constant(collated, utf8Slice("a"))), Optional.empty());
+        assertTranslationToConnectorExpression(TEST_SESSION, new IsNull(new Cast(value, collated)), Optional.empty());
     }
 
     @Test

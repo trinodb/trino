@@ -151,6 +151,13 @@ For more details, see {doc}`color`
 - {func}`render`
 - {func}`rgb`
 
+## Collation
+
+For more details, see {doc}`collation`
+
+- {ref}`COLLATE <collate-operator>`
+- {ref}`COLLATION FOR <collation-for>`
+
 ## Comparison
 
 For more details, see {doc}`comparison`

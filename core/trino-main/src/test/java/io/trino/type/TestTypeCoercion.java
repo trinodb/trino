@@ -66,6 +66,7 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Fail.fail;
@@ -74,7 +75,7 @@ public class TestTypeCoercion
 {
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
-    private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
+    private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(collationRegistry()), new FeaturesConfig()).getTypes();
     private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
     private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, SQL_STANDARD);
 
@@ -167,6 +168,18 @@ public class TestTypeCoercion
         assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
+
+        // varchar of one collation widens within the collation; collations never combine implicitly
+        Type unicodeVarchar = createVarcharType(3, collationRegistry().getCollation("unicode"));
+        Type longUnicodeVarchar = createVarcharType(10, collationRegistry().getCollation("unicode"));
+        assertThat(unicodeVarchar, longUnicodeVarchar).hasCommonSuperType(longUnicodeVarchar).canCoerceFirstToSecondOnly();
+        assertThat(unicodeVarchar, createUnboundedVarcharType().withCollation(collationRegistry().getCollation("unicode")))
+                .hasCommonSuperType(createUnboundedVarcharType().withCollation(collationRegistry().getCollation("unicode")))
+                .canCoerceFirstToSecondOnly();
+        assertThat(unicodeVarchar, createVarcharType(10)).isIncompatible();
+        assertThat(unicodeVarchar, createVarcharType(10, collationRegistry().getCollation("unicode_ci"))).isIncompatible();
+        assertThat(unicodeVarchar, createCharType(10)).isIncompatible();
+        assertThat(UNKNOWN, unicodeVarchar).hasCommonSuperType(unicodeVarchar).canCoerceFirstToSecondOnly();
 
         assertThat(REAL, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
         assertThat(REAL, TINYINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
@@ -381,6 +394,8 @@ public class TestTypeCoercion
         builder.add(createDecimalType(38, 38));
         builder.add(createVarcharType(0));
         builder.add(createUnboundedVarcharType());
+        builder.add(createVarcharType(0, collationRegistry().getCollation("unicode")));
+        builder.add(createUnboundedVarcharType().withCollation(collationRegistry().getCollation("unicode")));
         builder.add(createCharType(0));
         builder.add(createCharType(42));
         return builder.build();

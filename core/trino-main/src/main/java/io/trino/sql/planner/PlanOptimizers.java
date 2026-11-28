@@ -55,6 +55,7 @@ import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveSca
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.GatherPartialTopN;
+import io.trino.sql.planner.iterative.rule.GroupByCollationKey;
 import io.trino.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.trino.sql.planner.iterative.rule.ImplementExceptAll;
 import io.trino.sql.planner.iterative.rule.ImplementExceptDistinctAsUnion;
@@ -232,6 +233,7 @@ import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.trino.sql.planner.iterative.rule.SortByCollationKey;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithoutProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedGlobalAggregationWithProjection;
@@ -702,7 +704,9 @@ public class PlanOptimizers
                                 new OptimizeMixedDistinctAggregations(plannerContext, taskCountEstimator), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
                                 // It also is run before MultipleDistinctAggregationToMarkDistinct to take precedence f enabled
                                 new ImplementFilteredAggregations(), // DistinctAggregationToGroupBy will add filters if fired
-                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                // Run this after the distinct aggregation rewrites, which turn DISTINCT into grouping
+                                new GroupByCollationKey(metadata))),
                 new IterativeOptimizer(
                         "Phase3",
                         plannerContext,
@@ -835,6 +839,9 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        // they match only a sort that is not partial and a TopN that is not split, so they
+                        // rewrite a TopN before CreatePartialTopN splits it
+                        .addAll(new SortByCollationKey(metadata).rules())
                         .add(new CreatePartialTopN())
                         .add(new PushTopNThroughProject())
                         .add(new PushTopNThroughOuterJoin())

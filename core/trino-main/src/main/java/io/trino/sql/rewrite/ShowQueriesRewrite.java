@@ -87,6 +87,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowCollations;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
 import io.trino.sql.tree.ShowFunctions;
@@ -168,6 +169,7 @@ import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -235,6 +237,7 @@ public final class ShowQueriesRewrite
                 case ExplainAnalyze node -> visitExplainAnalyze(node);
                 case ShowBranches node -> visitShowBranches(node);
                 case ShowCatalogs node -> visitShowCatalogs(node);
+                case ShowCollations node -> visitShowCollations(node);
                 case ShowColumns node -> visitShowColumns(node);
                 case ShowCreate node -> visitShowCreate(node);
                 case ShowFunctions node -> visitShowFunctions(node);
@@ -429,6 +432,23 @@ public final class ShowQueriesRewrite
                     from(catalog, SCHEMATA.getSchemaTableName()),
                     predicate,
                     Optional.of(ordering(ascending("schema_name"))));
+        }
+
+        private Node visitShowCollations(ShowCollations node)
+        {
+            // every predefined collation is NO PAD; its PAD SPACE variant is spelled with the pad attribute
+            List<Expression> rows = collationRegistry().collationNames().stream()
+                    .map(name -> row(new StringLiteral(name), new StringLiteral("NO PAD")))
+                    .collect(toImmutableList());
+
+            Optional<Expression> predicate = node.getLikePattern().map(pattern ->
+                    new Predicated(null, identifier("Collation"), new LikePredicate(null, false, new StringLiteral(pattern), node.getEscape().map(StringLiteral::new))));
+
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(rows), "collations", ImmutableList.of("Collation", "Pad Attribute")),
+                    predicate,
+                    Optional.of(ordering(ascending("Collation"))));
         }
 
         private Node visitShowCatalogs(ShowCatalogs node)

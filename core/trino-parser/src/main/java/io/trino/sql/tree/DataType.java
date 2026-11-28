@@ -17,7 +17,8 @@ import java.util.Optional;
 
 public abstract sealed class DataType
         extends Expression
-        permits DateTimeDataType,
+        permits CollatedDataType,
+                DateTimeDataType,
                 GenericDataType,
                 IntervalDataType,
                 RowDataType

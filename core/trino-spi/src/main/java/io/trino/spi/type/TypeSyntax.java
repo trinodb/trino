@@ -39,6 +39,21 @@ public final class TypeSyntax
         return render(descriptor.getBase(), parameters);
     }
 
+    private static String quoted(String identifier)
+    {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
+    private static String unquoteText(String text)
+    {
+        return text.substring(1, text.length() - 1).replace("''", "'");
+    }
+
+    private static boolean isCharacterString(String base)
+    {
+        return base.equalsIgnoreCase(StandardTypes.VARCHAR) || base.equalsIgnoreCase(StandardTypes.CHAR);
+    }
+
     /// The user-visible SQL spelling of an open (variable-bearing) type, e.g. for rendering a function
     /// signature in a diagnostic.
     public static String toSql(TypeTemplate template)
@@ -50,7 +65,7 @@ public final class TypeSyntax
     }
 
     /// The user-visible SQL spelling of a single ground parameter — a nested type (optionally carrying a
-    /// field name) or a numeric argument.
+    /// field name), a numeric argument, or a quoted text argument.
     public static String toSql(TypeParameter parameter)
     {
         return parameterToSql(parameter);
@@ -61,6 +76,7 @@ public final class TypeSyntax
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> name.map(fieldName -> "\"" + fieldName.replace("\"", "\"\"") + "\" ").orElse("") + toSql(type);
             case TypeParameter.Numeric(long value) -> Long.toString(value);
+            case TypeParameter.Text text -> text.toString();
         };
     }
 
@@ -69,6 +85,7 @@ public final class TypeSyntax
         return switch (parameter) {
             case TemplateParameter.TypeArgument(Optional<String> name, TypeTemplate type) -> name.map(fieldName -> "\"" + fieldName.replace("\"", "\"\"") + "\" ").orElse("") + toSql(type);
             case TemplateParameter.NumericArgument(NumericExpression value) -> NumericExpressions.render(value);
+            case TemplateParameter.TextArgument text -> text.render();
         };
     }
 
@@ -97,6 +114,13 @@ public final class TypeSyntax
                 return "interval year to month";
             }
             return base;
+        }
+        // A collated character string carries its collation name as a trailing text parameter,
+        // spelled as a COLLATE clause. The name is quoted, as row field names are.
+        if (isCharacterString(base) && parameters.size() == 2 && parameters.get(1).startsWith("'")) {
+            Collation collation = Collation.fromDescriptor(unquoteText(parameters.get(1)));
+            String padAttribute = collation.isPadSpace() ? " PAD SPACE" : "";
+            return render(base, parameters.subList(0, 1)) + " COLLATE " + quoted(collation.name()) + padAttribute;
         }
         // An unbounded varchar renders without its sentinel length, as `varchar`.
         if (base.equalsIgnoreCase(StandardTypes.VARCHAR)

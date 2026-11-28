@@ -74,9 +74,25 @@ public class TypeOperators
     private static final InvocationConvention WRITE_BLOCK_CALLING_CONVENTION = simpleConvention(BLOCK_BUILDER, NEVER_NULL);
 
     private final BiFunction<Object, Supplier<Object>, Object> cache;
+    private final Optional<CollationComparisons> collationComparisons;
 
+    /// Type operators without collation comparisons: collated character strings can be read, but
+    /// comparing, hashing, or ordering them fails.
     public TypeOperators()
     {
+        this(Optional.empty());
+    }
+
+    /// Type operators whose collated character strings compare as `collationComparisons`
+    /// implements their collations. The engine creates its type operators so.
+    public TypeOperators(CollationComparisons collationComparisons)
+    {
+        this(Optional.of(collationComparisons));
+    }
+
+    private TypeOperators(Optional<CollationComparisons> collationComparisons)
+    {
+        this.collationComparisons = requireNonNull(collationComparisons, "collationComparisons is null");
         ConcurrentHashMap<Object, Object> cache = new ConcurrentHashMap<>();
         this.cache = (operatorConvention, supplier) -> {
             // preform explicit get before calling computeIfAbsent since computeIfAbsent cause lock contention
@@ -91,6 +107,52 @@ public class TypeOperators
     public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
     {
         this.cache = cache;
+        this.collationComparisons = Optional.empty();
+    }
+
+    public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache, CollationComparisons collationComparisons)
+    {
+        this.cache = cache;
+        this.collationComparisons = Optional.of(requireNonNull(collationComparisons, "collationComparisons is null"));
+    }
+
+    /// The comparison a collated character string type's operators use. Type operators created
+    /// without collation comparisons return a comparison that fails when used, so that collated
+    /// values can still be read.
+    public CollationComparison collationComparison(Collation collation)
+    {
+        requireNonNull(collation, "collation is null");
+        return collationComparisons
+                .map(comparisons -> comparisons.comparison(collation))
+                .orElseGet(() -> new UnavailableComparison(collation));
+    }
+
+    // The comparison of a collation for type operators created without collation comparisons
+    private record UnavailableComparison(Collation collation)
+            implements CollationComparison
+    {
+        @Override
+        public int compare(Slice left, Slice right)
+        {
+            throw unavailable();
+        }
+
+        @Override
+        public boolean equal(Slice left, Slice right)
+        {
+            throw unavailable();
+        }
+
+        @Override
+        public Slice collationKey(Slice value)
+        {
+            throw unavailable();
+        }
+
+        private IllegalStateException unavailable()
+        {
+            return new IllegalStateException("Type operators created without collation comparisons cannot compare strings under collation " + collation);
+        }
     }
 
     public MethodHandle getReadValueOperator(Type type, InvocationConvention callingConvention)

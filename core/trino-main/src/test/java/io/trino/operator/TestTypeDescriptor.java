@@ -261,7 +261,11 @@ public class TestTypeDescriptor
                 new TypeDescriptor(StandardTypes.TIME_WITH_TIME_ZONE, TypeParameter.numericParameter(9)),
                 new TypeDescriptor("array", TypeParameter.typeParameter(new TypeDescriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeParameter.numericParameter(3)))),
                 new TypeDescriptor("map", TypeParameter.typeParameter(new TypeDescriptor("varchar", TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH))), TypeParameter.typeParameter(new TypeDescriptor("bigint"))),
-                new TypeDescriptor("row", TypeParameter.namedField("a", new TypeDescriptor("bigint")), TypeParameter.namedField("a\"b,c", new TypeDescriptor("varchar", TypeParameter.numericParameter(10)))));
+                new TypeDescriptor("row", TypeParameter.namedField("a", new TypeDescriptor("bigint")), TypeParameter.namedField("a\"b,c", new TypeDescriptor("varchar", TypeParameter.numericParameter(10)))),
+                new TypeDescriptor("varchar", TypeParameter.numericParameter(10), TypeParameter.textParameter("unicode_ci")),
+                new TypeDescriptor("varchar", TypeParameter.numericParameter(10), TypeParameter.textParameter("it's, (odd) \"text\"")),
+                new TypeDescriptor("array", TypeParameter.typeParameter(new TypeDescriptor("char", TypeParameter.numericParameter(3), TypeParameter.textParameter("unicode")))),
+                new TypeDescriptor("row", TypeParameter.namedField("x'y", new TypeDescriptor("varchar", TypeParameter.numericParameter(1), TypeParameter.textParameter("")))));
         for (TypeDescriptor descriptor : descriptors) {
             assertThat(TypeDescriptor.fromString(descriptor.toString())).isEqualTo(descriptor);
             assertThat(TypeDescriptor.fromString(descriptor.jsonValue())).isEqualTo(descriptor);
@@ -290,7 +294,7 @@ public class TestTypeDescriptor
     @Test
     public void testMalformedInternalDescriptor()
     {
-        for (String value : List.of("", "bigint)", "bigint)(bigint)", "row(\"a\" bigint foo)", "row(\"a bigint)", "array(bigint))", "array(bigint)(bigint)", "array(,bigint)", "array(bigint,)", "123", "-123")) {
+        for (String value : List.of("", "bigint)", "bigint)(bigint)", "row(\"a\" bigint foo)", "row(\"a bigint)", "array(bigint))", "array(bigint)(bigint)", "array(,bigint)", "array(bigint,)", "123", "-123", "varchar(10,'en)", "varchar(10,'a'b')", "varchar(10,'a' b)")) {
             assertThatThrownBy(() -> TypeDescriptor.fromString(value))
                     .as("descriptor: %s", value)
                     .isInstanceOf(IllegalArgumentException.class);

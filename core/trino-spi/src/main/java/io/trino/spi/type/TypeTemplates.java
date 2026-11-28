@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.trino.spi.type.TemplateParameter.NumericArgument;
+import io.trino.spi.type.TemplateParameter.TextArgument;
 import io.trino.spi.type.TemplateParameter.TypeArgument;
 import io.trino.spi.type.TypeTemplate.TypeApplication;
 import io.trino.spi.type.TypeTemplate.TypeVariable;
@@ -55,6 +56,7 @@ public final class TypeTemplates
         return switch (parameter) {
             case TypeArgument(Optional<String> name, TypeTemplate type) -> TypeParameter.typeParameter(name, bind(type, typeBindings, numericBindings));
             case NumericArgument(NumericExpression value) -> TypeParameter.numericParameter(NumericExpressions.evaluate(value, numericBindings).longValueExact());
+            case TextArgument(String value) -> TypeParameter.textParameter(value);
         };
     }
 
@@ -87,6 +89,7 @@ public final class TypeTemplates
         return switch (parameter) {
             case TypeArgument(Optional<String> _, TypeTemplate type) -> isCalculated(type);
             case NumericArgument(NumericExpression value) -> !(value instanceof NumericExpression.Literal);
+            case TextArgument _ -> false;
         };
     }
 
@@ -106,6 +109,7 @@ public final class TypeTemplates
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> new TypeArgument(name, fromTypeDescriptor(type));
             case TypeParameter.Numeric(long value) -> new NumericArgument(new NumericExpression.Literal(value));
+            case TypeParameter.Text(String value) -> new TextArgument(value);
         };
     }
 

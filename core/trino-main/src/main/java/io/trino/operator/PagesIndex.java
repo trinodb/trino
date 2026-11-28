@@ -66,6 +66,7 @@ import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -137,7 +138,7 @@ public class PagesIndex
     public static class TestingFactory
             implements Factory
     {
-        public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+        public static final TypeOperators TYPE_OPERATORS = new TypeOperators(collationRegistry());
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
         private final JoinCompiler joinCompiler;
         private static final NullSafeHashCompiler NULL_SAFE_HASH_COMPILER = new NullSafeHashCompiler(TYPE_OPERATORS);

@@ -35,6 +35,7 @@ import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class VarcharType
         extends AbstractVariableWidthType
@@ -70,6 +71,26 @@ public final class VarcharType
         return VARCHAR;
     }
 
+    /// A varchar type with the given length, or the unbounded type for [#UNBOUNDED_LENGTH], and
+    /// collation. The default collation returns the same type as [#createVarcharType] or
+    /// [#createUnboundedVarcharType]. A collated type names its collation only; its operators
+    /// compare as the [TypeOperators] that create them resolve the collation (see
+    /// [TypeOperators#collationComparison]).
+    public static VarcharType createVarcharType(int length, Collation collation)
+    {
+        requireNonNull(collation, "collation is null");
+        if (collation.isDefault()) {
+            if (length == UNBOUNDED_LENGTH) {
+                return VARCHAR;
+            }
+            return createVarcharType(length);
+        }
+        if (length != UNBOUNDED_LENGTH && (length > MAX_LENGTH || length < 0)) {
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        return new VarcharType(length, collation);
+    }
+
     public static VarcharType createVarcharType(int length)
     {
         if (length > MAX_LENGTH || length < 0) {
@@ -83,6 +104,7 @@ public final class VarcharType
     }
 
     private final int length;
+    private final Collation collation;
     private volatile Optional<Range> range;
 
     private VarcharType(int length)
@@ -97,6 +119,18 @@ public final class VarcharType
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
         this.length = length;
+        this.collation = Collation.UCS_BASIC;
+    }
+
+    private VarcharType(int length, Collation collation)
+    {
+        super(
+                new TypeDescriptor(
+                        NAME,
+                        List.of(TypeParameter.numericParameter(length), TypeParameter.textParameter(collation.descriptor()))),
+                Slice.class);
+        this.length = length;
+        this.collation = collation;
     }
 
     public Optional<Integer> getLength()
@@ -120,10 +154,21 @@ public final class VarcharType
         return length == UNBOUNDED_LENGTH;
     }
 
+    public Collation getCollation()
+    {
+        return collation;
+    }
+
+    /// This type with the given collation and the same length.
+    public VarcharType withCollation(Collation collation)
+    {
+        return createVarcharType(length, collation);
+    }
+
     @Override
     public String getDisplayName()
     {
-        return NAME + (isUnbounded() ? "" : "(" + length + ")");
+        return TypeSyntax.toSql(getTypeDescriptor());
     }
 
     @Override
@@ -141,7 +186,10 @@ public final class VarcharType
     @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
-        return TYPE_OPERATOR_DECLARATION;
+        if (collation.isDefault()) {
+            return TYPE_OPERATOR_DECLARATION;
+        }
+        return CollatedStrings.operatorDeclaration(typeOperators.collationComparison(collation));
     }
 
     @Override
@@ -174,6 +222,10 @@ public final class VarcharType
     @Override
     public Optional<Range> getRange()
     {
+        if (!collation.isDefault()) {
+            // a collation's least and greatest values are not code-point extremes
+            return Optional.empty();
+        }
         Optional<Range> range = this.range;
         @SuppressWarnings("OptionalAssignedToNull")
         boolean cachedRangePresent = range != null;
@@ -200,6 +252,10 @@ public final class VarcharType
     @Override
     public Optional<Object> getPreviousValue(Object value)
     {
+        if (!collation.isDefault()) {
+            // a collation can consider distinct strings equal, so values have no discrete neighbors
+            return Optional.empty();
+        }
         if (isUnbounded() || length > MAX_MATERIALIZED_VALUE_LENGTH) {
             // The greatest lesser value is padded with the highest code point up to the length of the type, so it
             // does not exist when the length is unbounded, and it is not materialized when the length is large.
@@ -228,6 +284,9 @@ public final class VarcharType
     @Override
     public Optional<Object> getNextValue(Object value)
     {
+        if (!collation.isDefault()) {
+            return Optional.empty();
+        }
         Optional<int[]> decoded = tryCodePoints((Slice) value);
         if (decoded.isEmpty()) {
             return Optional.empty();
@@ -286,12 +345,15 @@ public final class VarcharType
         }
 
         VarcharType other = (VarcharType) o;
-        return this.length == other.length;
+        return this.length == other.length && this.collation.equals(other.collation);
     }
 
     @Override
     public int hashCode()
     {
-        return (length * 31) + getClass().hashCode();
+        if (collation.isDefault()) {
+            return (length * 31) + getClass().hashCode();
+        }
+        return ((length * 31) + getClass().hashCode()) * 31 + collation.hashCode();
     }
 }

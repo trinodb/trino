@@ -69,6 +69,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
@@ -792,6 +793,9 @@ public interface Metadata
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
 
     Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction);
+
+    /// The signature a resolved function was declared with, including its type variables.
+    Signature getDeclaredSignature(Session session, ResolvedFunction resolvedFunction);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 

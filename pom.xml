@@ -502,6 +502,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.ibm.icu</groupId>
+                <artifactId>icu4j</artifactId>
+                <version>79.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
                 <version>13.6.2.jre11</version>

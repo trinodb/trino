@@ -39,6 +39,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +58,7 @@ public final class BlockTypeOperators
 
     public BlockTypeOperators()
     {
-        this(new TypeOperators());
+        this(new TypeOperators(collationRegistry()));
     }
 
     @Inject

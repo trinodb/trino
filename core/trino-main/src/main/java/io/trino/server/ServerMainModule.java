@@ -180,6 +180,7 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -555,7 +556,7 @@ public class ServerMainModule
     @Singleton
     public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
     {
-        return new TypeOperators(typeOperatorsCache);
+        return new TypeOperators(typeOperatorsCache, collationRegistry());
     }
 
     @Provides

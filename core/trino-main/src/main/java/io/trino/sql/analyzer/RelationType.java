@@ -197,28 +197,34 @@ public class RelationType
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
-                        QualifiedName.of(relationAlias),
-                        columnAlias,
-                        field.getType(),
-                        field.isHidden(),
-                        field.getOriginTable(),
-                        field.getOriginBranch(),
-                        field.getOriginColumnName(),
-                        field.isAliased()));
+                                QualifiedName.of(relationAlias),
+                                columnAlias,
+                                field.getType(),
+                                field.isHidden(),
+                                field.getOriginTable(),
+                                field.getOriginBranch(),
+                                field.getOriginColumnName(),
+                                field.isAliased())
+                        .rebuild()
+                        .collation(field.getCollation())
+                        .build());
             }
             else if (!field.isHidden()) {
                 // hidden fields are not exposed when there are column aliases
                 columnAlias = Optional.of(columnAliases.get(aliasIndex));
                 aliasIndex++;
                 fieldsBuilder.add(Field.newQualified(
-                        QualifiedName.of(relationAlias),
-                        columnAlias,
-                        field.getType(),
-                        false,
-                        field.getOriginTable(),
-                        field.getOriginBranch(),
-                        field.getOriginColumnName(),
-                        field.isAliased()));
+                                QualifiedName.of(relationAlias),
+                                columnAlias,
+                                field.getType(),
+                                false,
+                                field.getOriginTable(),
+                                field.getOriginBranch(),
+                                field.getOriginColumnName(),
+                                field.isAliased())
+                        .rebuild()
+                        .collation(field.getCollation())
+                        .build());
             }
         }
 

@@ -2549,6 +2549,7 @@ public abstract class BaseConnectorTest
                 "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
                 "VALUES " +
                         "('applicable_roles'), " +
+                        "('collations'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
                         "('roles'), " +
@@ -2590,6 +2591,7 @@ public abstract class BaseConnectorTest
                 "SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
                 "VALUES " +
                         "('applicable_roles'), " +
+                        "('collations'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
                         "('roles'), " +

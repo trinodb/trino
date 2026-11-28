@@ -69,6 +69,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -116,7 +117,7 @@ public abstract class AbstractTestType
     protected AbstractTestType(Type type, Class<?> objectValueType, ValueBlock testBlock, ValueBlock expectedValues)
     {
         this.type = requireNonNull(type, "type is null");
-        typeOperators = new TypeOperators();
+        typeOperators = new TypeOperators(collationRegistry());
         readBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         writeBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, NEVER_NULL));
         writeFlatToBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT));

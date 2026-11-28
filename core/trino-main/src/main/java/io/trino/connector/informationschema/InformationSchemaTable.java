@@ -38,6 +38,7 @@ public enum InformationSchemaTable
             .column("column_default", createUnboundedVarcharType())
             .column("is_nullable", createUnboundedVarcharType())
             .column("data_type", createUnboundedVarcharType())
+            .column("collation_name", createUnboundedVarcharType())
             .hiddenColumn("comment", createUnboundedVarcharType()) // non-standard
             .hiddenColumn("extra_info", createUnboundedVarcharType()) // non-standard
             .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
@@ -82,6 +83,10 @@ public enum InformationSchemaTable
             .build()),
     ENABLED_ROLES(table("enabled_roles")
             .column("role_name", createUnboundedVarcharType())
+            .build()),
+    COLLATIONS(table("collations")
+            .column("collation_name", createUnboundedVarcharType())
+            .column("pad_attribute", createUnboundedVarcharType())
             .build());
 
     public static final String INFORMATION_SCHEMA = "information_schema";

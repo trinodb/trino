@@ -1240,6 +1240,7 @@ public class TestAnnotationEngineForAggregates
                             .map(parameter -> switch (parameter) {
                                 case TemplateParameter.TypeArgument(var name, var type) -> io.trino.spi.type.TypeParameter.typeParameter(name, toTypeDescriptor(type));
                                 case TemplateParameter.NumericArgument(NumericExpression value) -> io.trino.spi.type.TypeParameter.numericParameter(((NumericExpression.Literal) value).value());
+                                case TemplateParameter.TextArgument(String value) -> io.trino.spi.type.TypeParameter.textParameter(value);
                             })
                             .collect(toImmutableList()));
         };

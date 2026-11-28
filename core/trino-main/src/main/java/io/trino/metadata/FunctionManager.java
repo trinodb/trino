@@ -54,6 +54,7 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.type.collation.CollationRegistry.collationRegistry;
 import static java.lang.String.format;
 import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
@@ -382,7 +383,7 @@ public class FunctionManager
 
     public static FunctionManager createTestingFunctionManager()
     {
-        TypeOperators typeOperators = new TypeOperators();
+        TypeOperators typeOperators = new TypeOperators(collationRegistry());
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(
                 () -> { throw new UnsupportedOperationException(); },
                 () -> { throw new UnsupportedOperationException(); },
