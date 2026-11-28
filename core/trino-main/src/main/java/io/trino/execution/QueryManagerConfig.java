@@ -91,8 +91,8 @@ public class QueryManagerConfig
     private Duration clientTimeout = new Duration(5, MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
-    private int queryExecutorPoolSize = 1000;
-    private int maxStateMachineCallbackThreads = 5;
+    private int queryExecutorPoolSize = getRuntime().availableProcessors();
+    private int maxStateMachineCallbackThreads = 1;
     private int maxSplitManagerCallbackThreads = 100;
 
     private Duration remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
@@ -432,6 +432,7 @@ public class QueryManagerConfig
     }
 
     @Config("query.executor-pool-size")
+    @ConfigDescription("Number of coordinator threads for query scheduling")
     public QueryManagerConfig setQueryExecutorPoolSize(String queryExecutorPoolSize)
     {
         this.queryExecutorPoolSize = ThreadCountParser.DEFAULT.parse(queryExecutorPoolSize);

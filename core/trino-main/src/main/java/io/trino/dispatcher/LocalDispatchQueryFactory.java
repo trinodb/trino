@@ -133,7 +133,7 @@ public class LocalDispatchQueryFactory
                 isTransactionControlStatement(preparedQuery.getStatement()),
                 transactionManager,
                 accessControl,
-                // limit the number of state change listener callback threads for each query
+                // A single drain processes queued state notifications for this query by default.
                 new BoundedExecutor(executor, maxStateMachineThreadsPerQuery),
                 metadata,
                 warningCollector,

@@ -476,7 +476,7 @@ public class CoordinatorModule
                 queryManagerConfig.getQueryExecutorPoolSize(),
                 60,
                 SECONDS,
-                new LinkedBlockingQueue<>(1000),
+                new LinkedBlockingQueue<>(),
                 threadsNamed("query-execution-%s"));
         queryExecutor.allowCoreThreadTimeOut(true);
         return queryExecutor;

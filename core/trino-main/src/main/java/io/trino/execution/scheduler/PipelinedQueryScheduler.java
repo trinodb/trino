@@ -91,7 +91,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -109,8 +108,15 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.whenAllComplete;
+import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
@@ -195,7 +201,7 @@ public class PipelinedQueryScheduler
     @GuardedBy("this")
     private final AtomicReference<DistributedStagesScheduler> distributedStagesScheduler = new AtomicReference<>();
     @GuardedBy("this")
-    private Future<Void> distributedStagesSchedulingTask;
+    private ListenableFuture<Void> distributedStagesSchedulingTask;
 
     public PipelinedQueryScheduler(
             QueryStateMachine queryStateMachine,
@@ -253,7 +259,6 @@ public class PipelinedQueryScheduler
                 nodeScheduler,
                 stageManager,
                 nodeManager,
-                schedulerExecutor,
                 distributedStagesScheduler,
                 coordinatorTaskManager);
 
@@ -311,7 +316,7 @@ public class PipelinedQueryScheduler
         Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
 
         coordinatorStagesScheduler.schedule();
-        distributedStagesScheduler.ifPresent(scheduler -> distributedStagesSchedulingTask = executor.submit(scheduler::schedule, null));
+        distributedStagesScheduler.ifPresent(scheduler -> distributedStagesSchedulingTask = scheduler.schedule(executor, schedulerExecutor));
     }
 
     private synchronized Optional<DistributedStagesScheduler> createDistributedStagesScheduler(int attempt)
@@ -426,11 +431,17 @@ public class PipelinedQueryScheduler
         try {
             checkState(distributedStagesSchedulingTask != null, "schedulingTask is expected to be set");
 
-            // give current scheduler some time to terminate, usually it is expected to be done right away
-            distributedStagesSchedulingTask.get(5, MINUTES);
-
-            Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
-            distributedStagesScheduler.ifPresent(scheduler -> distributedStagesSchedulingTask = executor.submit(scheduler::schedule, null));
+            // Retry only after the previous attempt has closed its stage schedulers.
+            // The scheduled executor also delivers wakeups needed to finish that attempt.
+            ListenableFuture<Void> terminated = withTimeout(nonCancellationPropagating(distributedStagesSchedulingTask), 5, MINUTES, schedulerExecutor);
+            ListenableFuture<Void> retry = transform(terminated, _ -> {
+                synchronized (this) {
+                    createDistributedStagesScheduler(currentAttempt.get())
+                            .ifPresent(scheduler -> distributedStagesSchedulingTask = scheduler.schedule(executor, schedulerExecutor));
+                }
+                return null;
+            }, schedulerExecutor);
+            addExceptionCallback(retry, queryStateMachine::transitionToFailed);
         }
         catch (Throwable t) {
             queryStateMachine.transitionToFailed(t);
@@ -551,7 +562,6 @@ public class PipelinedQueryScheduler
                 NodeScheduler nodeScheduler,
                 StageManager stageManager,
                 InternalNodeManager nodeManager,
-                Executor executor,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 SqlTaskManager coordinatorTaskManager)
         {
@@ -567,7 +577,7 @@ public class PipelinedQueryScheduler
                         outputBuffersForStagesConsumedByCoordinator,
                         taskLifecycleListener,
                         nodeManager,
-                        executor,
+                        queryStateMachine.getStateMachineExecutor(),
                         bucketToPartitionForStagesConsumedByCoordinator.get(stage.getFragment().getId()).bucketToPartition(),
                         OptionalInt.empty(),
                         0);
@@ -871,7 +881,7 @@ public class PipelinedQueryScheduler
                 RetryPolicy retryPolicy,
                 int attempt)
         {
-            DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), executor);
+            DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), queryStateMachine.getStateMachineExecutor());
 
             Map<PartitioningKey, NodePartitionMap> partitioningCacheMap = new HashMap<>();
             Function<PartitioningKey, NodePartitionMap> partitioningCache = partitioningKey ->
@@ -929,7 +939,7 @@ public class PipelinedQueryScheduler
                         outputBufferManagers,
                         taskLifecycleListener,
                         nodeManager,
-                        executor,
+                        queryStateMachine.getStateMachineExecutor(),
                         bucketToPartition.bucketToPartition(),
                         skewedBucketCount,
                         attempt);
@@ -1274,12 +1284,19 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public void schedule()
+        public ListenableFuture<Void> schedule(Executor executor, ScheduledExecutorService timer)
         {
-            checkState(started.compareAndSet(false, true), "already started");
+            return QuerySchedulingTask.submit(executor, () -> scheduleUntilBlocked(timer), this::finishScheduling);
+        }
 
+        private Optional<ListenableFuture<Void>> scheduleUntilBlocked(ScheduledExecutorService timer)
+        {
             try (SetThreadName _ = new SetThreadName("Query-" + queryStateMachine.getQueryId())) {
-                stageSchedulers.values().forEach(StageScheduler::start);
+                if (started.compareAndSet(false, true)) {
+                    stageSchedulers.values().forEach(StageScheduler::start);
+                }
+
+                long start = System.nanoTime();
                 while (!executionSchedule.isFinished()) {
                     List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
                     StagesScheduleResult stagesScheduleResult = executionSchedule.getStagesToSchedule();
@@ -1314,21 +1331,14 @@ public class PipelinedQueryScheduler
                         }
                     }
 
-                    // wait for a state change and then schedule again
-                    if (!blockedStages.isEmpty()) {
-                        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
-                        futures.addAll(blockedStages);
-                        // allow for schedule to resume scheduling (e.g. when some active stage completes
-                        // and dependent stages can be started)
-                        if (blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
-                            stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                            try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
-                                tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
-                            }
-                        }
-                        for (ListenableFuture<Void> blockedStage : blockedStages) {
-                            blockedStage.cancel(true);
-                        }
+                    if (!executionSchedule.isFinished() && blockedStages.size() == stagesScheduleResult.getStagesToSchedule().size()) {
+                        return Optional.of(waitForStage(blockedStages, stagesScheduleResult.getRescheduleFuture(), timer));
+                    }
+                    blockedStages.forEach(blocked -> blocked.cancel(true));
+
+                    // Yield productive queries as well, so one large stage cannot monopolize the pool.
+                    if (System.nanoTime() - start >= MILLISECONDS.toNanos(10)) {
+                        return Optional.of(immediateVoidFuture());
                     }
                 }
 
@@ -1339,8 +1349,34 @@ public class PipelinedQueryScheduler
                     }
                 }
             }
-            catch (Throwable t) {
-                fail(t, Optional.empty());
+            return Optional.empty();
+        }
+
+        private ListenableFuture<Void> waitForStage(List<ListenableFuture<Void>> blockedStages, Optional<ListenableFuture<Void>> reschedule, ScheduledExecutorService timer)
+        {
+            // Preserve the periodic recheck for changes without a stage notification.
+            ListenableFuture<Void> timeout = listeningDecorator(timer).schedule(() -> null, 1, SECONDS);
+            ImmutableList.Builder<ListenableFuture<Void>> signals = ImmutableList.builder();
+            signals.add(timeout).addAll(blockedStages);
+            reschedule.ifPresent(signals::add);
+            TimeStat.BlockTimer sleep = schedulerStats.getSleepTime().time();
+            ListenableFuture<Void> ready = whenAnyComplete(signals.build());
+            return whenAllComplete(ready).call(() -> {
+                try {
+                    return getDone(ready);
+                }
+                finally {
+                    sleep.close();
+                    timeout.cancel(false);
+                    blockedStages.forEach(future -> future.cancel(true));
+                }
+            }, directExecutor());
+        }
+
+        private void finishScheduling(Optional<Throwable> failure)
+        {
+            try {
+                failure.ifPresent(t -> fail(t, Optional.empty()));
             }
             finally {
                 for (StageScheduler scheduler : stageSchedulers.values()) {

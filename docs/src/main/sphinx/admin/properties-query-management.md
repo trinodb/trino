@@ -25,6 +25,21 @@ stages of a query. You can use the following execution policies:
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
 
+## `query.executor-pool-size`
+
+- **Default value:** `1C` (one thread per CPU available to the coordinator JVM)
+
+Sets the size of the shared pool that runs query scheduling work. Queries
+release their scheduling worker while waiting for a stage or an event. Specify
+a positive thread count or a CPU multiplier such as `2C`.
+
+## `query.max-state-machine-callback-threads`
+
+- **Default value:** `1`
+
+Limits how many threads can process a single query's state change callbacks
+concurrently. By default, one worker drains the callbacks for each query.
+
 ## `query.determine-partition-count-for-write-enabled`
 
 - **Type:** {ref}`prop-type-boolean`
