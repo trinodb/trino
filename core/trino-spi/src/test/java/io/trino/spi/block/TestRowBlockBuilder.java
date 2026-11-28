@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -44,6 +46,14 @@ final class TestRowBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+    }
+
+    @Test
+    void testRetainedSizeIncludesFieldBuilderArray()
+    {
+        RowBlockBuilder builder = new RowBlockBuilder(List.of(BIGINT, BIGINT), null, 8);
+        long fieldSize = BIGINT.createBlockBuilder(null, 8).getRetainedSizeInBytes();
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(instanceSize(RowBlockBuilder.class) + sizeOfObjectArray(2) + 2 * fieldSize);
     }
 
     @Test

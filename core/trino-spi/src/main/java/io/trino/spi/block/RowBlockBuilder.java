@@ -99,7 +99,7 @@ public class RowBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sizeOf(valueIsValid);
+        long size = INSTANCE_SIZE + sizeOf(fieldBlockBuilders) + sizeOf(valueIsValid);
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
