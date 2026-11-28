@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SourcePage;
@@ -45,11 +46,13 @@ class TpchPageSource
     private final Type[] columnTypes;
     private final ColumnKind[] columnKinds;
     private final PageBuilder pageBuilder;
+    private final MemoryContext memoryContext;
     private boolean closed;
 
-    TpchPageSource(int maxRowsPerPage, RecordSet recordSet)
+    TpchPageSource(int maxRowsPerPage, RecordSet recordSet, MemoryContext memoryContext)
     {
         requireNonNull(recordSet, "recordSet is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
 
         this.maxRowsPerPage = maxRowsPerPage;
         this.cursor = recordSet.cursor();
@@ -60,6 +63,7 @@ class TpchPageSource
             columnKinds[column] = ColumnKind.of(columnTypes[column].getJavaType());
         }
         this.pageBuilder = new PageBuilder(types);
+        updateMemoryUsage();
     }
 
     @Override
@@ -75,16 +79,12 @@ class TpchPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return cursor.getMemoryUsage() + pageBuilder.getRetainedSizeInBytes();
-    }
-
-    @Override
     public void close()
     {
         closed = true;
         cursor.close();
+        // The page builder remains retained; its reservation is released by the context's owner.
+        updateMemoryUsage();
     }
 
     @Override
@@ -129,10 +129,17 @@ class TpchPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull() || pageBuilder.getPositionCount() >= maxRowsPerPage) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
+            updateMemoryUsage();
             return new TpchSourcePage(page);
         }
 
+        updateMemoryUsage();
         return null;
+    }
+
+    private void updateMemoryUsage()
+    {
+        memoryContext.setBytes(cursor.getMemoryUsage() + pageBuilder.getRetainedSizeInBytes());
     }
 
     private enum ColumnKind

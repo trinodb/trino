@@ -16,6 +16,9 @@ package io.trino.plugin.faker;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -26,16 +29,20 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static io.trino.plugin.faker.Distribution.UNIFORM;
+import static io.trino.spi.connector.MemoryContext.NO_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -55,7 +62,7 @@ public class TestFakerPageSource
     public void testNaNGeneration()
     {
         FakerColumnHandle column = column(Domain.singleValue(DOUBLE, Double.NaN));
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1, NO_LIMIT);
         assertThat(source.getNextSourcePage()).isNull();
         assertThat(DOUBLE.getDouble(source.getNextSourcePage().getBlock(0), 0)).isNaN();
     }
@@ -66,7 +73,7 @@ public class TestFakerPageSource
         for (ValueSet values : List.of(
                 ValueSet.of(DOUBLE, Double.NaN).complement(),
                 ValueSet.ofRanges(Range.lessThan(DOUBLE, 1.0)).union(ValueSet.of(DOUBLE, Double.NaN)))) {
-            assertThatThrownBy(() -> new FakerPageSource(Locale.ENGLISH, 0, List.of(column(Domain.create(values, false))), 0, 1))
+            assertThatThrownBy(() -> new FakerPageSource(Locale.ENGLISH, 0, List.of(column(Domain.create(values, false))), 0, 1, NO_LIMIT))
                     .isInstanceOf(TrinoException.class)
                     .hasMessage("Non-discrete NaN constraints are not supported for generated columns");
         }
@@ -76,7 +83,7 @@ public class TestFakerPageSource
     public void testOrderableTypeWithoutGenerator()
     {
         FakerColumnHandle column = new FakerColumnHandle(0, "x", ORDERABLE_TYPE, 0, null, Domain.all(ORDERABLE_TYPE), ValueSet.none(ORDERABLE_TYPE), Optional.empty(), UNIFORM, List.of());
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1, NO_LIMIT);
         assertThat(source.getNextSourcePage()).isNull();
         assertThat(source.getNextSourcePage().getBlock(0).isNull(0)).isTrue();
     }
@@ -85,7 +92,7 @@ public class TestFakerPageSource
     public void testInvalidGeneratedValue()
     {
         FakerColumnHandle column = new FakerColumnHandle(0, "x", INTEGER, 0, "#{Name.first_name}", Domain.all(INTEGER), ValueSet.none(INTEGER), Optional.empty(), UNIFORM, List.of());
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 1, NO_LIMIT);
         assertThatThrownBy(source::getNextSourcePage)
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("The `generator` property of column `x` produced `\\w+`, which is not a valid integer value");
@@ -123,13 +130,41 @@ public class TestFakerPageSource
             type = new ArrayType(type);
         }
         FakerColumnHandle column = new FakerColumnHandle(0, "nested", type, 0, null, Domain.all(type), ValueSet.none(type), Optional.empty(), UNIFORM, List.of());
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 100_000);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, List.of(column), 0, 100_000, NO_LIMIT);
         SourcePage page = source.getNextSourcePage();
         while (page == null) {
             page = source.getNextSourcePage();
         }
         // every row has about 2500 values on average, so a page of 4096 rows would take tens of megabytes
         assertThat(page.getSizeInBytes()).isLessThan(8 * 1024 * 1024);
+    }
+
+    @Test
+    public void testReportsMemoryUsageToMemoryContext()
+            throws IOException
+    {
+        FakerColumnHandle column = new FakerColumnHandle(0, "number", BIGINT, 0, null, Domain.all(BIGINT), ValueSet.none(BIGINT), Optional.empty(), UNIFORM, List.of());
+        AtomicLong reportedBytes = new AtomicLong(-1);
+        try (ConnectorPageSource source = new FakerPageSourceProvider(new FakerConfig()).createPageSource(
+                FakerTransactionHandle.INSTANCE,
+                SESSION,
+                new FakerSplit(0, 10),
+                new FakerTableHandle(new SchemaTableName("default", "test"), 10, 0),
+                Optional.empty(),
+                List.of(column),
+                DynamicFilter.EMPTY,
+                reportedBytes::set)) {
+            long emptyPageBuilderBytes = reportedBytes.get();
+            assertThat(emptyPageBuilderBytes).isPositive();
+
+            // the generated rows are buffered in the page builder until the split is exhausted
+            assertThat(source.getNextSourcePage()).isNull();
+            long bufferedRowsBytes = reportedBytes.get();
+            assertThat(bufferedRowsBytes).isGreaterThan(emptyPageBuilderBytes);
+
+            assertThat(source.getNextSourcePage().getPositionCount()).isEqualTo(10);
+            assertThat(reportedBytes.get()).isLessThan(bufferedRowsBytes);
+        }
     }
 
     private static FakerColumnHandle column(Domain domain)
@@ -139,7 +174,7 @@ public class TestFakerPageSource
 
     private static List<List<Object>> generateRows(List<FakerColumnHandle> columns, long rowOffset, long limit)
     {
-        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, columns, rowOffset, limit);
+        FakerPageSource source = new FakerPageSource(Locale.ENGLISH, 0, columns, rowOffset, limit, NO_LIMIT);
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         while (!source.isFinished()) {
             SourcePage page = source.getNextSourcePage();

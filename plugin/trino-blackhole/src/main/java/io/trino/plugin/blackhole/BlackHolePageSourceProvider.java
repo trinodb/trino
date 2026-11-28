@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -70,7 +71,8 @@ public final class BlackHolePageSourceProvider
             ConnectorTableHandle tableHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
 
@@ -82,7 +84,7 @@ public final class BlackHolePageSourceProvider
         List<Type> types = builder.build();
 
         Page page = generateZeroPage(types, table.rowsPerPage(), table.fieldsLength());
-        return new BlackHolePageSource(page, table.pagesPerSplit(), executorService, table.pageProcessingDelay());
+        return new BlackHolePageSource(page, table.pagesPerSplit(), executorService, table.pageProcessingDelay(), memoryContext);
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)

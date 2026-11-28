@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.SourcePage;
 
 import java.util.concurrent.CompletableFuture;
@@ -30,23 +31,24 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class BlackHolePageSource
         implements ConnectorPageSource
 {
-    private final Page page;
+    private Page page;
     private int pagesLeft;
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayInMillis;
+    private final MemoryContext memoryContext;
     private long completedBytes;
-    private final long memoryUsageBytes;
     private boolean closed;
     private CompletableFuture<Page> currentPage;
 
-    BlackHolePageSource(Page page, int count, ListeningScheduledExecutorService executorService, Duration pageProcessingDelay)
+    BlackHolePageSource(Page page, int count, ListeningScheduledExecutorService executorService, Duration pageProcessingDelay, MemoryContext memoryContext)
     {
         this.page = requireNonNull(page, "page is null");
         checkArgument(count >= 0, "count is negative");
         this.pagesLeft = count;
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.pageProcessingDelayInMillis = pageProcessingDelay.toMillis();
-        this.memoryUsageBytes = page.getSizeInBytes();
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        memoryContext.setBytes(page.getSizeInBytes());
     }
 
     @Override
@@ -68,7 +70,8 @@ class BlackHolePageSource
         if (pageProcessingDelayInMillis == 0) {
             return SourcePage.create(page);
         }
-        currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
+        Page delayedPage = page;
+        currentPage = toCompletableFuture(executorService.schedule(() -> delayedPage, pageProcessingDelayInMillis, MILLISECONDS));
         return null;
     }
 
@@ -91,6 +94,10 @@ class BlackHolePageSource
     public void close()
     {
         closed = true;
+        // Drop the page, so that it is not retained after its memory is released
+        page = null;
+        currentPage = null;
+        memoryContext.setBytes(0);
     }
 
     @Override
@@ -103,11 +110,5 @@ class BlackHolePageSource
     public long getReadTimeNanos()
     {
         return 0;
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return memoryUsageBytes;
     }
 }

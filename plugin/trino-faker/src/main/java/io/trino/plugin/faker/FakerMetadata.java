@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
@@ -763,7 +764,7 @@ public class FakerMetadata
         if (dictionaryColumns.isEmpty()) {
             return columnValues.buildOrThrow();
         }
-        try (FakerPageSource pageSource = new FakerPageSource(locale, seed(tableName, info), dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+        try (FakerPageSource pageSource = new FakerPageSource(locale, seed(tableName, info), dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2, MemoryContext.NO_LIMIT)) {
             SourcePage page = null;
             while (page == null) {
                 page = pageSource.getNextSourcePage();

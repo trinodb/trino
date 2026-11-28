@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 import net.datafaker.Faker;
 
 import java.util.List;
@@ -52,7 +53,8 @@ public class FakerPageSourceProvider
             ConnectorTableHandle table,
             Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext)
     {
         List<FakerColumnHandle> handles = columns
                 .stream()
@@ -61,7 +63,7 @@ public class FakerPageSourceProvider
 
         FakerSplit fakerSplit = (FakerSplit) split;
         FakerTableHandle fakerTable = (FakerTableHandle) table;
-        return new FakerPageSource(locale, fakerTable.seed(), handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
+        return new FakerPageSource(locale, fakerTable.seed(), handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount(), memoryContext);
     }
 
     public void validateGenerator(String generator)
