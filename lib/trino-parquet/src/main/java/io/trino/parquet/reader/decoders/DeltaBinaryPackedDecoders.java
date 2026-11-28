@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.ceilDiv;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Long;
+import static io.trino.parquet.ParquetReaderUtils.toByteExact;
+import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetReaderUtils.zigzagDecode;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -40,6 +42,8 @@ public final class DeltaBinaryPackedDecoders
     public static class DeltaBinaryPackedByteDecoder
             extends DeltaBinaryPackedDecoder<byte[]>
     {
+        private int[] intValues = new int[0];
+
         @Override
         protected byte[] createMiniBlockBuffer(int size)
         {
@@ -49,7 +53,7 @@ public final class DeltaBinaryPackedDecoders
         @Override
         protected void setValue(byte[] values, int offset, long value)
         {
-            values[offset] = (byte) value;
+            values[offset] = toByteExact(value);
         }
 
         @Override
@@ -59,9 +63,34 @@ public final class DeltaBinaryPackedDecoders
         }
 
         @Override
-        protected long unpack(byte[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
+        protected void verifyConstantDelta(long previousValue, long delta, int deltaCount)
         {
-            DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
+            // The values lie on a line, so all of them are in range if the first and the last one are
+            toByteExact(previousValue + delta);
+            toByteExact(previousValue + delta * deltaCount);
+        }
+
+        @Override
+        protected long unpack(byte[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth, int deltaCount)
+        {
+            if (bitWidth == 0) {
+                DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
+            }
+            else {
+                // Unpacking straight to bytes would drop the high bits before the values can be checked
+                if (intValues.length <= length) {
+                    intValues = new int[length + 1];
+                }
+                intValues[0] = output[outputOffset - 1];
+                DeltaPackingUtils.unpackDelta(intValues, 1, length, input, minDelta, bitWidth);
+                for (int i = 0; i < deltaCount; i++) {
+                    output[outputOffset + i] = toByteExact((long) intValues[i + 1]);
+                }
+                // The padding after the last value does not have to be in range
+                for (int i = deltaCount; i < length; i++) {
+                    output[outputOffset + i] = (byte) intValues[i + 1];
+                }
+            }
             return output[outputOffset + length - 1];
         }
     }
@@ -69,6 +98,8 @@ public final class DeltaBinaryPackedDecoders
     public static class DeltaBinaryPackedShortDecoder
             extends DeltaBinaryPackedDecoder<short[]>
     {
+        private int[] intValues = new int[0];
+
         @Override
         protected short[] createMiniBlockBuffer(int size)
         {
@@ -78,7 +109,7 @@ public final class DeltaBinaryPackedDecoders
         @Override
         protected void setValue(short[] values, int offset, long value)
         {
-            values[offset] = (short) value;
+            values[offset] = toShortExact(value);
         }
 
         @Override
@@ -88,9 +119,34 @@ public final class DeltaBinaryPackedDecoders
         }
 
         @Override
-        protected long unpack(short[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
+        protected void verifyConstantDelta(long previousValue, long delta, int deltaCount)
         {
-            DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
+            // The values lie on a line, so all of them are in range if the first and the last one are
+            toShortExact(previousValue + delta);
+            toShortExact(previousValue + delta * deltaCount);
+        }
+
+        @Override
+        protected long unpack(short[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth, int deltaCount)
+        {
+            if (bitWidth == 0) {
+                DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
+            }
+            else {
+                // Unpacking straight to shorts would drop the high bits before the values can be checked
+                if (intValues.length <= length) {
+                    intValues = new int[length + 1];
+                }
+                intValues[0] = output[outputOffset - 1];
+                DeltaPackingUtils.unpackDelta(intValues, 1, length, input, minDelta, bitWidth);
+                for (int i = 0; i < deltaCount; i++) {
+                    output[outputOffset + i] = toShortExact((long) intValues[i + 1]);
+                }
+                // The padding after the last value does not have to be in range
+                for (int i = deltaCount; i < length; i++) {
+                    output[outputOffset + i] = (short) intValues[i + 1];
+                }
+            }
             return output[outputOffset + length - 1];
         }
     }
@@ -117,7 +173,7 @@ public final class DeltaBinaryPackedDecoders
         }
 
         @Override
-        protected long unpack(int[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
+        protected long unpack(int[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth, int deltaCount)
         {
             DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
             return output[outputOffset + length - 1];
@@ -146,7 +202,7 @@ public final class DeltaBinaryPackedDecoders
         }
 
         @Override
-        protected long unpack(long[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
+        protected long unpack(long[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth, int deltaCount)
         {
             DeltaPackingUtils.unpackDelta(output, outputOffset, length, input, minDelta, bitWidth);
             return output[outputOffset + length - 1];
@@ -172,6 +228,8 @@ public final class DeltaBinaryPackedDecoders
 
         private long blockMinDelta;
         private int miniBlocksRemaining;
+        // Deltas not unpacked yet, the last mini block is padded past them
+        private int deltasRemaining;
 
         @Override
         public void init(SimpleSliceInputStream input)
@@ -195,9 +253,17 @@ public final class DeltaBinaryPackedDecoders
          * <li>Delegate unpacking to the corresponding static method from DeltaPackingUtils class</li>
          * </ul>
          *
+         * @param deltaCount Number of the {@code length} values which are part of the data, the rest is padding
          * @return Last value read
          */
-        protected abstract long unpack(ValuesType output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth);
+        protected abstract long unpack(ValuesType output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth, int deltaCount);
+
+        /**
+         * Called before unpacking values of bit width 0, which all differ from the previous one by the same delta
+         *
+         * @param deltaCount Number of those values which are part of the data, not padding
+         */
+        protected void verifyConstantDelta(long previousValue, long delta, int deltaCount) {}
 
         private void readHeader()
         {
@@ -207,6 +273,7 @@ public final class DeltaBinaryPackedDecoders
             checkArgument(miniBlockSize % 32 == 0, "Corrupted Parquet file: mini block size of the delta encoding needs to be a multiple of 32");
             valueCount = readUleb128Int(input);
             miniBlocksRemaining = ceilDiv(valueCount - 1, miniBlockSize); // -1 as the first value is stored in a header
+            deltasRemaining = valueCount - 1;
             previousValue = zigzagDecode(readUleb128Long(input));
             miniBlocksInBlock = blockSize / miniBlockSize;
         }
@@ -326,17 +393,27 @@ public final class DeltaBinaryPackedDecoders
             int miniBlocksToRead = Math.min(miniBlocksRemaining, miniBlocksInBlock);
             if (miniBlocksToRead == miniBlocksInBlock && areBitWidthTheSame()) {
                 byte bitWidth = bitWidths[0];
-                previousValue = unpack(output, outputOffset, blockSize, input, blockMinDelta, bitWidth);
+                unpackNext(output, outputOffset, blockSize, bitWidth);
             }
             else {
                 for (int i = 0; i < miniBlocksToRead; i++) {
                     byte bitWidth = bitWidths[i];
-                    previousValue = unpack(output, outputOffset, miniBlockSize, input, blockMinDelta, bitWidth);
+                    unpackNext(output, outputOffset, miniBlockSize, bitWidth);
                     outputOffset += miniBlockSize;
                 }
             }
 
             miniBlocksRemaining -= miniBlocksToRead;
+        }
+
+        private void unpackNext(ValuesType output, int outputOffset, int length, byte bitWidth)
+        {
+            int deltaCount = min(deltasRemaining, length);
+            if (bitWidth == 0) {
+                verifyConstantDelta(previousValue, blockMinDelta, deltaCount);
+            }
+            previousValue = unpack(output, outputOffset, length, input, blockMinDelta, bitWidth, deltaCount);
+            deltasRemaining -= length;
         }
 
         private void readBlockHeader()

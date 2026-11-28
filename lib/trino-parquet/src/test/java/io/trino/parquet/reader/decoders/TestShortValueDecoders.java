@@ -18,6 +18,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
@@ -30,11 +31,13 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.reader.TestData.randomInt;
+import static io.trino.parquet.reader.TestingValuesWriters.getValuesWriter;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public final class TestShortValueDecoders
         extends AbstractValueDecodersTest
@@ -53,6 +56,66 @@ public final class TestShortValueDecoders
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
                 ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED),
                 generateInputDataProviders());
+    }
+
+    @Test
+    public void testDeltaBinaryPackedWideDeltas()
+    {
+        assertDeltaDecoded(Short.MIN_VALUE, Short.MAX_VALUE);
+        assertDeltaDecoded(Short.MAX_VALUE, Short.MIN_VALUE);
+        // a full block of zero deltas followed by a block with a single wide delta, which has its own minimum delta
+        short[] values = new short[130];
+        Arrays.fill(values, Short.MIN_VALUE);
+        values[129] = Short.MAX_VALUE;
+        assertDeltaDecoded(values);
+        // wide deltas of both signs in one miniblock, so the minimum delta is wider than a short and the bit width is not 0
+        assertDeltaDecoded(Short.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Short.MIN_VALUE);
+        // the padding after the last value can leave the range, with and without a bit width of 0
+        assertDeltaDecoded(new short[] {32_000, 32_010, 32_025});
+        assertDeltaDecoded(new short[] {32_000, 32_025});
+    }
+
+    @Test
+    public void testDeltaBinaryPackedValuesOutOfRange()
+    {
+        assertDeltaOverflow(0, 70_000);
+        assertDeltaOverflow(0, 70_000, 2 * 70_000);
+        assertDeltaOverflow(0, 30_000, 60_001);
+        assertDeltaOverflow(0, 30_000, 60_000);
+        assertDeltaOverflow(70_000, 0);
+        // the first value after the wide delta fits, the second one cannot
+        assertDeltaOverflow(-32768, 32767, 98302);
+        // the same wide delta in every miniblock of a block
+        assertDeltaOverflow(IntStream.range(0, 129).map(i -> i * 70_000).toArray());
+    }
+
+    private static void assertDeltaDecoded(short... expected)
+    {
+        DataBuffer dataBuffer = writeShorts(getValuesWriter(DELTA_BINARY_PACKED, INT32, OptionalInt.empty()), expected);
+        short[] actual = new short[expected.length];
+        createDeltaDecoder(dataBuffer).read(actual, 0, expected.length);
+        assertThat(actual).containsExactly(expected);
+    }
+
+    private static void assertDeltaOverflow(int... values)
+    {
+        ValuesWriter valuesWriter = getValuesWriter(DELTA_BINARY_PACKED, INT32, OptionalInt.empty());
+        for (int value : values) {
+            valuesWriter.writeInteger(value);
+        }
+        ValueDecoder<short[]> decoder = createDeltaDecoder(getWrittenBuffer(valuesWriter));
+
+        assertThatThrownBy(() -> decoder.read(new short[values.length], 0, values.length))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("short overflow");
+    }
+
+    private static ValueDecoder<short[]> createDeltaDecoder(DataBuffer dataBuffer)
+    {
+        PrimitiveField field = createField(INT32, OptionalInt.empty(), SMALLINT);
+        ValueDecoder<short[]> decoder = new ValueDecoders(field).getShortDecoder(DELTA_BINARY_PACKED);
+        decoder.init(new SimpleSliceInputStream(dataBuffer.dataPage()));
+        return decoder;
     }
 
     private static InputDataProvider[] generateInputDataProviders()
