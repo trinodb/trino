@@ -395,6 +395,22 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     }
 
     @Test
+    public void testStatisticsForProjectedColumns()
+    {
+        DeltaLakeColumnHandle bigintColumn = new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty());
+        DeltaLakeColumnHandle doubleColumn = new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR, Optional.empty());
+        DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics");
+
+        TableStatistics allColumns = getTableStatistics(SESSION, tableHandle);
+        TableStatistics projectedColumns = getTableStatistics(SESSION, tableHandle.withProjectedColumns(ImmutableSet.of(bigintColumn, doubleColumn)));
+
+        assertThat(projectedColumns.getRowCount()).isEqualTo(Estimate.of(9));
+        assertThat(projectedColumns.getColumnStatistics().keySet()).isEqualTo(allColumns.getColumnStatistics().keySet());
+        assertThat(projectedColumns.getColumnStatistics().get(bigintColumn).getRange().get().getMin()).isEqualTo(-10000000.0);
+        assertThat(projectedColumns.getColumnStatistics().get(doubleColumn).getRange().get().getMax()).isEqualTo(0.321);
+    }
+
+    @Test
     public void testStatisticsParquetParsedStatisticsNaNValues()
     {
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
