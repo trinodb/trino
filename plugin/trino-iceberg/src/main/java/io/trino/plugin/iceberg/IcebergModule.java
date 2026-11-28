@@ -79,6 +79,7 @@ public class IcebergModule
     public void configure(Binder binder)
     {
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableCommitLocks.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(SortingFileWriterConfig.class, "iceberg");
 
