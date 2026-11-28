@@ -339,7 +339,8 @@ public class WindowOperator
                     orderChannels,
                     ordering,
                     spillerFactory,
-                    orderingCompiler.compilePageWithPositionComparator(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering)));
+                    orderingCompiler.compilePageWithPositionComparator(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = pageBuffer.pages()
                     .flatTransform(spillablePagesToPagesIndexes.get())
@@ -570,7 +571,7 @@ public class WindowOperator
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (finishing || pendingInputPosition < pendingInput.getPositionCount()) {
-                sortPagesIndexIfNecessary(pagesIndexWithHashStrategies.pagesIndex, pagesIndexWithHashStrategies.preSortedPartitionHashStrategy, pagesIndexOrdering);
+                sortPagesIndexIfNecessary(pagesIndexWithHashStrategies.pagesIndex, pagesIndexWithHashStrategies.preSortedPartitionHashStrategy, pagesIndexOrdering, memoryContext);
                 resetPagesIndex = true;
                 return TransformationState.ofResult(pagesIndexWithHashStrategies, false);
             }
@@ -674,6 +675,7 @@ public class WindowOperator
         final LocalMemoryContext localUserMemoryContext;
         final SpillerFactory spillerFactory;
         final PageWithPositionComparator pageWithPositionComparator;
+        final List<PageSortKeyPrefixFiller> pagePrefixFillers;
 
         boolean spillingWhenConvertingRevocableMemory;
         boolean resetPagesIndex;
@@ -691,8 +693,10 @@ public class WindowOperator
                 List<Integer> orderChannels,
                 List<SortOrder> ordering,
                 SpillerFactory spillerFactory,
-                PageWithPositionComparator pageWithPositionComparator)
+                PageWithPositionComparator pageWithPositionComparator,
+                List<PageSortKeyPrefixFiller> pagePrefixFillers)
         {
+            this.pagePrefixFillers = ImmutableList.copyOf(requireNonNull(pagePrefixFillers, "pagePrefixFillers is null"));
             this.inMemoryPagesIndexWithHashStrategies = inMemoryPagesIndexWithHashStrategies;
             this.mergedPagesIndexWithHashStrategies = mergedPagesIndexWithHashStrategies;
             this.sourceTypes = sourceTypes;
@@ -787,7 +791,7 @@ public class WindowOperator
                 }
             }
 
-            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies.pagesIndex, inMemoryPagesIndexWithHashStrategies.preSortedPartitionHashStrategy, inMemoryPagesIndexOrdering);
+            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies.pagesIndex, inMemoryPagesIndexWithHashStrategies.preSortedPartitionHashStrategy, inMemoryPagesIndexOrdering, localUserMemoryContext);
             resetPagesIndex = true;
             return TransformationState.ofResult(unspill(), false);
         }
@@ -813,7 +817,7 @@ public class WindowOperator
             }
 
             verify(inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 0);
-            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies.pagesIndex, inMemoryPagesIndexWithHashStrategies.preSortedPartitionHashStrategy, inMemoryPagesIndexOrdering);
+            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies.pagesIndex, inMemoryPagesIndexWithHashStrategies.preSortedPartitionHashStrategy, inMemoryPagesIndexOrdering, localRevocableMemoryContext);
             PeekingIterator<Page> sortedPages = peekingIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
@@ -858,6 +862,7 @@ public class WindowOperator
             WorkProcessor<Page> mergedPages = mergeSortedPages(
                     sortedStreams,
                     pageWithPositionComparator,
+                    pagePrefixFillers,
                     sourceTypes,
                     operatorContext.aggregateUserMemoryContext(),
                     operatorContext.getDriverContext().getYieldSignal());
@@ -913,13 +918,13 @@ public class WindowOperator
         return startPosition;
     }
 
-    private static void sortPagesIndexIfNecessary(PagesIndex pagesIndex, PagesHashStrategy preSortedPartitionHashStrategy, @Nullable PagesIndexOrdering pagesIndexOrdering)
+    private static void sortPagesIndexIfNecessary(PagesIndex pagesIndex, PagesHashStrategy preSortedPartitionHashStrategy, @Nullable PagesIndexOrdering pagesIndexOrdering, LocalMemoryContext memoryContext)
     {
         if (pagesIndex.getPositionCount() > 1 && pagesIndexOrdering != null) {
             int startPosition = 0;
             while (startPosition < pagesIndex.getPositionCount()) {
                 int endPosition = findGroupEnd(pagesIndex, preSortedPartitionHashStrategy, startPosition);
-                pagesIndex.sort(pagesIndexOrdering, startPosition, endPosition);
+                pagesIndex.sort(pagesIndexOrdering, startPosition, endPosition, memoryContext);
                 startPosition = endPosition;
             }
         }

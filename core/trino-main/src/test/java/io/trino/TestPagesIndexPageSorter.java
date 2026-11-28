@@ -147,7 +147,7 @@ public class TestPagesIndexPageSorter
 
     private static void assertSorted(List<Page> inputPages, List<Page> expectedPages, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
-        List<Page> outputPages = ImmutableList.copyOf(sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions));
+        List<Page> outputPages = ImmutableList.copyOf(sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions, _ -> {}));
 
         MaterializedResult expected = toMaterializedResult(types, expectedPages);
         MaterializedResult actual = toMaterializedResult(types, outputPages);

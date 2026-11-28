@@ -105,7 +105,7 @@ public class BenchmarkGroupedTopNRankBuilder
 
         public GroupedTopNBuilder newTopNBuilder()
         {
-            return new GroupedTopNRankBuilder(types, comparator, equalsAndHash, topN, true, new int[0], new CyclingGroupByHash(groupCount));
+            return new GroupedTopNRankBuilder(types, comparator, equalsAndHash, ImmutableList.of(), topN, true, new int[0], new CyclingGroupByHash(groupCount));
         }
 
         public Page getPage()

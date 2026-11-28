@@ -230,7 +230,7 @@ public class OrderByOperator
                 }
             }
 
-            pageIndex.sort(pagesIndexOrdering);
+            pageIndex.sort(pagesIndexOrdering, localUserMemoryContext);
             Iterator<Page> sortedPagesIndex = pageIndex.getSortedPages();
 
             List<WorkProcessor<Page>> spilledPages = getSpilledPages();
@@ -317,7 +317,7 @@ public class OrderByOperator
                     operatorContext.newAggregateUserMemoryContext()));
         }
 
-        pageIndex.sort(pagesIndexOrdering);
+        pageIndex.sort(pagesIndexOrdering, revocableMemoryContext);
         spillInProgress = asVoid(spiller.get().spill(pageIndex.getSortedPages()));
         finishMemoryRevoke = Optional.of(() -> {
             pageIndex.clear();
@@ -359,6 +359,7 @@ public class OrderByOperator
         return mergeSortedPages(
                 sortedStreams,
                 orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
+                orderingCompiler.compilePageSortKeyPrefixFillers(sortTypes, sortChannels, sortOrder),
                 sourceTypes,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());

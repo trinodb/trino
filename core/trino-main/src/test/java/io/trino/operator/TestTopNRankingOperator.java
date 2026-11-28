@@ -120,6 +120,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 hashStrategyCompiler,
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(DOUBLE, VARCHAR, BIGINT)
@@ -173,6 +174,7 @@ public class TestTopNRankingOperator
                     partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty(),
                     hashStrategyCompiler,
                     orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
             MaterializedResult expected;
@@ -238,6 +240,7 @@ public class TestTopNRankingOperator
                     partial ? Optional.of(DataSize.of(1, DataSize.Unit.BYTE)) : Optional.empty(),
                     hashStrategyCompiler,
                     orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                    orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
             try (TopNRankingOperator operator = (TopNRankingOperator) operatorFactory.createOperator(driverContext)) {
@@ -282,6 +285,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 hashStrategyCompiler,
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(type), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(type), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for heaps
@@ -324,6 +328,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 hashStrategyCompiler,
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(DataSize.of(1, GIGABYTE))
@@ -371,6 +376,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 hashStrategyCompiler,
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
+                orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(BIGINT), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(DataSize.of(1, GIGABYTE))
@@ -430,6 +436,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 hashStrategyCompiler,
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(ASC_NULLS_FIRST)),
+                orderingCompiler.compilePageSortKeyPrefixFillers(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(ASC_NULLS_FIRST)),
                 blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(DOUBLE, VARCHAR, BIGINT)

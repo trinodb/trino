@@ -38,6 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -204,7 +205,7 @@ public class OrderedAccumulatorFactory
         {
             if (pagesIndex != null) {
                 if (sortedPages == null) {
-                    pagesIndex.sort(pagesIndexOrdering);
+                    pagesIndex.sort(pagesIndexOrdering, newSimpleAggregatedMemoryContext().newLocalMemoryContext(OrderedAccumulator.class.getSimpleName()));
                     sortedPages = pagesIndex.getSortedPages();
                 }
                 AggregationMask mask = AggregationMask.createSelectAll(0);
@@ -372,7 +373,7 @@ public class OrderedAccumulatorFactory
             rowGroupIds = null;
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 if (groupStarts[groupId + 1] - groupStarts[groupId] > 1) {
-                    pagesIndex.sort(pagesIndexOrdering, groupStarts[groupId], groupStarts[groupId + 1]);
+                    pagesIndex.sort(pagesIndexOrdering, groupStarts[groupId], groupStarts[groupId + 1], newSimpleAggregatedMemoryContext().newLocalMemoryContext(OrderingGroupedAccumulator.class.getSimpleName()));
                 }
             }
         }

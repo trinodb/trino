@@ -13,7 +13,9 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
@@ -21,7 +23,9 @@ import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.LongConsumer;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
 public class PagesIndexPageSorter
@@ -36,12 +40,64 @@ public class PagesIndexPageSorter
     }
 
     @Override
-    public Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
+    public Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions, LongConsumer memoryUsage)
     {
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(types, expectedPositions);
         pages.forEach(pagesIndex::addPage);
-        pagesIndex.sort(sortChannels, sortOrders);
+
+        LocalMemoryContext memoryContext = new MemoryUsageReporter(memoryUsage);
+        memoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
+        pagesIndex.sort(sortChannels, sortOrders, memoryContext);
 
         return pagesIndex.getSortedPages();
+    }
+
+    /**
+     * Adapts the SPI memory usage consumer to the memory context the sort accounts its
+     * working memory in.
+     */
+    private static class MemoryUsageReporter
+            implements LocalMemoryContext
+    {
+        private final LongConsumer memoryUsage;
+        private long bytes;
+
+        private MemoryUsageReporter(LongConsumer memoryUsage)
+        {
+            this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return bytes;
+        }
+
+        @Override
+        public ListenableFuture<Void> setBytes(long bytes)
+        {
+            this.bytes = bytes;
+            memoryUsage.accept(bytes);
+            return immediateVoidFuture();
+        }
+
+        @Override
+        public ListenableFuture<Void> addBytes(long delta)
+        {
+            return setBytes(bytes + delta);
+        }
+
+        @Override
+        public boolean trySetBytes(long bytes)
+        {
+            setBytes(bytes);
+            return true;
+        }
+
+        @Override
+        public void close()
+        {
+            setBytes(0);
+        }
     }
 }

@@ -46,6 +46,7 @@ public class SortBuffer
     private final List<Page> pages = new ArrayList<>();
 
     private long usedMemoryBytes;
+    private long sorterMemoryBytes;
     private int rowCount;
 
     public SortBuffer(
@@ -65,7 +66,7 @@ public class SortBuffer
 
     public long getRetainedBytes()
     {
-        return INSTANCE_SIZE + usedMemoryBytes;
+        return INSTANCE_SIZE + usedMemoryBytes + sorterMemoryBytes;
     }
 
     public boolean isEmpty()
@@ -101,7 +102,7 @@ public class SortBuffer
     {
         checkState(!pages.isEmpty(), "page buffer is empty");
 
-        Iterator<Page> sortedPages = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount);
+        Iterator<Page> sortedPages = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount, bytes -> sorterMemoryBytes = bytes);
         sortedPages.forEachRemaining(consumer);
 
         clear();
@@ -112,5 +113,6 @@ public class SortBuffer
         pages.clear();
         rowCount = 0;
         usedMemoryBytes = 0;
+        sorterMemoryBytes = 0;
     }
 }

@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableOffset;
@@ -38,10 +39,15 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_BATCH_UNORDERED_LAST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.SORT_KEY_PREFIX_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Float.isNaN;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
@@ -50,7 +56,11 @@ public final class RealType
         extends AbstractIntType
 {
     public static final String NAME = "real";
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(RealType.class, lookup(), long.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(long.class)
+            .addOperators(extractOperatorDeclaration(RealType.class, lookup(), long.class))
+            .sortKeyPrefixExact(true)
+            .sortKeyPrefixBits(32)
+            .build();
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final RealType REAL = new RealType();
@@ -178,10 +188,73 @@ public final class RealType
 
         float leftFloat = intBitsToFloat((int) left);
         float rightFloat = intBitsToFloat((int) right);
-        if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
+        if (isNaN(leftFloat) && isNaN(rightFloat)) {
             return true;
         }
         return leftFloat == rightFloat;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_LAST)
+    private static long sortKeyPrefixUnorderedLastOperator(long value)
+    {
+        float floatValue = intBitsToFloat((int) value);
+        if (isNaN(floatValue)) {
+            // above all normal keys; no non-NaN float encodes to this key
+            return -1;
+        }
+        return sortKeyPrefix(floatValue);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_UNORDERED_FIRST)
+    private static long sortKeyPrefixUnorderedFirstOperator(long value)
+    {
+        float floatValue = intBitsToFloat((int) value);
+        if (isNaN(floatValue)) {
+            // below all normal keys; no non-NaN float encodes to this key
+            return 0;
+        }
+        return sortKeyPrefix(floatValue);
+    }
+
+    private static long sortKeyPrefix(float value)
+    {
+        int bits = floatToIntBits(value);
+        if (bits < 0) {
+            bits = ~bits;
+        }
+        else {
+            bits ^= Integer.MIN_VALUE;
+        }
+        return (bits & 0xFFFF_FFFFL) << 32;
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_LAST)
+    private static void sortKeyPrefixBatchUnorderedLastOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, -1);
+    }
+
+    @ScalarOperator(SORT_KEY_PREFIX_BATCH_UNORDERED_FIRST)
+    private static void sortKeyPrefixBatchUnorderedFirstOperator(IntArrayBlock block, long[] prefixes, int positionCount)
+    {
+        sortKeyPrefixBatch(block, prefixes, positionCount, 0);
+    }
+
+    private static void sortKeyPrefixBatch(IntArrayBlock block, long[] prefixes, int positionCount, long nanKey)
+    {
+        int[] values = block.getRawValues();
+        int offset = block.getRawValuesOffset();
+        for (int i = 0; i < positionCount; i++) {
+            int bits = values[offset + i];
+            if ((bits & ~Integer.MIN_VALUE) > 0x7F80_0000) {
+                // NaN, including non-canonical bit patterns
+                prefixes[i] = nanKey;
+            }
+            else {
+                int transformed = bits ^ ((bits >> 31) | Integer.MIN_VALUE);
+                prefixes[i] = (transformed & 0xFFFF_FFFFL) << 32;
+            }
+        }
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
@@ -196,13 +269,13 @@ public final class RealType
         // Float compare puts NaN last, so we must handle NaNs manually
         float left = intBitsToFloat((int) leftBits);
         float right = intBitsToFloat((int) rightBits);
-        if (Float.isNaN(left) && Float.isNaN(right)) {
+        if (isNaN(left) && isNaN(right)) {
             return 0;
         }
-        if (Float.isNaN(left)) {
+        if (isNaN(left)) {
             return -1;
         }
-        if (Float.isNaN(right)) {
+        if (isNaN(right)) {
             return 1;
         }
         return compare(left, right);

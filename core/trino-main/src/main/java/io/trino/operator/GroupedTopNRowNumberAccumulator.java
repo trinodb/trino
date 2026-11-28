@@ -26,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Long.compareUnsigned;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -72,7 +73,7 @@ public class GroupedTopNRowNumberAccumulator
         return INSTANCE_SIZE + groupIdToHeapBuffer.sizeOf() + heapNodeBuffer.sizeOf() + heapTraversal.sizeOf();
     }
 
-    public int findFirstPositionToAdd(Page newPage, int groupCount, int[] groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
+    public int findFirstPositionToAdd(Page newPage, int groupCount, int[] groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager, @Nullable long[] prefixes)
     {
         int currentTotalGroups = groupIdToHeapBuffer.getTotalGroups();
         groupIdToHeapBuffer.allocateGroupIfNeeded(groupCount);
@@ -85,6 +86,15 @@ public class GroupedTopNRowNumberAccumulator
             long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
             if (heapRootNodeIndex == UNKNOWN_INDEX) {
                 return position;
+            }
+            if (prefixes != null) {
+                int prefixComparison = compareUnsigned(prefixes[position], heapNodeBuffer.getPrefix(heapRootNodeIndex));
+                if (prefixComparison != 0) {
+                    if (prefixComparison < 0) {
+                        return position;
+                    }
+                    continue;
+                }
             }
             long rowId = heapNodeBuffer.getRowId(heapRootNodeIndex);
             Page rightPage = pageManager.getPage(rowId);
@@ -103,17 +113,21 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @return true if this row was incorporated, false otherwise
      */
-    public boolean add(int groupId, RowReference rowReference)
+    public boolean add(int groupId, RowReference rowReference, long prefix)
     {
         groupIdToHeapBuffer.allocateGroupIfNeeded(groupId);
 
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         if (heapRootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(groupId) < topN) {
-            heapInsert(groupId, rowReference.allocateRowId());
+            heapInsert(groupId, rowReference.allocateRowId(), prefix);
             return true;
         }
-        if (rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
-            heapPopAndInsert(groupId, rowReference.allocateRowId(), rowIdEvictionListener);
+        int comparison = compareUnsigned(prefix, heapNodeBuffer.getPrefix(heapRootNodeIndex));
+        if (comparison == 0) {
+            comparison = rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex));
+        }
+        if (comparison < 0) {
+            heapPopAndInsert(groupId, rowReference.allocateRowId(), prefix, rowIdEvictionListener);
             return true;
         }
         return false;
@@ -152,6 +166,15 @@ public class GroupedTopNRowNumberAccumulator
         return heapNodeBuffer.getRowId(heapRootNodeIndex);
     }
 
+    private int compare(long leftPrefix, long leftRowId, long rightPrefix, long rightRowId)
+    {
+        int comparison = compareUnsigned(leftPrefix, rightPrefix);
+        if (comparison != 0) {
+            return comparison;
+        }
+        return strategy.compare(leftRowId, rightRowId);
+    }
+
     private long getChildIndex(long heapNodeIndex, HeapTraversal.Child child)
     {
         return child == HeapTraversal.Child.LEFT
@@ -181,6 +204,7 @@ public class GroupedTopNRowNumberAccumulator
 
         long lastNodeIndex = heapDetachLastInsertionLeaf(groupId);
         long lastRowId = heapNodeBuffer.getRowId(lastNodeIndex);
+        long lastPrefix = heapNodeBuffer.getPrefix(lastNodeIndex);
         heapNodeBuffer.deallocate(lastNodeIndex);
 
         if (lastNodeIndex == heapRootNodeIndex) {
@@ -191,7 +215,7 @@ public class GroupedTopNRowNumberAccumulator
         }
         else {
             // Pop the root and insert lastRowId back into the heap to ensure a balanced tree
-            heapPopAndInsert(groupId, lastRowId, contextEvictionListener);
+            heapPopAndInsert(groupId, lastRowId, lastPrefix, contextEvictionListener);
         }
     }
 
@@ -242,12 +266,12 @@ public class GroupedTopNRowNumberAccumulator
      * Insertions always fill the left child before the right, and fill up an entire heap level before moving to the
      * next level.
      */
-    private void heapInsert(int groupId, long newRowId)
+    private void heapInsert(int groupId, long newRowId, long newPrefix)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         if (heapRootNodeIndex == UNKNOWN_INDEX) {
             // Heap is currently empty, so this will be the first node
-            heapRootNodeIndex = heapNodeBuffer.allocateNewNode(newRowId);
+            heapRootNodeIndex = heapNodeBuffer.allocateNewNode(newRowId, newPrefix);
 
             groupIdToHeapBuffer.setHeapRootNodeIndex(groupId, heapRootNodeIndex);
             groupIdToHeapBuffer.setHeapSize(groupId, 1);
@@ -261,11 +285,14 @@ public class GroupedTopNRowNumberAccumulator
         heapTraversal.resetWithPathTo(groupIdToHeapBuffer.getHeapSize(groupId) + 1);
         while (!heapTraversal.isTarget()) {
             long currentRowId = heapNodeBuffer.getRowId(currentHeapNodeIndex);
-            if (strategy.compare(newRowId, currentRowId) > 0) {
+            long currentPrefix = heapNodeBuffer.getPrefix(currentHeapNodeIndex);
+            if (compare(newPrefix, newRowId, currentPrefix, currentRowId) > 0) {
                 // Swap the row values
                 heapNodeBuffer.setRowId(currentHeapNodeIndex, newRowId);
+                heapNodeBuffer.setPrefix(currentHeapNodeIndex, newPrefix);
 
                 newRowId = currentRowId;
+                newPrefix = currentPrefix;
             }
 
             previousHeapNodeIndex = currentHeapNodeIndex;
@@ -276,7 +303,7 @@ public class GroupedTopNRowNumberAccumulator
         verify(previousHeapNodeIndex != UNKNOWN_INDEX && childPosition != null, "heap must have at least one node before starting traversal");
         verify(currentHeapNodeIndex == UNKNOWN_INDEX, "New child shouldn't exist yet");
 
-        long newHeapNodeIndex = heapNodeBuffer.allocateNewNode(newRowId);
+        long newHeapNodeIndex = heapNodeBuffer.allocateNewNode(newRowId, newPrefix);
 
         //  Link the new child to the parent
         setChildIndex(previousHeapNodeIndex, childPosition, newHeapNodeIndex);
@@ -292,7 +319,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @param contextEvictionListener optional callback for the root node that gets popped off
      */
-    private void heapPopAndInsert(int groupId, long newRowId, @Nullable LongConsumer contextEvictionListener)
+    private void heapPopAndInsert(int groupId, long newRowId, long newPrefix, @Nullable LongConsumer contextEvictionListener)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkState(heapRootNodeIndex != UNKNOWN_INDEX, "popAndInsert() requires at least a root node");
@@ -309,17 +336,20 @@ public class GroupedTopNRowNumberAccumulator
                 break;
             }
             long maxChildRowId = heapNodeBuffer.getRowId(maxChildNodeIndex);
+            long maxChildPrefix = heapNodeBuffer.getPrefix(maxChildNodeIndex);
 
             long rightChildNodeIndex = heapNodeBuffer.getRightChildHeapIndex(currentNodeIndex);
             if (rightChildNodeIndex != UNKNOWN_INDEX) {
                 long rightRowId = heapNodeBuffer.getRowId(rightChildNodeIndex);
-                if (strategy.compare(rightRowId, maxChildRowId) > 0) {
+                long rightPrefix = heapNodeBuffer.getPrefix(rightChildNodeIndex);
+                if (compare(rightPrefix, rightRowId, maxChildPrefix, maxChildRowId) > 0) {
                     maxChildNodeIndex = rightChildNodeIndex;
                     maxChildRowId = rightRowId;
+                    maxChildPrefix = rightPrefix;
                 }
             }
 
-            if (strategy.compare(newRowId, maxChildRowId) >= 0) {
+            if (compare(newPrefix, newRowId, maxChildPrefix, maxChildRowId) >= 0) {
                 // New row is greater than or equal to both children, so the heap invariant is satisfied by inserting the
                 // new row at this position
                 break;
@@ -327,12 +357,14 @@ public class GroupedTopNRowNumberAccumulator
 
             // Swap the max child row value into the current node
             heapNodeBuffer.setRowId(currentNodeIndex, maxChildRowId);
+            heapNodeBuffer.setPrefix(currentNodeIndex, maxChildPrefix);
 
             // Max child now has an unfilled vacancy, so continue processing with that as the current node
             currentNodeIndex = maxChildNodeIndex;
         }
 
         heapNodeBuffer.setRowId(currentNodeIndex, newRowId);
+        heapNodeBuffer.setPrefix(currentNodeIndex, newPrefix);
 
         if (contextEvictionListener != null) {
             contextEvictionListener.accept(poppedRowId);
@@ -366,12 +398,13 @@ public class GroupedTopNRowNumberAccumulator
         long leftChildHeapIndex = heapNodeBuffer.getLeftChildHeapIndex(heapNodeIndex);
         long rightChildHeapIndex = heapNodeBuffer.getRightChildHeapIndex(heapNodeIndex);
 
+        long prefix = heapNodeBuffer.getPrefix(heapNodeIndex);
         if (leftChildHeapIndex != UNKNOWN_INDEX) {
-            verify(strategy.compare(rowId, heapNodeBuffer.getRowId(leftChildHeapIndex)) >= 0, "Max heap invariant violated");
+            verify(compare(prefix, rowId, heapNodeBuffer.getPrefix(leftChildHeapIndex), heapNodeBuffer.getRowId(leftChildHeapIndex)) >= 0, "Max heap invariant violated");
         }
         if (rightChildHeapIndex != UNKNOWN_INDEX) {
             verify(leftChildHeapIndex != UNKNOWN_INDEX, "Left should always be inserted before right");
-            verify(strategy.compare(rowId, heapNodeBuffer.getRowId(rightChildHeapIndex)) >= 0, "Max heap invariant violated");
+            verify(compare(prefix, rowId, heapNodeBuffer.getPrefix(rightChildHeapIndex), heapNodeBuffer.getRowId(rightChildHeapIndex)) >= 0, "Max heap invariant violated");
         }
 
         IntegrityStats leftIntegrityStats = verifyHeapIntegrity(leftChildHeapIndex);
@@ -492,14 +525,15 @@ public class GroupedTopNRowNumberAccumulator
     private static class HeapNodeBuffer
     {
         private static final long INSTANCE_SIZE = instanceSize(HeapNodeBuffer.class);
-        private static final int POSITIONS_PER_ENTRY = 3;
-        private static final int LEFT_CHILD_HEAP_INDEX_OFFSET = 1;
-        private static final int RIGHT_CHILD_HEAP_INDEX_OFFSET = 2;
+        private static final int POSITIONS_PER_ENTRY = 4;
+        private static final int PREFIX_OFFSET = 1;
+        private static final int LEFT_CHILD_HEAP_INDEX_OFFSET = 2;
+        private static final int RIGHT_CHILD_HEAP_INDEX_OFFSET = 3;
 
         /*
          *  Memory layout:
-         *  [LONG] rowId1, [LONG] leftChildNodeIndex1, [LONG] rightChildNodeIndex1,
-         *  [LONG] rowId2, [LONG] leftChildNodeIndex2, [LONG] rightChildNodeIndex2,
+         *  [LONG] rowId1, [LONG] prefix1, [LONG] leftChildNodeIndex1, [LONG] rightChildNodeIndex1,
+         *  [LONG] rowId2, [LONG] prefix2, [LONG] leftChildNodeIndex2, [LONG] rightChildNodeIndex2,
          *  ...
          */
         private final LongBigArray buffer = new LongBigArray();
@@ -513,7 +547,7 @@ public class GroupedTopNRowNumberAccumulator
          *
          * @return index referencing the node
          */
-        public long allocateNewNode(long rowId)
+        public long allocateNewNode(long rowId, long prefix)
         {
             long newHeapIndex;
             if (!emptySlots.isEmpty()) {
@@ -526,6 +560,7 @@ public class GroupedTopNRowNumberAccumulator
             }
 
             setRowId(newHeapIndex, rowId);
+            setPrefix(newHeapIndex, prefix);
             setLeftChildHeapIndex(newHeapIndex, UNKNOWN_INDEX);
             setRightChildHeapIndex(newHeapIndex, UNKNOWN_INDEX);
 
@@ -550,6 +585,16 @@ public class GroupedTopNRowNumberAccumulator
         public void setRowId(long index, long rowId)
         {
             buffer.set(index * POSITIONS_PER_ENTRY, rowId);
+        }
+
+        public long getPrefix(long index)
+        {
+            return buffer.get(index * POSITIONS_PER_ENTRY + PREFIX_OFFSET);
+        }
+
+        public void setPrefix(long index, long prefix)
+        {
+            buffer.set(index * POSITIONS_PER_ENTRY + PREFIX_OFFSET, prefix);
         }
 
         public long getLeftChildHeapIndex(long index)
