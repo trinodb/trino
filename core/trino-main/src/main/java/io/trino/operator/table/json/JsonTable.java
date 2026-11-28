@@ -43,6 +43,7 @@ import static io.trino.operator.table.json.execution.ExecutionPlanner.getExecuti
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -188,7 +189,14 @@ public final class JsonTable
                     }
                     else {
                         currentPosition = -1;
-                        return usedInput();
+                        if (pageBuilder.isEmpty()) {
+                            return usedInput();
+                        }
+                        // pass-through indexes refer to the current input page, so the output must be
+                        // returned before the next page is processed
+                        TableFunctionProcessorState result = usedInputAndProduced(pageBuilder.build());
+                        pageBuilder.reset();
+                        return result;
                     }
                 }
             }

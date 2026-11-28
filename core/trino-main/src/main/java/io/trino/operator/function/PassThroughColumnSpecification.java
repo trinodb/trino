@@ -13,10 +13,4 @@
  */
 package io.trino.operator.function;
 
-import io.trino.operator.WorkProcessor;
-import io.trino.spi.Page;
-
-public interface TableFunctionPartition
-{
-    WorkProcessor<Page> toOutputPages();
-}
+public record PassThroughColumnSpecification(boolean isPartitioningColumn, int inputChannel, int indexChannel) {}

@@ -113,7 +113,7 @@ import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOpe
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import io.trino.operator.exchange.LocalMergeSourceOperator.LocalMergeSourceOperatorFactory;
 import io.trino.operator.exchange.PageChannelSelector;
-import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
+import io.trino.operator.function.PassThroughColumnSpecification;
 import io.trino.operator.function.TableFunctionOperator.TableFunctionOperatorFactory;
 import io.trino.operator.index.DynamicTupleFilterFactory;
 import io.trino.operator.index.FieldSetFilteringRecordSet;
@@ -1781,10 +1781,10 @@ public class LocalExecutionPlanner
                 }
             }
 
-            List<Integer> partitionChannels = node.getSpecification()
+            // specification is absent for a single source with row semantics
+            Optional<List<Integer>> partitionChannels = node.getSpecification()
                     .map(DataOrganizationSpecification::partitionBy)
-                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
-                    .orElse(ImmutableList.of());
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()));
 
             List<Integer> sortChannels = ImmutableList.of();
             List<SortOrder> sortOrders = ImmutableList.of();

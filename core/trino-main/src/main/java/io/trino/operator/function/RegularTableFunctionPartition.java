@@ -56,7 +56,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RegularTableFunctionPartition
-        implements TableFunctionPartition
+        implements TableFunctionInput
 {
     private final PagesIndex pagesIndex;
     private final int partitionStart;
@@ -382,8 +382,6 @@ public class RegularTableFunctionPartition
         }
         return end;
     }
-
-    public record PassThroughColumnSpecification(boolean isPartitioningColumn, int inputChannel, int indexChannel) {}
 
     private PassThroughColumnProvider createColumnProvider(PassThroughColumnSpecification specification)
     {

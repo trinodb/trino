@@ -70,6 +70,12 @@ public class TableArgumentSpecification
             return this;
         }
 
+        /**
+         * The table argument has row semantics: the table function processes each input row independently.
+         * Otherwise it has set semantics, and the table function processes each partition as a whole.
+         * A table argument with row semantics cannot be partitioned or ordered, and it is always pruned when empty.
+         * If it is the only table argument, the input is provided page by page, see {@link TableFunctionProcessorState}.
+         */
         public Builder rowSemantics()
         {
             this.rowSemantics = true;
@@ -77,18 +83,33 @@ public class TableArgumentSpecification
             return this;
         }
 
+        /**
+         * The table function produces no output when this table is empty.
+         * This is a default, which a query can override with {@code KEEP WHEN EMPTY}.
+         * Either this or {@link #keepWhenEmpty()} must be set for a table argument with set semantics.
+         */
         public Builder pruneWhenEmpty()
         {
             this.pruneWhenEmpty = true;
             return this;
         }
 
+        /**
+         * The table function is invoked even when this table is empty.
+         * This is a default, which a query can override with {@code PRUNE WHEN EMPTY}.
+         * It cannot be set for a table argument with row semantics.
+         */
         public Builder keepWhenEmpty()
         {
             this.pruneWhenEmpty = false;
             return this;
         }
 
+        /**
+         * All columns of this table can be passed through to the output, in addition to the proper columns
+         * produced by the table function. For each output row, the table function returns the index of
+         * the input row to attach, see {@link TableFunctionProcessorState}.
+         */
         public Builder passThroughColumns()
         {
             this.passThroughColumns = true;
