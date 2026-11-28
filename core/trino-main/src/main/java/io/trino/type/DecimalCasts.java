@@ -23,9 +23,11 @@ import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItems;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.FloatingPointRoundingCastPreimage;
 import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainPreimage;
 import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
@@ -116,9 +118,9 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_SMALLINT_CAST = castFunctionFromDecimalTo(SMALLINT.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(4), "shortDecimalToSmallint", "longDecimalToSmallint");
     public static final SqlScalarFunction TINYINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(TINYINT.getTypeDescriptor(), whenTargetCoversIntegerDigits(3), "tinyintToShortDecimal", "tinyintToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT.getTypeDescriptor(), whenSourceIntegerDigitsAtMost(2), "shortDecimalToTinyint", "longDecimalToTinyint");
-    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToDouble", "longDecimalToDouble");
+    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeDescriptor(), NEVER_FAILS, new FloatingPointRoundingCastPreimage(), "shortDecimalToDouble", "longDecimalToDouble");
     public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeDescriptor(), MAY_FAIL, "doubleToShortDecimal", "doubleToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToReal", "longDecimalToReal");
+    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeDescriptor(), NEVER_FAILS, new FloatingPointRoundingCastPreimage(), "shortDecimalToReal", "longDecimalToReal");
     public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeDescriptor(), MAY_FAIL, "realToShortDecimal", "realToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_NUMBER_CAST = castFunctionFromDecimalTo(NUMBER.getTypeDescriptor(), NEVER_FAILS, "shortDecimalToNumber", "longDecimalToNumber");
     public static final SqlScalarFunction NUMBER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(NUMBER.getTypeDescriptor(), MAY_FAIL, "numberToShortDecimal", "numberToLongDecimal");
@@ -132,6 +134,11 @@ public final class DecimalCasts
 
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeDescriptor to, Predicate<BoundSignature> neverFails, String... methodNames)
     {
+        return castFunctionFromDecimalTo(to, neverFails, new OrderPreservingCastPreimage(), methodNames);
+    }
+
+    private static SqlScalarFunction castFunctionFromDecimalTo(TypeDescriptor to, Predicate<BoundSignature> neverFails, DomainPreimage domainPreimage, String... methodNames)
+    {
         Signature signature = Signature.builder()
                 .argumentType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .returnType(to)
@@ -140,7 +147,7 @@ public final class DecimalCasts
                 .signature(signature)
                 .deterministic(true)
                 .neverFails(neverFails)
-                .domainProjection(new DomainProjection(new OrderPreservingCastPreimage()))
+                .domainProjection(new DomainProjection(domainPreimage))
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)

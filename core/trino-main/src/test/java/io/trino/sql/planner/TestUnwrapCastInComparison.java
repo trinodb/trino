@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -754,17 +755,30 @@ public class TestUnwrapCastInComparison
         testUnwrap("integer", "a = REAL '-8388608'", comparison(EQUAL, integer, new Constant(INTEGER, -8388608L)));
         testUnwrap("integer", "a = REAL '2147483647'", comparison(GREATER_THAN_OR_EQUAL, integer, new Constant(INTEGER, 2147483584L)));
         testUnwrap("integer", "a = REAL '-2147483647'", comparison(LESS_THAN, integer, new Constant(INTEGER, -2147483583L)));
+
+        // DECIMAL -> DOUBLE / REAL rounding casts (including precision > 15 and precision > 7)
+        testUnwrap("decimal(16)", "a = DOUBLE '1'", comparison(EQUAL, new Reference(createDecimalType(16), "a"), new Constant(createDecimalType(16), 1L)));
+        testUnwrap("decimal(18, 2)", "a = DOUBLE '19.99'", comparison(EQUAL, new Reference(createDecimalType(18, 2), "a"), new Constant(createDecimalType(18, 2), 1999L)));
+        testUnwrap("decimal(18, 2)", "a = DOUBLE '1.001'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(createDecimalType(18, 2), "a")), new Constant(BOOLEAN, null))));
+        testUnwrap("decimal(20, 0)", "a = DOUBLE '9007199254740992'", new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(20, 0), "a"), new Constant(createDecimalType(20, 0), Int128.valueOf(1L << 53))),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(createDecimalType(20, 0), "a"), new Constant(createDecimalType(20, 0), Int128.valueOf((1L << 53) + 1))))));
+        testUnwrap("decimal(8)", "a = REAL '1'", comparison(EQUAL, new Reference(createDecimalType(8), "a"), new Constant(createDecimalType(8), 1L)));
+        testUnwrap("decimal(8)", "a = REAL '16777216'", new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(8), "a"), new Constant(createDecimalType(8), 1L << 24)),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(createDecimalType(8), "a"), new Constant(createDecimalType(8), (1L << 24) + 1)))));
+
+        // DOUBLE -> REAL rounding cast
+        double low = ((double) Math.nextDown(1.5f) + 1.5) / 2.0;
+        double high = (1.5 + (double) Math.nextUp(1.5f)) / 2.0;
+        testUnwrap("double", "CAST(a AS real) = REAL '1.5'", new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "a"), new Constant(DOUBLE, low)),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "a"), new Constant(DOUBLE, high)))));
     }
 
     @Test
     public void testNoEffect()
     {
-        // DECIMAL(p)->DOUBLE not injective for p > 15
-        testUnwrap("decimal(16)", "a = DOUBLE '1'", comparison(EQUAL, new Cast(new Reference(createDecimalType(16), "a"), DOUBLE), new Constant(DOUBLE, 1.0)));
-
-        // DECIMAL(p)->REAL not injective for p > 7
-        testUnwrap("decimal(8)", "a = REAL '1'", comparison(EQUAL, new Cast(new Reference(createDecimalType(8), "a"), REAL), new Constant(REAL, toReal(1.0f))));
-
         // no implicit cast between VARCHAR->INTEGER
         testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", comparison(EQUAL, new Cast(new Reference(VARCHAR, "a"), INTEGER), new Constant(INTEGER, 1L)));
 

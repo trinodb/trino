@@ -42,6 +42,7 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
@@ -118,6 +119,37 @@ public final class RealType
         // The range for real is undefined because NaN is a special value that
         // is *not* in any reasonable definition of a range for this type.
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        float value = intBitsToFloat(toIntExact((long) object));
+        // NaN compares greater than every other value, but it is not a bound a range can use
+        if (Float.isNaN(value) || value == Float.NEGATIVE_INFINITY) {
+            return Optional.empty();
+        }
+        // -0.0 and 0.0 compare equal, so nextUp/nextDown of either zero is the same and needs no normalization first
+        return Optional.of(toValue(Math.nextDown(value)));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        float value = intBitsToFloat(toIntExact((long) object));
+        // NaN compares greater than every other value, but it is not a bound a range can use
+        if (Float.isNaN(value) || value == Float.POSITIVE_INFINITY) {
+            return Optional.empty();
+        }
+        // -0.0 and 0.0 compare equal, so nextUp/nextDown of either zero is the same and needs no normalization first
+        return Optional.of(toValue(Math.nextUp(value)));
+    }
+
+    // -0.0 and 0.0 are equal, so keep a single representation of zero
+    @SuppressWarnings("FloatingPointEquality")
+    private static long toValue(float value)
+    {
+        return floatToIntBits(value == 0 ? 0.0f : value);
     }
 
     @ScalarOperator(READ_VALUE)

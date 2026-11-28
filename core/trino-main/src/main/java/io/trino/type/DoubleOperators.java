@@ -16,6 +16,7 @@ package io.trino.type;
 import com.google.common.math.DoubleMath;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.preimage.FloatingPointRoundingCastPreimage;
 import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionPreimage;
@@ -180,7 +181,7 @@ public final class DoubleOperators
         }
     }
 
-    @FunctionPreimage(OrderPreservingCastPreimage.class)
+    @FunctionPreimage(FloatingPointRoundingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.DOUBLE) double value)

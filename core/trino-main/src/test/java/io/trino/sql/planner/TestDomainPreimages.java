@@ -26,6 +26,7 @@ import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -279,6 +280,189 @@ public class TestDomainPreimages
                 Domain.create(ValueSet.ofRanges(lessThanOrEqual(type, value)), false),
                 Domain.create(ValueSet.ofRanges(greaterThan(type, value)), false),
                 Domain.create(ValueSet.ofRanges(greaterThanOrEqual(type, value)), true));
+    }
+
+    @Test
+    public void testDoubleToRealRoundingFibers()
+    {
+        double floatOverflowThreshold = (double) Float.MAX_VALUE + (double) Math.ulp(Float.MAX_VALUE) / 2.0;
+        List<Float> boundaries = List.of(
+                Float.NEGATIVE_INFINITY,
+                -Float.MAX_VALUE,
+                Math.nextUp(-Float.MAX_VALUE),
+                -1.0f,
+                Math.nextDown(-1.0f),
+                -Float.MIN_VALUE,
+                -0.0f,
+                0.0f,
+                Float.MIN_VALUE,
+                Math.nextUp(Float.MIN_VALUE),
+                1.0f,
+                Math.nextUp(1.0f),
+                Math.nextDown(Float.MAX_VALUE),
+                Float.MAX_VALUE,
+                Float.POSITIVE_INFINITY);
+
+        List<Double> inputs = new ArrayList<>(List.of(
+                Double.NEGATIVE_INFINITY,
+                -Double.MAX_VALUE,
+                Math.nextDown(-floatOverflowThreshold),
+                -floatOverflowThreshold,
+                Math.nextUp(-floatOverflowThreshold),
+                -Double.MIN_VALUE,
+                -0.0,
+                0.0,
+                Double.MIN_VALUE,
+                Math.nextDown(floatOverflowThreshold),
+                floatOverflowThreshold,
+                Math.nextUp(floatOverflowThreshold),
+                Double.MAX_VALUE,
+                Double.POSITIVE_INFINITY,
+                Double.NaN));
+        for (float boundary : boundaries) {
+            if (!Float.isFinite(boundary)) {
+                continue;
+            }
+            inputs.add((double) boundary);
+            float prev = Math.nextDown(boundary);
+            if (Float.isFinite(prev)) {
+                double mid = ((double) prev + (double) boundary) / 2.0;
+                inputs.add(Math.nextDown(mid));
+                inputs.add(mid);
+                inputs.add(Math.nextUp(mid));
+            }
+            float next = Math.nextUp(boundary);
+            if (Float.isFinite(next)) {
+                double mid = ((double) boundary + (double) next) / 2.0;
+                inputs.add(Math.nextDown(mid));
+                inputs.add(mid);
+                inputs.add(Math.nextUp(mid));
+            }
+        }
+
+        List<Domain> domains = new ArrayList<>();
+        domains.add(Domain.all(REAL));
+        domains.add(Domain.none(REAL));
+        domains.add(Domain.onlyNull(REAL));
+        domains.add(Domain.singleValue(REAL, toReal(Float.NaN)));
+        domains.add(Domain.singleValue(REAL, toReal(Float.NaN), true));
+        for (float boundary : boundaries) {
+            domains.addAll(boundaryDomains(REAL, toReal(boundary)));
+        }
+
+        for (Domain domain : domains) {
+            for (Domain result : List.of(domain, domain.complement())) {
+                Domain projected = castPreimage(result, DOUBLE);
+                assertThat(projected.isNullAllowed()).isEqualTo(result.isNullAllowed());
+                for (double candidate : inputs) {
+                    assertThat(projected.includesNullableValue(candidate))
+                            .describedAs("%s through DOUBLE -> REAL for %s", result, candidate)
+                            .isEqualTo(result.includesNullableValue(toReal((float) candidate)));
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testDecimalToFloatingPointRoundingFibers()
+    {
+        var invoker = new InterpretedFunctionInvoker(PLANNER_CONTEXT.getFunctionManager());
+
+        // Single-value and empty fibers on precision > 15 (DOUBLE) and precision > 7 (REAL)
+        assertThat(castPreimage(Domain.singleValue(DOUBLE, 19.99), createDecimalType(18, 2)))
+                .isEqualTo(Domain.singleValue(createDecimalType(18, 2), 1999L));
+        assertThat(castPreimage(Domain.singleValue(DOUBLE, 1.001), createDecimalType(18, 2)))
+                .isEqualTo(Domain.none(createDecimalType(18, 2)));
+        assertThat(castPreimage(Domain.singleValue(REAL, toReal(19.5f)), createDecimalType(10, 2)))
+                .isEqualTo(Domain.singleValue(createDecimalType(10, 2), 1950L));
+        assertThat(castPreimage(Domain.singleValue(REAL, toReal(1.001f)), createDecimalType(10, 2)))
+                .isEqualTo(Domain.none(createDecimalType(10, 2)));
+        // Exact multi-value rounding fiber at 2^53 (even significand) and 2^53 + 2 (odd significand)
+        assertThat(castPreimage(Domain.singleValue(DOUBLE, (double) (1L << 53)), createDecimalType(20, 0)))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(range(createDecimalType(20, 0), Int128.valueOf(1L << 53), true, Int128.valueOf((1L << 53) + 1), true)), false));
+        assertThat(castPreimage(Domain.singleValue(DOUBLE, (double) ((1L << 53) + 2)), createDecimalType(20, 0)))
+                .isEqualTo(Domain.singleValue(createDecimalType(20, 0), Int128.valueOf((1L << 53) + 2)));
+
+        for (DecimalType source : List.of(
+                createDecimalType(8, 0),
+                createDecimalType(10, 2),
+                createDecimalType(16, 0),
+                createDecimalType(18, 2),
+                createDecimalType(20, 0),
+                createDecimalType(20, 4),
+                createDecimalType(38, 10),
+                createDecimalType(38, 0),
+                createDecimalType(38, 38))) {
+            Type.Range bounds = source.getRange().orElseThrow();
+            BigInteger maxUnscaled = source.isShort() ? BigInteger.valueOf((long) bounds.getMax()) : ((Int128) bounds.getMax()).toBigInteger();
+            BigInteger minUnscaled = maxUnscaled.negate();
+            List<Object> candidates = new ArrayList<>();
+            for (BigInteger base : List.of(
+                    minUnscaled,
+                    BigInteger.valueOf(-(1L << 53)),
+                    BigInteger.valueOf(-(1L << 24)),
+                    BigInteger.ZERO,
+                    BigInteger.valueOf(1L << 24),
+                    BigInteger.valueOf(1L << 53),
+                    maxUnscaled)) {
+                for (long offset = -3; offset <= 3; offset++) {
+                    BigInteger candidate = base.add(BigInteger.valueOf(offset));
+                    if (candidate.compareTo(minUnscaled) >= 0 && candidate.compareTo(maxUnscaled) <= 0) {
+                        candidates.add(source.isShort() ? candidate.longValueExact() : Int128.valueOf(candidate));
+                    }
+                }
+            }
+            for (Type target : List.of(DOUBLE, REAL)) {
+                ResolvedFunction cast = PLANNER_CONTEXT.getMetadata().getCoercion(getCharVarcharCoercion(TEST_SESSION), source, target);
+                List<Object> targetBoundaries = new ArrayList<>();
+                if (target.equals(DOUBLE)) {
+                    targetBoundaries.addAll(List.of(
+                            Double.NEGATIVE_INFINITY,
+                            -Double.MAX_VALUE,
+                            -Double.MIN_VALUE,
+                            -0.0,
+                            0.0,
+                            Double.MIN_VALUE,
+                            Double.MAX_VALUE,
+                            Double.POSITIVE_INFINITY));
+                }
+                else {
+                    targetBoundaries.addAll(List.of(
+                            toReal(Float.NEGATIVE_INFINITY),
+                            toReal(-Float.MAX_VALUE),
+                            toReal(-Float.MIN_VALUE),
+                            toReal(-0.0f),
+                            toReal(0.0f),
+                            toReal(Float.MIN_VALUE),
+                            toReal(Float.MAX_VALUE),
+                            toReal(Float.POSITIVE_INFINITY)));
+                }
+                for (Object candidate : candidates) {
+                    Object castValue = invoker.invoke(cast, TEST_SESSION.toConnectorSession(), candidate);
+                    targetBoundaries.add(castValue);
+                    target.getPreviousValue(castValue).ifPresent(targetBoundaries::add);
+                    target.getNextValue(castValue).ifPresent(targetBoundaries::add);
+                }
+
+                List<Domain> domains = new ArrayList<>();
+                domains.add(Domain.singleValue(target, FloatingPointValueSet.nanValue(target)));
+                for (Object boundary : targetBoundaries) {
+                    domains.addAll(boundaryDomains(target, boundary));
+                }
+                for (Domain domain : domains) {
+                    for (Domain result : List.of(domain, domain.complement())) {
+                        Domain projected = castPreimage(result, source);
+                        assertThat(projected.isNullAllowed()).isEqualTo(result.isNullAllowed());
+                        for (Object candidate : candidates) {
+                            Object castValue = invoker.invoke(cast, TEST_SESSION.toConnectorSession(), candidate);
+                            assertThat(projected.includesNullableValue(candidate))
+                                    .describedAs("%s through %s -> %s for %s", result, source, target, candidate)
+                                    .isEqualTo(result.includesNullableValue(castValue));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Test
