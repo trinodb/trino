@@ -38,6 +38,8 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +56,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -65,10 +68,14 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMerge
         extends BasePlanTest
@@ -200,5 +207,23 @@ public class TestMerge
                                                                 node(
                                                                         DynamicFilterSourceNode.class,
                                                                         tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1"))))))))));
+    }
+
+    @Test
+    public void testMergeJoinType()
+    {
+        assertMergeJoinType("WHEN MATCHED THEN DELETE", RIGHT);
+        assertMergeJoinType("WHEN NOT MATCHED THEN INSERT VALUES (b.column1, b.column2)", RIGHT);
+        assertMergeJoinType("WHEN NOT MATCHED BY SOURCE THEN DELETE", LEFT);
+        assertMergeJoinType("WHEN MATCHED THEN DELETE WHEN NOT MATCHED BY SOURCE THEN UPDATE SET column2 = 0", LEFT);
+        assertMergeJoinType("WHEN NOT MATCHED THEN INSERT VALUES (b.column1, b.column2) WHEN NOT MATCHED BY SOURCE THEN DELETE", FULL);
+    }
+
+    private void assertMergeJoinType(String mergeCases, JoinType joinType)
+    {
+        Plan plan = plan("MERGE INTO test_table_merge_target a USING test_table_merge_source b ON a.column1 = b.column1 " + mergeCases, CREATED);
+        assertThat(searchFrom(plan.getRoot()).where(JoinNode.class::isInstance).findAll())
+                .extracting(joinNode -> ((JoinNode) joinNode).getType())
+                .containsExactly(joinType);
     }
 }

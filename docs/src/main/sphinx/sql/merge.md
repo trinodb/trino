@@ -12,12 +12,12 @@ when_clause [...]
 where `when_clause` is one of
 
 ```text
-WHEN MATCHED [ AND condition ]
+WHEN { MATCHED | NOT MATCHED BY SOURCE } [ AND condition ]
     THEN DELETE
 ```
 
 ```text
-WHEN MATCHED [ AND condition ]
+WHEN { MATCHED | NOT MATCHED BY SOURCE } [ AND condition ]
     THEN UPDATE SET ( column = expression [, ...] )
 ```
 
@@ -38,15 +38,21 @@ from identical columns, to associate the source and target data.
 `MERGE` supports an arbitrary number of `WHEN` clauses. `MATCHED` conditions can
 execute `DELETE` or `UPDATE` operations on the target data, while `NOT MATCHED`
 conditions can add data from the source to the target table with `INSERT`.
-Additional conditions can narrow down the affected rows.
+`NOT MATCHED BY SOURCE` conditions can execute `DELETE` or `UPDATE` operations
+on target rows that do not match any source row. Additional conditions can
+narrow down the affected rows.
 
 For each source row, the `WHEN` clauses are processed in order. Only the first
 matching `WHEN` clause is executed and subsequent clauses are ignored. The query
-fails if a single target table row matches more than one source row.
+fails if a single target table row matches more than one source row. When
+`NOT MATCHED BY SOURCE` clauses are present, target rows that do not match any
+source row are processed the same way.
 
 In `WHEN` clauses with `UPDATE` operations, the column value expressions
 can depend on any field of the target or the source. In the `NOT MATCHED`
-case, the `INSERT` expressions can depend on any field of the source.
+case, the `INSERT` expressions can depend on any field of the source. In the
+`NOT MATCHED BY SOURCE` case, the condition and the `UPDATE` expressions can
+only depend on fields of the target.
 
 Typical usage of `MERGE` involves two tables with similar structure, containing
 different data. For example, the source table is part of a transactional usage
@@ -96,6 +102,21 @@ MERGE INTO accounts t USING monthly_accounts_update s
     WHEN NOT MATCHED
         THEN INSERT (customer, purchases, address)
               VALUES(s.customer, s.purchases, s.address)
+```
+
+Synchronize the target table with the source table: update matching rows,
+insert missing rows, and delete target rows that are not in the source table:
+
+```sql
+MERGE INTO accounts t USING monthly_accounts_update s
+    ON (t.customer = s.customer)
+    WHEN MATCHED
+        THEN UPDATE SET purchases = s.purchases, address = s.address
+    WHEN NOT MATCHED
+        THEN INSERT (customer, purchases, address)
+              VALUES(s.customer, s.purchases, s.address)
+    WHEN NOT MATCHED BY SOURCE
+        THEN DELETE
 ```
 
 Delete all customers mentioned in `audit` branch of the source table:

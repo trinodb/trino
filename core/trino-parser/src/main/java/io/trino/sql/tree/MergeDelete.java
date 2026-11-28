@@ -24,15 +24,30 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public final class MergeDelete
         extends MergeCase
 {
+    private final boolean notMatchedBySource;
+
     @Deprecated
     public MergeDelete(Optional<Expression> expression)
     {
         super(Optional.empty(), expression);
+        this.notMatchedBySource = false;
     }
 
     public MergeDelete(NodeLocation location, Optional<Expression> expression)
     {
+        this(location, expression, false);
+    }
+
+    public MergeDelete(NodeLocation location, Optional<Expression> expression, boolean notMatchedBySource)
+    {
         super(location, expression);
+        this.notMatchedBySource = notMatchedBySource;
+    }
+
+    @Override
+    public boolean isNotMatchedBySource()
+    {
+        return notMatchedBySource;
     }
 
     @Override
@@ -56,7 +71,7 @@ public final class MergeDelete
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression);
+        return Objects.hash(expression, notMatchedBySource);
     }
 
     @Override
@@ -69,7 +84,8 @@ public final class MergeDelete
             return false;
         }
         MergeDelete mergeDelete = (MergeDelete) obj;
-        return Objects.equals(expression, mergeDelete.expression);
+        return Objects.equals(expression, mergeDelete.expression) &&
+                notMatchedBySource == mergeDelete.notMatchedBySource;
     }
 
     @Override
@@ -77,6 +93,7 @@ public final class MergeDelete
     {
         return toStringHelper(this)
                 .add("expression", expression.orElse(null))
+                .add("notMatchedBySource", notMatchedBySource)
                 .omitNullValues()
                 .toString();
     }
