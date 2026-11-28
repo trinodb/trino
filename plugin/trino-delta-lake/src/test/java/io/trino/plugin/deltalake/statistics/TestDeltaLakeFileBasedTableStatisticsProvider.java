@@ -22,8 +22,10 @@ import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.NoOpTableCredentialsProvider;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -54,6 +56,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -76,6 +80,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR, Optional.empty());
 
+    private final TypeManager typeManager;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statistics;
@@ -84,7 +89,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     public TestDeltaLakeFileBasedTableStatisticsProvider()
     {
         TestingConnectorContext context = new TestingConnectorContext();
-        TypeManager typeManager = context.getTypeManager();
+        typeManager = context.getTypeManager();
         CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
@@ -412,6 +417,21 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     }
 
     @Test
+    public void testStatisticsRecomputedForSameVersion()
+    {
+        CountingTransactionLogAccess countingTransactionLogAccess = new CountingTransactionLogAccess();
+        DeltaLakeTableStatisticsProvider provider = new FileBasedTableStatisticsProvider(typeManager, countingTransactionLogAccess, statistics);
+        DeltaLakeTableHandle tableHandle = registerTable("basic_multi_file");
+        TableSnapshot tableSnapshot = loadSnapshot(tableHandle);
+
+        TableStatistics first = provider.getTableStatistics(SESSION, tableHandle, tableSnapshot, Optional.empty());
+        TableStatistics second = provider.getTableStatistics(SESSION, tableHandle, tableSnapshot, Optional.empty());
+
+        assertThat(second.getRowCount()).isEqualTo(first.getRowCount());
+        assertThat(countingTransactionLogAccess.activeFilesLoads()).isEqualTo(2);
+    }
+
+    @Test
     public void testStatisticsParquetParsedStatisticsNaNValues()
     {
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
@@ -494,14 +514,47 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
     private TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        TableSnapshot tableSnapshot;
+        return tableStatisticsProvider.getTableStatistics(session, tableHandle, loadSnapshot(tableHandle), Optional.empty());
+    }
+
+    private TableSnapshot loadSnapshot(DeltaLakeTableHandle tableHandle)
+    {
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, Optional.empty(), Optional.empty());
+            return transactionLogAccess.loadSnapshot(SESSION, tableHandle, Optional.empty(), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot, Optional.empty());
+    }
+
+    private class CountingTransactionLogAccess
+            extends TransactionLogAccess
+    {
+        private final AtomicInteger activeFilesLoads = new AtomicInteger();
+
+        public CountingTransactionLogAccess()
+        {
+            super(typeManager,
+                    new CheckpointSchemaManager(typeManager),
+                    new DeltaLakeConfig(),
+                    new FileFormatDataSourceStats(),
+                    new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpTableCredentialsProvider()),
+                    new ParquetReaderConfig(),
+                    newDirectExecutorService(),
+                    transactionLogReaderFactory);
+        }
+
+        @Override
+        public Stream<AddFileEntry> getActiveFiles(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<DeltaLakeTableCredentials> tableCredentials, TableSnapshot tableSnapshot)
+        {
+            activeFilesLoads.incrementAndGet();
+            return super.getActiveFiles(session, tableHandle, tableCredentials, tableSnapshot);
+        }
+
+        public int activeFilesLoads()
+        {
+            return activeFilesLoads.get();
+        }
     }
 
     private Optional<ExtendedStatistics> readExtendedStatisticsFromTableResource(String tableLocationResourceName)
