@@ -23,6 +23,7 @@ import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
@@ -59,6 +60,7 @@ public class TrinoGlueCatalogFactory
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergScanExecutor;
+    private final TableMetadataCache tableMetadataCache;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -75,7 +77,8 @@ public class TrinoGlueCatalogFactory
             GlueMetastoreStats stats,
             GlueClient glueClient,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
-            @ForIcebergSplitManager ExecutorService icebergScanExecutor)
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            TableMetadataCache tableMetadataCache)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -97,6 +100,7 @@ public class TrinoGlueCatalogFactory
             this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
         }
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.tableMetadataCache = requireNonNull(tableMetadataCache, "tableMetadataCache is null");
     }
 
     @Managed
@@ -123,6 +127,7 @@ public class TrinoGlueCatalogFactory
                 isUniqueTableLocation,
                 hideMaterializedViewStorageTable,
                 metadataFetchingExecutor,
-                icebergScanExecutor);
+                icebergScanExecutor,
+                tableMetadataCache);
     }
 }

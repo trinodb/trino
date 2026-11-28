@@ -36,6 +36,7 @@ import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -181,6 +182,7 @@ public class TrinoGlueCatalog
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergScanExecutor;
+    private final TableMetadataCache sharedTableMetadataCache;
 
     private final Cache<SchemaTableName, Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
@@ -211,7 +213,8 @@ public class TrinoGlueCatalog
             boolean useUniqueTableLocation,
             boolean hideMaterializedViewStorageTable,
             Executor metadataFetchingExecutor,
-            ExecutorService icebergScanExecutor)
+            ExecutorService icebergScanExecutor,
+            TableMetadataCache sharedTableMetadataCache)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -222,6 +225,7 @@ public class TrinoGlueCatalog
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.sharedTableMetadataCache = requireNonNull(sharedTableMetadataCache, "sharedTableMetadataCache is null");
     }
 
     @Override
@@ -882,7 +886,9 @@ public class TrinoGlueCatalog
             try {
                 // Cache the TableMetadata while we have the Table retrieved anyway
                 // Note: this is racy from cache invalidation perspective, but it should not matter here
-                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), metadataLocation));
+                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> sharedTableMetadataCache.get(
+                        metadataLocation,
+                        location -> TableMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), location)));
             }
             catch (RuntimeException e) {
                 LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
@@ -1442,10 +1448,10 @@ public class TrinoGlueCatalog
     {
         requireNonNull(storageTableName, "storageTableName is null");
         requireNonNull(storageMetadataLocation, "storageMetadataLocation is null");
-        return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
+        return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> sharedTableMetadataCache.get(storageMetadataLocation, location -> {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
-        });
+            return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), location);
+        }));
     }
 
     @Override

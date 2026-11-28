@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
@@ -38,6 +39,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -64,6 +66,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -93,6 +96,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestTrinoHiveCatalogWithHiveMetastore
         extends BaseTrinoCatalogTest
 {
+    private final TableMetadataCache tableMetadataCache = new TableMetadataCache(DataSize.of(10, MEGABYTE));
     private static final Logger LOG = Logger.get(TestTrinoHiveCatalogWithHiveMetastore.class);
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
@@ -134,6 +138,12 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 .setOwnerType(Optional.of(PrincipalType.USER))
                 .setParameters(properties)
                 .build()));
+    }
+
+    @Override
+    protected boolean supportsSharedTableMetadata()
+    {
+        return true;
     }
 
     @Override
@@ -183,13 +193,15 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                             }
                         },
                         new IcebergHiveCatalogConfig(),
-                        ENCRYPTION_MANAGER_FACTORY),
+                        ENCRYPTION_MANAGER_FACTORY,
+                        tableMetadataCache),
                 useUniqueTableLocations,
                 false,
                 false,
                 isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                tableMetadataCache);
     }
 
     protected boolean isHideMaterializedViewStorageTable()

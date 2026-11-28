@@ -207,8 +207,14 @@ implementation is used:
   - `4h`
 * - `iceberg.metadata-cache.enabled`
   - Set to `false` to disable in-memory caching of metadata files on the
-    coordinator. This cache is not used when `fs.cache.enabled` is set to true.
+    coordinator, and sharing of parsed table metadata between queries. The
+    metadata file cache is not used when `fs.cache.enabled` is set to true.
   - `true`
+* - `iceberg.metadata-cache.max-parsed-size`
+  - Maximum estimated size of the parsed table metadata that queries on the
+    coordinator share. Queries that read the same version of a table use one
+    parsed copy of its metadata.
+  - 5% of the maximum heap size
 * - `iceberg.parquet-footer-cache.type`
   - Type of cache to use for Parquet file footers. Set to `memory` to enable a
     bounded, in-memory cache.
@@ -2558,6 +2564,11 @@ When `fs.cache.enabled` is set to `true`, metadata is cached on local disks
 using the [file system caching
 implementation](/object-storage/file-system-cache). If `fs.cache.enabled` is
 enabled, metadata caching in coordinator memory is deactivated.
+
+The coordinator also shares parsed table metadata between queries that read the
+same version of a table, up to the size set by the
+`iceberg.metadata-cache.max-parsed-size` configuration property. This sharing
+does not depend on `fs.cache.enabled`.
 
 Additionally, you can use the following catalog configuration properties:
 

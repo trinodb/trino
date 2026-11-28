@@ -106,6 +106,7 @@ public class IcebergConfig
     private int materializedViewRefreshMaxSnapshotsToExpire = 200;
     private Duration materializedViewRefreshSnapshotRetentionPeriod = new Duration(4, HOURS);
     private boolean metadataCacheEnabled = true;
+    private DataSize metadataCacheMaxParsedSize = DataSize.ofBytes(Runtime.getRuntime().maxMemory() / 20);
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean metadataVirtualThreadsEnabled = true;
@@ -676,6 +677,20 @@ public class IcebergConfig
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMetadataCacheMaxParsedSize()
+    {
+        return metadataCacheMaxParsedSize;
+    }
+
+    @Config("iceberg.metadata-cache.max-parsed-size")
+    @ConfigDescription("Maximum estimated size of parsed table metadata shared by all queries on coordinator")
+    public IcebergConfig setMetadataCacheMaxParsedSize(DataSize metadataCacheMaxParsedSize)
+    {
+        this.metadataCacheMaxParsedSize = metadataCacheMaxParsedSize;
         return this;
     }
 

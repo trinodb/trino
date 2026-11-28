@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.file;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
@@ -25,6 +26,7 @@ import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
+import io.trino.plugin.iceberg.catalog.TableMetadataCache;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.catalog.CatalogName;
@@ -50,6 +52,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -69,6 +72,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
 {
+    private final TableMetadataCache tableMetadataCache = new TableMetadataCache(DataSize.of(10, MEGABYTE));
     private static final Logger log = Logger.get(TestTrinoHiveCatalogWithFileMetastore.class);
 
     private Path tempDir;
@@ -105,6 +109,12 @@ public class TestTrinoHiveCatalogWithFileMetastore
     }
 
     @Override
+    protected boolean supportsSharedTableMetadata()
+    {
+        return true;
+    }
+
+    @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
@@ -115,13 +125,14 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 TESTING_TYPE_MANAGER,
-                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, ENCRYPTION_MANAGER_FACTORY, tableMetadataCache),
                 useUniqueTableLocations,
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                tableMetadataCache);
     }
 
     @Test
