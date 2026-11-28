@@ -37,11 +37,17 @@ import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.BlockCipher.Decryptor;
 import org.apache.parquet.format.FileCryptoMetaData;
 import org.apache.parquet.format.FileMetaData;
+import org.apache.parquet.format.InterningProtocol;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import shaded.parquet.org.apache.thrift.TException;
+import shaded.parquet.org.apache.thrift.protocol.TCompactProtocol;
+import shaded.parquet.org.apache.thrift.transport.TIOStreamTransport;
+import shaded.parquet.org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -59,6 +65,7 @@ import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.readFileCryptoMetaData;
 import static org.apache.parquet.format.Util.readFileMetaData;
+import static shaded.parquet.org.apache.thrift.TBaseHelper.copyBinary;
 
 public final class MetadataReader
 {
@@ -215,7 +222,8 @@ public final class MetadataReader
 
         int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
         validateParquet(completeFooterSize <= footerBytes.length(), dataSourceId, "Footer bytes do not contain complete footer");
-        SliceInput metadataStream = footerBytes.slice(footerBytes.length() - completeFooterSize, metadataLength).getInput();
+        Slice metadata = footerBytes.slice(footerBytes.length() - completeFooterSize, metadataLength);
+        SliceInput metadataStream = metadata.getInput();
 
         Optional<FileDecryptionContext> decryptionContext = Optional.empty();
         Decryptor footerDecryptor = null;
@@ -231,7 +239,13 @@ public final class MetadataReader
             aad = AesCipherUtils.createFooterAAD(decryptionContext.get().getFileAad());
         }
 
-        FileMetaData fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
+        FileMetaData fileMetaData;
+        if (fileDecryptionProperties.isPresent()) {
+            fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
+        }
+        else {
+            fileMetaData = readPlaintextFileMetadata(metadata, metadataStream);
+        }
         if (!encryptedFooterMode && fileDecryptionProperties.isPresent()) {
             if (!fileMetaData.isSetEncryption_algorithm()) {
                 // Plaintext file — detect files that were not encrypted by mistake
@@ -251,6 +265,77 @@ public final class MetadataReader
         ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSourceId, decryptionContext);
         validateFileMetadata(dataSourceId, parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
+    }
+
+    private static FileMetaData readPlaintextFileMetadata(Slice metadata, SliceInput input)
+            throws IOException
+    {
+        try (var transport = new FooterTransport(metadata, input)) {
+            FileMetaData fileMetadata = new FileMetaData();
+            fileMetadata.read(new InterningProtocol(new TCompactProtocol(transport))
+            {
+                @Override
+                public ByteBuffer readBinary()
+                        throws TException
+                {
+                    // Metadata consumers access the entire backing array of binary fields, including statistics.
+                    return copyBinary(super.readBinary());
+                }
+            });
+            return fileMetadata;
+        }
+        catch (TException e) {
+            throw new IOException("Cannot read Parquet file metadata", e);
+        }
+    }
+
+    private static final class FooterTransport
+            extends TIOStreamTransport
+    {
+        private final Slice buffer;
+        private final SliceInput input;
+
+        public FooterTransport(Slice buffer, SliceInput input)
+                throws TTransportException
+        {
+            super(input);
+            this.buffer = buffer;
+            this.input = input;
+        }
+
+        @Override
+        public byte[] getBuffer()
+        {
+            return buffer.byteArray();
+        }
+
+        @Override
+        public int getBufferPosition()
+        {
+            return buffer.byteArrayOffset() + toIntExact(input.position());
+        }
+
+        @Override
+        public int getBytesRemainingInBuffer()
+        {
+            return input.available();
+        }
+
+        @Override
+        public void consumeBuffer(int length)
+        {
+            input.setPosition(input.position() + length);
+        }
+
+        @Override
+        public void checkReadBytesAvailable(long length)
+                throws TTransportException
+        {
+            super.checkReadBytesAvailable(length);
+            if (length > input.available()) {
+                throw new TTransportException("Truncated Parquet footer");
+            }
+        }
     }
 
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Optional<Statistics> statisticsFromFile, PrimitiveType type)
