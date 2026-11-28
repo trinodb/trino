@@ -1046,6 +1046,14 @@ class StatementAnalyzer
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
+                // column names are case-insensitive and normalized to lower case
+                Set<String> lowerCaseColumnNames = new HashSet<>();
+                for (Field field : queryScope.getRelationType().getVisibleFields()) {
+                    String columnName = field.getName().orElseThrow();
+                    if (!lowerCaseColumnNames.add(columnName.toLowerCase(ENGLISH))) {
+                        throw semanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", columnName);
+                    }
+                }
                 columnsBuilder.addAll(queryScope.getRelationType().getVisibleFields().stream()
                         .map(field -> new ColumnMetadata(field.getName().orElseThrow(), metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())))
                         .collect(toImmutableList()));
