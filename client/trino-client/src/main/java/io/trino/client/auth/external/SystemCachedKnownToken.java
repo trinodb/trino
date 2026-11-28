@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -39,6 +40,8 @@ import static java.util.Objects.requireNonNull;
  * allowing it to be reused across separate CLI invocations.
  * A lock file (~/.trino/.token.lck) is used to coordinate token acquisition
  * across processes — its atomic creation acts as a cross-process tryLock.
+ * A lock file older than the time allowed for authentication is considered abandoned,
+ * for example by a process killed during authentication, and is replaced.
  * The implementation is similar to MemoryCachedKnownToken, but with LOCK_FILE acting as a Lock
  */
 class SystemCachedKnownToken
@@ -71,18 +74,17 @@ class SystemCachedKnownToken
     @Override
     public Optional<Token> getToken()
     {
-        // Wait while lock file exists, mimicking readLock blocking while writeLock is held
+        // Wait while lock file exists and is not abandoned, mimicking readLock blocking while writeLock is held
         boolean lockFileExists = Failsafe.with(RetryPolicy.<Boolean>builder()
                         .handleResultIf(Boolean.TRUE::equals)
                         .withMaxAttempts(-1)
                         .withDelay(100, 1000, MILLIS)
                         .withMaxDuration(lockMaxWait)
                         .build())
-                .get(() -> Files.exists(lockFile));
+                .get(this::isLockFileInEffect);
         if (lockFileExists) {
             throw new IllegalStateException("Lock file " + lockFile + " for System Cached token still exists after waiting " + lockMaxWait + ". " +
-                    "It may be created by another concurrent authentication, which is still in progress. " +
-                    "If it's not a case and another transaction was abandoned - please remove the lock file manually and retry authentication.");
+                    "It may be created by another concurrent authentication, which is still in progress.");
         }
 
         try {
@@ -114,6 +116,9 @@ class SystemCachedKnownToken
         // Atomically create the lock file. If it already exists, another process
         // is obtaining a token — skip, just like MemoryCachedKnownToken's tryLock.
         try {
+            if (isLockFileAbandoned()) {
+                Files.deleteIfExists(lockFile);
+            }
             Files.createFile(lockFile);
         }
         catch (FileAlreadyExistsException e) {
@@ -137,6 +142,25 @@ class SystemCachedKnownToken
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to delete lock file " + lockFile, e);
+        }
+    }
+
+    private boolean isLockFileInEffect()
+    {
+        return Files.exists(lockFile) && !isLockFileAbandoned();
+    }
+
+    private boolean isLockFileAbandoned()
+    {
+        try {
+            Instant lockTime = Files.getLastModifiedTime(lockFile).toInstant();
+            return lockTime.isBefore(Instant.now().minus(lockMaxWait));
+        }
+        catch (NoSuchFileException e) {
+            return false;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read modification time of lock file " + lockFile, e);
         }
     }
 

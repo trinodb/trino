@@ -18,14 +18,18 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
@@ -135,7 +139,9 @@ final class TestSystemCachedKnownToken
             throws IOException
     {
         Files.writeString(tempDir.resolve(".token"), "existing-token");
-        Files.createFile(tempDir.resolve(".token.lck"));
+        Path lockFile = Files.createFile(tempDir.resolve(".token.lck"));
+        // Not old enough to be abandoned
+        Files.setLastModifiedTime(lockFile, FileTime.from(Instant.now().minus(Duration.ofMinutes(9))));
 
         AtomicBoolean tokenSourceCalled = new AtomicBoolean(false);
         SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
@@ -149,6 +155,35 @@ final class TestSystemCachedKnownToken
         assertThat(tokenSourceCalled.get()).isFalse();
         // Original token file should be unchanged
         assertThat(Files.readString(tempDir.resolve(".token"))).isEqualTo("existing-token");
+    }
+
+    @Test
+    void testSetupTokenReplacesAbandonedLockFile(@TempDir Path tempDir)
+            throws IOException
+    {
+        Files.writeString(tempDir.resolve(".token"), "old-token");
+        Path lockFile = Files.createFile(tempDir.resolve(".token.lck"));
+        Instant abandonedLockTime = Instant.now().minus(Duration.ofMinutes(11));
+        Files.setLastModifiedTime(lockFile, FileTime.from(abandonedLockTime));
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+        AtomicReference<Instant> lockTimeDuringAuthentication = new AtomicReference<>();
+        knownToken.setupToken(() -> {
+            try {
+                lockTimeDuringAuthentication.set(Files.getLastModifiedTime(lockFile).toInstant());
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return Optional.of(new Token("new-token"));
+        });
+
+        // Authentication holds a new lock file, not the abandoned one
+        assertThat(lockTimeDuringAuthentication.get()).isAfter(abandonedLockTime);
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("new-token"));
+        assertThat(Files.exists(lockFile)).isFalse();
     }
 
     @Test
@@ -181,13 +216,44 @@ final class TestSystemCachedKnownToken
     void testGetTokenThrowsWhenLockFileExistsAfterMaxWait(@TempDir Path tempDir)
             throws IOException
     {
-        Files.createFile(tempDir.resolve(".token.lck"));
+        Path lockFile = Files.createFile(tempDir.resolve(".token.lck"));
+        // Dated in the future, so that it does not get abandoned during the wait
+        Files.setLastModifiedTime(lockFile, FileTime.from(Instant.now().plus(Duration.ofMinutes(1))));
         SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMillis(1001));
 
         assertThatThrownBy(knownToken::getToken)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Lock file")
                 .hasMessageContaining("still exists after waiting");
+    }
+
+    @Test
+    void testGetTokenIgnoresAbandonedLockFile(@TempDir Path tempDir)
+            throws IOException
+    {
+        Files.writeString(tempDir.resolve(".token"), "the-token");
+        Path lockFile = Files.createFile(tempDir.resolve(".token.lck"));
+        Files.setLastModifiedTime(lockFile, FileTime.from(Instant.now().minus(Duration.ofMinutes(11))));
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir);
+
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("the-token"));
+    }
+
+    @Test
+    void testGetTokenStopsWaitingWhenLockFileGetsAbandoned(@TempDir Path tempDir)
+            throws IOException
+    {
+        Files.writeString(tempDir.resolve(".token"), "the-token");
+        Path lockFile = Files.createFile(tempDir.resolve(".token.lck"));
+        // Gets abandoned in 100 milliseconds
+        Files.setLastModifiedTime(lockFile, FileTime.from(Instant.now().minus(Duration.ofMinutes(1).minusMillis(100))));
+        SystemCachedKnownToken knownToken = new SystemCachedKnownToken(tempDir, Duration.ofMinutes(1));
+
+        assertThat(knownToken.getToken())
+                .isPresent()
+                .hasValueSatisfying(token -> assertThat(token.token()).isEqualTo("the-token"));
     }
 
     @Test
