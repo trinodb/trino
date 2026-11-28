@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -54,16 +55,19 @@ public class FlushMetadataCacheProcedure
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess extendedStatisticsAccess;
+    private final CachingTableStatisticsProvider tableStatisticsProvider;
 
     @Inject
     public FlushMetadataCacheProcedure(
             Optional<CachingHiveMetastore> cachingHiveMetastore,
             TransactionLogAccess transactionLogAccess,
-            CachingExtendedStatisticsAccess extendedStatisticsAccess)
+            CachingExtendedStatisticsAccess extendedStatisticsAccess,
+            CachingTableStatisticsProvider tableStatisticsProvider)
     {
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.extendedStatisticsAccess = requireNonNull(extendedStatisticsAccess, "extendedStatisticsAccess is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
     }
 
     @Override
@@ -92,12 +96,14 @@ public class FlushMetadataCacheProcedure
             cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
             transactionLogAccess.flushCache();
             extendedStatisticsAccess.invalidateCache();
+            tableStatisticsProvider.flushCache();
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
             SchemaTableName schemaTableName = new SchemaTableName(schemaName.get(), tableName.get());
             cachingHiveMetastore.ifPresent(cachingMetastore -> cachingMetastore.invalidateTable(schemaName.get(), tableName.get()));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.empty());
             extendedStatisticsAccess.invalidateCache(schemaTableName, Optional.empty());
+            tableStatisticsProvider.invalidateCache(schemaTableName, Optional.empty());
         }
         else {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Illegal parameter set passed");

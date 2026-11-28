@@ -30,6 +30,7 @@ import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -85,6 +86,7 @@ public class RegisterTableProcedure
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statisticsAccess;
+    private final CachingTableStatisticsProvider tableStatisticsProvider;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final boolean registerTableProcedureEnabled;
 
@@ -93,12 +95,14 @@ public class RegisterTableProcedure
             DeltaLakeMetadataFactory metadataFactory,
             TransactionLogAccess transactionLogAccess,
             CachingExtendedStatisticsAccess statisticsAccess,
+            CachingTableStatisticsProvider tableStatisticsProvider,
             DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeConfig deltaLakeConfig)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.registerTableProcedureEnabled = deltaLakeConfig.isRegisterTableProcedureEnabled();
     }
@@ -171,6 +175,7 @@ public class RegisterTableProcedure
             }
 
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
+            tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(tableLocation));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
             // Verify we're registering a location with a valid table
             TableSnapshot tableSnapshot;

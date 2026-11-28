@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -74,6 +75,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeFileBasedTableStatisticsProvider
@@ -429,6 +431,29 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
         assertThat(second.getRowCount()).isEqualTo(first.getRowCount());
         assertThat(countingTransactionLogAccess.activeFilesLoads()).isEqualTo(2);
+    }
+
+    @Test
+    public void testStatisticsCachedForSameVersion()
+    {
+        CountingTransactionLogAccess countingTransactionLogAccess = new CountingTransactionLogAccess();
+        CachingTableStatisticsProvider provider = new CachingTableStatisticsProvider(
+                new FileBasedTableStatisticsProvider(typeManager, countingTransactionLogAccess, statistics),
+                new DeltaLakeConfig().setTableStatisticsCacheTtl(new Duration(1, HOURS)));
+        DeltaLakeTableHandle tableHandle = registerTable("basic_multi_file");
+        TableSnapshot tableSnapshot = loadSnapshot(tableHandle);
+
+        TableStatistics first = provider.getTableStatistics(SESSION, tableHandle, tableSnapshot, Optional.empty());
+        TableStatistics second = provider.getTableStatistics(SESSION, tableHandle, tableSnapshot, Optional.empty());
+        assertThat(second).isSameAs(first);
+        assertThat(countingTransactionLogAccess.activeFilesLoads()).isEqualTo(1);
+
+        provider.getTableStatistics(SESSION, tableHandle.withProjectedColumns(ImmutableSet.of((DeltaLakeColumnHandle) COLUMN_HANDLE)), tableSnapshot, Optional.empty());
+        assertThat(countingTransactionLogAccess.activeFilesLoads()).isEqualTo(2);
+
+        provider.invalidateCache(tableHandle.getSchemaTableName(), Optional.of(tableHandle.getLocation()));
+        provider.getTableStatistics(SESSION, tableHandle, tableSnapshot, Optional.empty());
+        assertThat(countingTransactionLogAccess.activeFilesLoads()).isEqualTo(3);
     }
 
     @Test

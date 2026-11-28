@@ -34,6 +34,7 @@ import io.trino.plugin.deltalake.procedure.UnregisterTableProcedure;
 import io.trino.plugin.deltalake.procedure.VacuumProcedure;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingTableStatisticsProvider;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
@@ -97,6 +98,8 @@ public class DeltaLakeModule
         binder.bind(DeltaLakeAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(DeltaLakeTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(CachingTableStatisticsProvider.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CachingTableStatisticsProvider.class).withGeneratedName();
         binder.bind(ConnectorSplitManager.class).to(DeltaLakeSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class)
                 .setDefault().to(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);

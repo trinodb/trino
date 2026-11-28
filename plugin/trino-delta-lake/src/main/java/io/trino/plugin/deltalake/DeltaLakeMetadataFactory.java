@@ -21,7 +21,7 @@ import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.FileBasedTableStatisticsProvider;
+import io.trino.plugin.deltalake.statistics.CachingTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
@@ -54,6 +54,7 @@ public class DeltaLakeMetadataFactory
     private final Node currentNode;
     private final CheckpointWriterManager checkpointWriterManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
+    private final CachingTableStatisticsProvider tableStatisticsProvider;
     private final int domainCompactionThreshold;
     private final boolean unsafeWritesEnabled;
     private final long checkpointWritingInterval;
@@ -82,6 +83,7 @@ public class DeltaLakeMetadataFactory
             Node currentNode,
             CheckpointWriterManager checkpointWriterManager,
             CachingExtendedStatisticsAccess statisticsAccess,
+            CachingTableStatisticsProvider tableStatisticsProvider,
             @AllowDeltaLakeManagedTableRename boolean allowManagedTableRename,
             @UsingSystemSecurity boolean useSystemSecurity,
             NodeVersion nodeVersion,
@@ -101,6 +103,7 @@ public class DeltaLakeMetadataFactory
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();
@@ -128,10 +131,6 @@ public class DeltaLakeMetadataFactory
                 hiveMetastoreFactory.createMetastore(Optional.of(identity)),
                 perTransactionMetastoreCacheMaximumSize);
         HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(cachingHiveMetastore);
-        FileBasedTableStatisticsProvider tableStatisticsProvider = new FileBasedTableStatisticsProvider(
-                typeManager,
-                transactionLogAccess,
-                statisticsAccess);
         TrinoViewHiveMetastore trinoViewHiveMetastore = new TrinoViewHiveMetastore(
                 cachingHiveMetastore,
                 usingSystemSecurity,

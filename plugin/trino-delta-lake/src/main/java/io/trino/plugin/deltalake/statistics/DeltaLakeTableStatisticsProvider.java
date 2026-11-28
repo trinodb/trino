@@ -17,6 +17,7 @@ import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.TableStatistics;
 
 import java.util.Optional;
@@ -24,4 +25,6 @@ import java.util.Optional;
 public interface DeltaLakeTableStatisticsProvider
 {
     TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, TableSnapshot tableSnapshot, Optional<DeltaLakeTableCredentials> tableCredentials);
+
+    default void invalidateCache(SchemaTableName schemaTableName, Optional<String> tableLocation) {}
 }
