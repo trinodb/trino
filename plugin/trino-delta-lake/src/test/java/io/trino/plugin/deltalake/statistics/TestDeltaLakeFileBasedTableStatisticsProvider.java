@@ -405,7 +405,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         TableStatistics projectedColumns = getTableStatistics(SESSION, tableHandle.withProjectedColumns(ImmutableSet.of(bigintColumn, doubleColumn)));
 
         assertThat(projectedColumns.getRowCount()).isEqualTo(Estimate.of(9));
-        assertThat(projectedColumns.getColumnStatistics().keySet()).isEqualTo(allColumns.getColumnStatistics().keySet());
+        assertThat(projectedColumns.getColumnStatistics().keySet()).containsExactlyInAnyOrder(bigintColumn, doubleColumn);
+        assertThat(allColumns.getColumnStatistics()).containsKeys(bigintColumn, doubleColumn);
         assertThat(projectedColumns.getColumnStatistics().get(bigintColumn).getRange().get().getMin()).isEqualTo(-10000000.0);
         assertThat(projectedColumns.getColumnStatistics().get(doubleColumn).getRange().get().getMax()).isEqualTo(0.321);
     }

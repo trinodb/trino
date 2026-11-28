@@ -89,7 +89,12 @@ public class FileBasedTableStatisticsProvider
 
         MetadataEntry metadata = tableHandle.getMetadataEntry();
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, tableHandle.getProtocolEntry(), typeManager);
+        Optional<Set<String>> projectedColumnNames = tableHandle.getProjectedColumns()
+                .map(projectedColumns -> projectedColumns.stream()
+                        .map(DeltaLakeColumnHandle::baseColumnName)
+                        .collect(toImmutableSet()));
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
+                .filter(columnMeta -> projectedColumnNames.map(names -> names.contains(columnMeta.name())).orElse(true))
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.name(),
                         columnMeta.type(),
