@@ -74,6 +74,7 @@ public class TableArgumentSpecification
          * The table argument has row semantics: the table function processes each input row independently.
          * Otherwise it has set semantics, and the table function processes each partition as a whole.
          * A table argument with row semantics cannot be partitioned or ordered, and it is always pruned when empty.
+         * If it is the only table argument, the input is provided page by page, see {@link TableFunctionProcessorState}.
          */
         public Builder rowSemantics()
         {

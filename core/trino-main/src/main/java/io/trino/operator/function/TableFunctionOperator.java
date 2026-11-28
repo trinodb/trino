@@ -50,6 +50,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static java.util.Collections.nCopies;
@@ -94,8 +95,8 @@ public class TableFunctionOperator
         // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
         private final boolean pruneWhenEmpty;
 
-        // partitioning channels from all sources
-        private final List<Integer> partitionChannels;
+        // partitioning channels from all sources; absent for a single source with row semantics
+        private final Optional<List<Integer>> partitionChannels;
 
         // subset of partition channels that are already grouped
         private final List<Integer> prePartitionedChannels;
@@ -127,7 +128,7 @@ public class TableFunctionOperator
                 Optional<Map<Integer, Integer>> markerChannels,
                 List<PassThroughColumnSpecification> passThroughSpecifications,
                 boolean pruneWhenEmpty,
-                List<Integer> partitionChannels,
+                Optional<List<Integer>> partitionChannels,
                 List<Integer> prePartitionedChannels,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
@@ -144,12 +145,12 @@ public class TableFunctionOperator
             requireNonNull(passThroughSpecifications, "passThroughSpecifications is null");
             requireNonNull(partitionChannels, "partitionChannels is null");
             requireNonNull(prePartitionedChannels, "prePartitionedChannels is null");
-            checkArgument(partitionChannels.containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
+            checkArgument(partitionChannels.orElse(ImmutableList.of()).containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
             requireNonNull(sortChannels, "sortChannels is null");
             requireNonNull(sortOrders, "sortOrders is null");
             checkArgument(sortChannels.size() == sortOrders.size(), "The number of sort channels must be equal to the number of sort orders");
             checkArgument(preSortedPrefix <= sortChannels.size(), "The number of pre-sorted channels must be lower or equal to the number of sort channels");
-            checkArgument(preSortedPrefix == 0 || ImmutableSet.copyOf(prePartitionedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedPrefix can only be greater than zero if all partition channels are pre-grouped");
+            checkArgument(preSortedPrefix == 0 || ImmutableSet.copyOf(prePartitionedChannels).equals(ImmutableSet.copyOf(partitionChannels.orElse(ImmutableList.of()))), "preSortedPrefix can only be greater than zero if all partition channels are pre-grouped");
             requireNonNull(sourceTypes, "sourceTypes is null");
             requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -166,7 +167,7 @@ public class TableFunctionOperator
             this.markerChannels = markerChannels.map(ImmutableMap::copyOf);
             this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
             this.pruneWhenEmpty = pruneWhenEmpty;
-            this.partitionChannels = ImmutableList.copyOf(partitionChannels);
+            this.partitionChannels = partitionChannels.map(ImmutableList::copyOf);
             this.prePartitionedChannels = ImmutableList.copyOf(prePartitionedChannels);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
             this.sortOrders = ImmutableList.copyOf(sortOrders);
@@ -255,7 +256,7 @@ public class TableFunctionOperator
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications,
             boolean pruneWhenEmpty,
-            List<Integer> partitionChannels,
+            Optional<List<Integer>> partitionChannels,
             List<Integer> prePartitionedChannels,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
@@ -273,12 +274,12 @@ public class TableFunctionOperator
         requireNonNull(passThroughSpecifications, "passThroughSpecifications is null");
         requireNonNull(partitionChannels, "partitionChannels is null");
         requireNonNull(prePartitionedChannels, "prePartitionedChannels is null");
-        checkArgument(partitionChannels.containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
+        checkArgument(partitionChannels.orElse(ImmutableList.of()).containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrders, "sortOrders is null");
         checkArgument(sortChannels.size() == sortOrders.size(), "The number of sort channels must be equal to the number of sort orders");
         checkArgument(preSortedPrefix <= sortChannels.size(), "The number of pre-sorted channels must be lower or equal to the number of sort channels");
-        checkArgument(preSortedPrefix == 0 || ImmutableSet.copyOf(prePartitionedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedPrefix can only be greater than zero if all partition channels are pre-grouped");
+        checkArgument(preSortedPrefix == 0 || ImmutableSet.copyOf(prePartitionedChannels).equals(ImmutableSet.copyOf(partitionChannels.orElse(ImmutableList.of()))), "preSortedPrefix can only be greater than zero if all partition channels are pre-grouped");
         requireNonNull(sourceTypes, "sourceTypes is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -288,23 +289,38 @@ public class TableFunctionOperator
 
         this.processEmptyInput = !pruneWhenEmpty;
 
-        PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-        HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels, prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
+        if (partitionChannels.isEmpty()) {
+            checkArgument(pruneWhenEmpty, "a source with row semantics must be pruned when empty");
+            this.outputPages = new StreamTableFunctionInput(
+                    pageBuffer.pages(),
+                    () -> createProcessor(tableFunctionProvider, functionHandle),
+                    properChannelsCount,
+                    passThroughSourcesCount,
+                    getOnlyElement(requiredChannels),
+                    passThroughSpecifications,
+                    sourceTypes,
+                    operatorContext.aggregateUserMemoryContext())
+                    .toOutputPages();
+        }
+        else {
+            PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
+            HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels.get(), prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
 
-        this.outputPages = pageBuffer.pages()
-                .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
-                .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
-                        groupPagesIndex,
-                        hashStrategies,
-                        tableFunctionProvider,
-                        functionHandle,
-                        properChannelsCount,
-                        passThroughSourcesCount,
-                        requiredChannels,
-                        markerChannels,
-                        passThroughSpecifications,
-                        processEmptyInput))
-                .flatMap(TableFunctionInput::toOutputPages);
+            this.outputPages = pageBuffer.pages()
+                    .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
+                    .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
+                            groupPagesIndex,
+                            hashStrategies,
+                            tableFunctionProvider,
+                            functionHandle,
+                            properChannelsCount,
+                            passThroughSourcesCount,
+                            requiredChannels,
+                            markerChannels,
+                            passThroughSpecifications,
+                            processEmptyInput))
+                    .flatMap(TableFunctionInput::toOutputPages);
+        }
     }
 
     @Override
@@ -338,7 +354,7 @@ public class TableFunctionOperator
     @Override
     public boolean needsInput()
     {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished() && !outputPages.isFinished();
     }
 
     @Override

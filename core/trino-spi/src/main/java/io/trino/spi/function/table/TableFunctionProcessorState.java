@@ -29,6 +29,9 @@ import static java.util.Objects.requireNonNull;
  * in order of the corresponding argument specifications. Entries in these columns are the indexes of input rows (from partition start) to be attached to output,
  * or null to indicate that a row of nulls should be attached instead of an input row. The indexes are validated to be within the portion of the partition
  * provided to the function so far.
+ * For a function whose only input table has row semantics, the input is not partitioned. The indexes are counted from the start of the input,
+ * and they are validated to be within the page provided in the current call. When no page is provided in that call, the only valid index value is null.
+ * The input is split into pages arbitrarily, so the function must not depend on where the pages begin and end.
  * Note: when the input is empty, the only valid index value is null, because there are no input rows that could be attached to output. In such case, for performance
  * reasons, the validation of indexes is skipped, and all pass-through columns are filled with nulls.
  */

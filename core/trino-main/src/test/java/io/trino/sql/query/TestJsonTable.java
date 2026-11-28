@@ -1044,4 +1044,22 @@ public class TestJsonTable
                 .matches(
                         "VALUES ('" + value1 + "', BIGINT '3000'), ('" + value2 + "', BIGINT '3000')");
     }
+
+    @Test
+    public void testPassThroughColumnsWithMultipleInputPages()
+    {
+        // 5000 input rows of over 1 kB each do not fit in a single page. The pass-through column (id)
+        // must match the value extracted from the JSON of the same input row, in every input page.
+        assertThat(assertions.query(
+                """
+                SELECT count(*), count_if(id = val)
+                FROM (
+                    SELECT x AS id, '{"id": ' || CAST(x AS varchar) || ', "padding": "' || rpad('', 1024, 'a') || '"}' AS json_col
+                    FROM UNNEST(sequence(1, 5000)) u(x)
+                    ORDER BY x
+                    LIMIT 5000) t,
+                JSON_TABLE(json_col, 'lax $' COLUMNS (val bigint PATH 'lax $.id'))
+                """))
+                .matches("VALUES (BIGINT '5000', BIGINT '5000')");
+    }
 }
