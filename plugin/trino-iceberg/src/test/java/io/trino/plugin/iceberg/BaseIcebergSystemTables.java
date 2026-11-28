@@ -64,6 +64,7 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
@@ -1031,6 +1032,60 @@ public abstract class BaseIcebergSystemTables
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null}\
                             }""");
+        }
+    }
+
+    @Test
+    void testEntriesHistoryAfterManifestRewrite()
+    {
+        try (TestTable table = newTrinoTable("test_entries_history", "(id BIGINT)")) {
+            assertThat(query("SELECT * FROM \"%s$entries\"".formatted(table.getName()))).returnsEmptyResult();
+            assertThat(query("SELECT * FROM \"%s$all_entries\"".formatted(table.getName()))).returnsEmptyResult();
+            Table icebergTable = loadTable(table.getName());
+            for (int i = 0; i < 2; i++) {
+                icebergTable.newFastAppend().appendFile(DataFiles.builder(icebergTable.spec())
+                        .withPath(icebergTable.location() + "/data/synthetic-" + i + ".parquet")
+                        .withFileSizeInBytes(1)
+                        .withRecordCount(1)
+                        .build()).commit();
+            }
+            List<MaterializedRow> addedEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(addedEntries).hasSize(2);
+            assertEqualsIgnoreOrder(computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows(), addedEntries);
+
+            icebergTable.rewriteManifests().clusterBy(_ -> 0).rewriteIf(_ -> true).commit();
+            List<MaterializedRow> rewrittenEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(rewrittenEntries).hasSize(2);
+            assertThat(rewrittenEntries).extracting(row -> row.getField(0)).containsExactly(0, 0);
+            assertEqualsIgnoreOrder(
+                    computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows(),
+                    ImmutableList.<MaterializedRow>builder().addAll(addedEntries).addAll(rewrittenEntries).build());
+            assertQuery("SELECT count(*) FROM \"%s$entries\"".formatted(table.getName()), "VALUES 2");
+            assertQuery("SELECT count(*) FROM \"%s$all_entries\"".formatted(table.getName()), "VALUES 4");
+            assertQuery("SELECT status, data_file.record_count FROM \"%s$all_entries\"".formatted(table.getName()), "VALUES (1, 1), (1, 1), (0, 1), (0, 1)");
+
+            icebergTable.newDelete().deleteFile(icebergTable.location() + "/data/synthetic-0.parquet").commit();
+            List<MaterializedRow> deletedEntries = computeActual("SELECT * FROM \"%s$entries\"".formatted(table.getName())).getMaterializedRows();
+            assertThat(deletedEntries).extracting(row -> row.getField(0)).containsExactlyInAnyOrder(0, 2);
+            assertEqualsIgnoreOrder(
+                    computeActual("SELECT * FROM \"%s$all_entries\"".formatted(table.getName())).getMaterializedRows(),
+                    ImmutableList.<MaterializedRow>builder()
+                            .addAll(addedEntries)
+                            .addAll(rewrittenEntries)
+                            .addAll(deletedEntries)
+                            .build());
+        }
+    }
+
+    @Test
+    void testEntriesAfterDropColumn()
+    {
+        try (TestTable table = newTrinoTable("test_entries_drop_column", "AS SELECT BIGINT '1' id, BIGINT '2' dropped")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN dropped");
+            for (String suffix : List.of("entries", "all_entries")) {
+                assertThat(query("SELECT data_file.lower_bounds, data_file.upper_bounds FROM \"%s$%s\"".formatted(table.getName(), suffix)))
+                        .matches("VALUES (MAP(ARRAY[1, 2], ARRAY[VARCHAR '1', NULL]), MAP(ARRAY[1, 2], ARRAY[VARCHAR '1', NULL]))");
+            }
         }
     }
 

@@ -40,5 +40,18 @@ public class IcebergManifestUtils
         return CloseableIterable.transform(manifestReader.liveEntries(), entry -> new FileEntryWithMetadata(entry.file(), entry.snapshotId()));
     }
 
+    public static <F extends ContentFile<F>> CloseableIterable<ManifestEntryWithMetadata> entriesWithMetadata(ManifestReader<F> manifestReader)
+    {
+        // The reader reuses entries, so callers must consume the file before advancing the iterator.
+        return CloseableIterable.transform(manifestReader.entries(), entry -> new ManifestEntryWithMetadata(
+                entry.file(),
+                entry.status().id(),
+                entry.snapshotId(),
+                entry.dataSequenceNumber(),
+                entry.fileSequenceNumber()));
+    }
+
+    public record ManifestEntryWithMetadata(ContentFile<?> file, int status, long snapshotId, Long sequenceNumber, Long fileSequenceNumber) {}
+
     public record FileEntryWithMetadata(ContentFile<?> file, long snapshotId) {}
 }

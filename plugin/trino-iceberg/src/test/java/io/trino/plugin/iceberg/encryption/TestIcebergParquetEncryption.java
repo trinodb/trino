@@ -63,6 +63,7 @@ import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintext
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintextDeletionVectors;
 import static io.trino.plugin.iceberg.util.EncryptedFileTestUtils.writePlaintextFileWithEncryptionKeyMetadata;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -100,6 +101,39 @@ final class TestIcebergParquetEncryption
     {
         catalog = getTrinoCatalog(getHiveMetastore(getQueryRunner()), getFileSystemFactory(getQueryRunner()), "iceberg");
         getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS tpch");
+    }
+
+    @Test
+    void testEncryptedEntriesMetadata()
+            throws Exception
+    {
+        String tableName = "test_encrypted_entries_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+        createIcebergTable(schemaTableName, TABLE_SCHEMA);
+        try {
+            Table table = catalog.loadTable(SESSION, schemaTableName);
+            setTableEncryptionKey(table, schemaTableName);
+            table = catalog.loadTable(SESSION, schemaTableName);
+            EncryptionManager encryptionManager = createEncryptionManager(TEST_KEY_ID, KMS_CLIENT);
+            for (int i = 0; i < 2; i++) {
+                table.newFastAppend()
+                        .appendFile(writeEncryptedDataFile(table, encryptionManager, createTestRecords(TABLE_SCHEMA, 1)))
+                        .commit();
+            }
+            invalidateTableCache(schemaTableName);
+            Table encryptedTable = catalog.loadTable(SESSION, schemaTableName);
+            assertThat(encryptedTable.currentSnapshot().keyId()).isNotNull();
+            assertThat(encryptedTable.currentSnapshot().allManifests(encryptedTable.io()))
+                    .allSatisfy(manifest -> assertThat(manifest.keyMetadata()).isNotNull());
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$entries\"", "VALUES 2");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$all_entries\"", "VALUES 2");
+            assertEqualsIgnoreOrder(
+                    computeActual("SELECT * FROM \"" + tableName + "$all_entries\"").getMaterializedRows(),
+                    computeActual("SELECT * FROM \"" + tableName + "$entries\"").getMaterializedRows());
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
