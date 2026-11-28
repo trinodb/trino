@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.JsonItems;
@@ -25,11 +26,13 @@ import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -38,6 +41,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -60,12 +64,14 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -73,6 +79,7 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFilterStatsCalculator
 {
@@ -177,6 +184,24 @@ public class TestFilterStatsCalculator
         assertExpression(TRUE).equalTo(standardInputStatistics);
         assertExpression(FALSE).equalTo(zeroStatistics);
         assertExpression(new Constant(BOOLEAN, null)).equalTo(zeroStatistics);
+    }
+
+    @Test
+    public void testSymbolComparisonIsNotSimplified()
+    {
+        // FilterStatsCalculator does not run the expression optimizer over a comparison of two
+        // symbols. That is only right as long as no optimizer rule rewrites one.
+        for (Type type : ImmutableList.of(BIGINT, DOUBLE, BOOLEAN, MEDIUM_VARCHAR_TYPE, createDecimalType(10, 2))) {
+            Reference left = new Reference(type, "left");
+            Reference right = new Reference(type, "right");
+            for (ComparisonOperator operator : ImmutableList.of(EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, IDENTICAL)) {
+                for (Expression comparison : ImmutableList.of(comparison(operator, left, right), comparison(operator, left, left))) {
+                    assertThat(PLANNER_CONTEXT.getExpressionOptimizer().process(comparison, session, new SymbolAllocator(extractUnique(comparison)), ImmutableMap.of()))
+                            .describedAs("%s", comparison)
+                            .isEmpty();
+                }
+            }
+        }
     }
 
     @Test

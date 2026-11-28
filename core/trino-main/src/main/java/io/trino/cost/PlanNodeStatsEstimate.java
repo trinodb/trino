@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
@@ -32,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeStatsEstimate
@@ -41,6 +43,13 @@ public class PlanNodeStatsEstimate
 
     private final double outputRowCount;
     private final Map<Symbol, SymbolStatsEstimate> symbolStatistics;
+    // The two sizes last asked for. Cost estimation asks for the size of the same output symbols
+    // of the same estimate again and again: about 28 times for every join the join enumerator
+    // considers. It needs two, because a join is costed in both orientations by turns and their
+    // output symbols differ in order, which the sum is sensitive to.
+    // Not volatile: the holders are immutable, so a race can only repeat the computation.
+    private OutputSize lastOutputSize;
+    private OutputSize previousOutputSize;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -55,6 +64,17 @@ public class PlanNodeStatsEstimate
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.symbolStatistics = ImmutableMap.copyOf(requireNonNull(symbolStatistics, "symbolStatistics is null"));
+    }
+
+    /**
+     * Takes the map as it is. Only for the builder, which hands over either the unchanged map of
+     * another estimate or a private copy that it does not modify again.
+     */
+    private PlanNodeStatsEstimate(Map<Symbol, SymbolStatsEstimate> symbolStatistics, double outputRowCount)
+    {
+        checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
+        this.outputRowCount = outputRowCount;
+        this.symbolStatistics = symbolStatistics;
     }
 
     /**
@@ -75,10 +95,26 @@ public class PlanNodeStatsEstimate
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
-        return outputSymbols.stream()
+        OutputSize last = lastOutputSize;
+        if (last != null && last.outputSymbols() == outputSymbols) {
+            return last.sizeInBytes();
+        }
+        OutputSize earlier = previousOutputSize;
+        if (earlier != null && earlier.outputSymbols() == outputSymbols) {
+            return earlier.sizeInBytes();
+        }
+        double outputSize = outputSymbols.stream()
                 .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), symbol.type()))
                 .sum();
+        if (outputSymbols instanceof ImmutableCollection) {
+            // only a collection that cannot change is safe to recognize by identity
+            previousOutputSize = last;
+            lastOutputSize = new OutputSize(outputSymbols, outputSize);
+        }
+        return outputSize;
     }
+
+    private record OutputSize(Collection<Symbol> outputSymbols, double sizeInBytes) {}
 
     private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics, Type type)
     {
@@ -205,7 +241,7 @@ public class PlanNodeStatsEstimate
 
         public Builder addSymbolStatistics(Symbol symbol, SymbolStatsEstimate statistics)
         {
-            mutableStatistics().put(symbol, statistics);
+            mutableStatistics().put(requireNonNull(symbol, "symbol is null"), requireNonNull(statistics, "statistics is null"));
             return this;
         }
 
@@ -232,7 +268,15 @@ public class PlanNodeStatsEstimate
 
         public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeStatsEstimate(outputRowCount, symbolStatistics);
+            if (ownStatistics) {
+                // Hand the private copy over instead of copying it into an immutable map: join
+                // stats build several estimates per join, and that copy was a tenth of join
+                // enumeration. The view iterates in the order the immutable copy would have had,
+                // and a later mutation of this builder copies the map again.
+                symbolStatistics = unmodifiableMap(symbolStatistics);
+                ownStatistics = false;
+            }
+            return new PlanNodeStatsEstimate(symbolStatistics, outputRowCount);
         }
     }
 }

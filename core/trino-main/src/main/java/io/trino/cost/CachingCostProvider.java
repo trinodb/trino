@@ -40,6 +40,11 @@ public class CachingCostProvider
 
     private final Map<PlanNode, PlanCostEstimate> cache = new IdentityHashMap<>(0);
 
+    // Read once per provider: the session cannot change, and the join enumerator asks a provider
+    // about ten times for every candidate join it costs
+    private boolean statsCalculatorEnabled;
+    private boolean statsCalculatorEnabledKnown;
+
     public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session)
     {
         this(costCalculator, statsProvider, Optional.empty(), session);
@@ -56,7 +61,7 @@ public class CachingCostProvider
     @Override
     public PlanCostEstimate getCost(PlanNode node)
     {
-        if (!isEnableStatsCalculator(session)) {
+        if (!isStatsCalculatorEnabled()) {
             return PlanCostEstimate.unknown();
         }
 
@@ -83,6 +88,15 @@ public class CachingCostProvider
             }
             throw e;
         }
+    }
+
+    private boolean isStatsCalculatorEnabled()
+    {
+        if (!statsCalculatorEnabledKnown) {
+            statsCalculatorEnabled = isEnableStatsCalculator(session);
+            statsCalculatorEnabledKnown = true;
+        }
+        return statsCalculatorEnabled;
     }
 
     private PlanCostEstimate getGroupCost(GroupReference groupReference)

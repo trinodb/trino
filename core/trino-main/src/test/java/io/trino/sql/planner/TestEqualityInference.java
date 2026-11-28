@@ -324,6 +324,49 @@ public class TestEqualityInference
     }
 
     @Test
+    public void testScopeStraddlingEqualities()
+    {
+        // one class of plain symbols, one with a symbol only on the complement side of most scopes,
+        // and one that mixes symbols with an expression
+        List<EqualityInference> inferences = ImmutableList.of(
+                new EqualityInference(
+                        PLANNER_CONTEXT,
+                        CHAR_VARCHAR_COERCION,
+                        equals("a1", "b1"),
+                        equals("b1", "c1"),
+                        equals("c1", "d1"),
+                        equals("a2", "b2")),
+                new EqualityInference(
+                        PLANNER_CONTEXT,
+                        CHAR_VARCHAR_COERCION,
+                        equals("a1", "b1"),
+                        equals(new Reference(BIGINT, "c1"), add("a1", "a2")),
+                        equals("d1", "c1"),
+                        equals("a2", "b2")));
+        List<Set<Symbol>> scopes = ImmutableList.of(
+                symbols(),
+                symbols("a1"),
+                symbols("d1"),
+                symbols("a1", "b1"),
+                symbols("b1", "c1", "b2"),
+                symbols("a1", "c1", "a2"),
+                symbols("a1", "b1", "c1", "d1"),
+                symbols("a1", "b1", "c1", "d1", "a2", "b2"));
+
+        for (EqualityInference inference : inferences) {
+            for (Set<Symbol> scope : scopes) {
+                assertThat(inference.generateScopeStraddlingEqualities(scope))
+                        .describedAs("scope %s", scope)
+                        .isEqualTo(inference.generateEqualitiesPartitionedBy(scope).scopeStraddlingEqualities());
+            }
+        }
+
+        // the class of plain symbols straddles a scope with one equality between the canonical symbols of each side
+        assertThat(inferences.get(0).generateScopeStraddlingEqualities(symbols("b1", "c1", "b2")))
+                .containsExactlyInAnyOrder(equals("b1", "a1"), equals("b2", "a2"));
+    }
+
+    @Test
     public void testEqualityGeneration()
     {
         EqualityInference inference = new EqualityInference(

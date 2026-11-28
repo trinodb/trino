@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.adjustReplicatedJoinLocalExchangeCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
@@ -339,11 +338,11 @@ public class CostCalculatorUsingExchanges
 
         private PlanCostEstimate costForLookupJoin(PlanNode node, LocalCostEstimate localCost)
         {
-            verify(node.getSources().size() == 2, "Unexpected number of sources for %s: %s", node, node.getSources());
-            List<PlanCostEstimate> sourcesCosts = getSourcesEstimations(node).collect(toImmutableList());
-            verify(sourcesCosts.size() == 2);
-            PlanCostEstimate probeCost = sourcesCosts.get(0);
-            PlanCostEstimate buildCost = sourcesCosts.get(1);
+            List<PlanNode> sources = node.getSources();
+            verify(sources.size() == 2, "Unexpected number of sources for %s: %s", node, sources);
+            // asked for one by one: the join enumerator costs four variants of every candidate join
+            PlanCostEstimate probeCost = sourcesCosts.getCost(sources.get(0));
+            PlanCostEstimate buildCost = sourcesCosts.getCost(sources.get(1));
 
             return new PlanCostEstimate(
                     probeCost.getCpuCost() + buildCost.getCpuCost() + localCost.getCpuCost(),
