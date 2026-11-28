@@ -21,7 +21,8 @@ import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -145,7 +146,7 @@ public class PagesRTreeIndex
     public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, OptionalInt probePartitionChannel)
     {
         Block probeBlock = probe.getBlock(probeGeometryChannel);
-        VariableWidthBlock probeGeometryBlock = (VariableWidthBlock) probeBlock.getUnderlyingValueBlock();
+        ValueBlock probeGeometryBlock = probeBlock.getUnderlyingValueBlock();
         int probePosition = probeBlock.getUnderlyingValuePosition(position);
 
         if (probeGeometryBlock.isNull(probePosition)) {
@@ -154,7 +155,7 @@ public class PagesRTreeIndex
 
         int probePartition = probePartitionChannel.isPresent() ? INTEGER.getInt(probe.getBlock(probePartitionChannel.orElseThrow()), position) : -1;
 
-        Slice slice = probeGeometryBlock.getSlice(probePosition);
+        Slice slice = VariableWidthValues.getSlice(probeGeometryBlock, probePosition);
         Geometry probeGeometry = deserialize(slice);
         verifyNotNull(probeGeometry);
         if (probeGeometry.isEmpty()) {

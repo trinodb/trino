@@ -19,8 +19,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.StridedVariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
@@ -109,8 +112,8 @@ public abstract class AbstractVariableWidthType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        int length = variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
+        ValueBlock variableWidthBlock = block.getUnderlyingValueBlock();
+        int length = VariableWidthValues.getSliceLength(variableWidthBlock, block.getUnderlyingValuePosition(position));
         if (length <= MAX_SHORT_FLAT_LENGTH) {
             return 0;
         }
@@ -223,16 +226,27 @@ public abstract class AbstractVariableWidthType
 
         @ScalarOperator(READ_VALUE)
         private static void writeFlatFromBlock(
-                @BlockPosition VariableWidthBlock block,
+                @BlockPosition ValueBlock block,
                 @BlockIndex int position,
                 @FlatFixed byte[] fixedSizeSlice,
                 @FlatFixedOffset int fixedSizeOffset,
                 @FlatVariableWidth byte[] variableSizeSlice,
                 @FlatVariableOffset int variableSizeOffset)
         {
-            Slice rawSlice = block.getRawSlice();
-            int rawSliceOffset = block.getRawSliceOffset(position);
-            int length = block.getSliceLength(position);
+            if (VariableWidthValues.STRIDED && block instanceof StridedVariableWidthBlock strided) {
+                int length = strided.getSliceLength(position);
+                writeFlatVariableLength(length, fixedSizeSlice, fixedSizeOffset);
+                if (length <= MAX_SHORT_FLAT_LENGTH) {
+                    strided.copyValue(position, fixedSizeSlice, fixedSizeOffset + 1);
+                }
+                else {
+                    strided.copyValue(position, variableSizeSlice, variableSizeOffset);
+                }
+                return;
+            }
+            Slice rawSlice = VariableWidthValues.getRawSlice(block);
+            int rawSliceOffset = VariableWidthValues.getRawSliceOffset(block, position);
+            int length = VariableWidthValues.getSliceLength(block, position);
 
             writeFlatVariableLength(length, fixedSizeSlice, fixedSizeOffset);
             byte[] bytes;
@@ -258,31 +272,37 @@ public abstract class AbstractVariableWidthType
         }
 
         @ScalarOperator(EQUAL)
-        private static boolean equalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+        private static boolean equalOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
         {
-            Slice leftRawSlice = leftBlock.getRawSlice();
-            int leftRawSliceOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = leftBlock.getSliceLength(leftPosition);
+            if (VariableWidthValues.STRIDED && leftBlock instanceof StridedVariableWidthBlock left && rightBlock instanceof StridedVariableWidthBlock right) {
+                return left.valueEquals(leftPosition, right, rightPosition);
+            }
+            Slice leftRawSlice = VariableWidthValues.getRawSlice(leftBlock);
+            int leftRawSliceOffset = VariableWidthValues.getRawSliceOffset(leftBlock, leftPosition);
+            int leftLength = VariableWidthValues.getSliceLength(leftBlock, leftPosition);
 
-            Slice rightRawSlice = rightBlock.getRawSlice();
-            int rightRawSliceOffset = rightBlock.getRawSliceOffset(rightPosition);
-            int rightLength = rightBlock.getSliceLength(rightPosition);
+            Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
+            int rightRawSliceOffset = VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition);
+            int rightLength = VariableWidthValues.getSliceLength(rightBlock, rightPosition);
 
             return leftRawSlice.equals(leftRawSliceOffset, leftLength, rightRawSlice, rightRawSliceOffset, rightLength);
         }
 
         @ScalarOperator(EQUAL)
-        private static boolean equalOperator(Slice left, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+        private static boolean equalOperator(Slice left, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
         {
             return equalOperator(rightBlock, rightPosition, left);
         }
 
         @ScalarOperator(EQUAL)
-        private static boolean equalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, Slice right)
+        private static boolean equalOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, Slice right)
         {
-            Slice leftRawSlice = leftBlock.getRawSlice();
-            int leftRawSliceOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = leftBlock.getSliceLength(leftPosition);
+            if (VariableWidthValues.STRIDED && leftBlock instanceof StridedVariableWidthBlock left) {
+                return left.valueEquals(leftPosition, right.byteArray(), right.byteArrayOffset(), right.length());
+            }
+            Slice leftRawSlice = VariableWidthValues.getRawSlice(leftBlock);
+            int leftRawSliceOffset = VariableWidthValues.getRawSliceOffset(leftBlock, leftPosition);
+            int leftLength = VariableWidthValues.getSliceLength(leftBlock, leftPosition);
 
             return leftRawSlice.equals(leftRawSliceOffset, leftLength, right, 0, right.length());
         }
@@ -318,7 +338,7 @@ public abstract class AbstractVariableWidthType
 
         @ScalarOperator(EQUAL)
         private static boolean equalOperator(
-                @BlockPosition VariableWidthBlock leftBlock,
+                @BlockPosition ValueBlock leftBlock,
                 @BlockIndex int leftPosition,
                 @FlatFixed byte[] rightFixedSizeSlice,
                 @FlatFixedOffset int rightFixedSizeOffset,
@@ -340,14 +360,20 @@ public abstract class AbstractVariableWidthType
                 @FlatFixedOffset int leftFixedSizeOffset,
                 @FlatVariableWidth byte[] leftVariableSizeSlice,
                 @FlatVariableOffset int leftVariableSizeOffset,
-                @BlockPosition VariableWidthBlock rightBlock,
+                @BlockPosition ValueBlock rightBlock,
                 @BlockIndex int rightPosition)
         {
             int leftLength = readVariableWidthLength(leftFixedSizeSlice, leftFixedSizeOffset);
+            if (VariableWidthValues.STRIDED && rightBlock instanceof StridedVariableWidthBlock right) {
+                if (leftLength <= MAX_SHORT_FLAT_LENGTH) {
+                    return right.valueEquals(rightPosition, leftFixedSizeSlice, leftFixedSizeOffset + 1, leftLength);
+                }
+                return right.valueEquals(rightPosition, leftVariableSizeSlice, leftVariableSizeOffset, leftLength);
+            }
 
-            Slice rightRawSlice = rightBlock.getRawSlice();
-            int rightRawSliceOffset = rightBlock.getRawSliceOffset(rightPosition);
-            int rightLength = rightBlock.getSliceLength(rightPosition);
+            Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
+            int rightRawSliceOffset = VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition);
+            int rightLength = VariableWidthValues.getSliceLength(rightBlock, rightPosition);
 
             if (leftLength != rightLength) {
                 return false;
@@ -373,9 +399,12 @@ public abstract class AbstractVariableWidthType
         }
 
         @ScalarOperator(XX_HASH_64)
-        private static long xxHash64Operator(@BlockPosition VariableWidthBlock block, @BlockIndex int position)
+        private static long xxHash64Operator(@BlockPosition ValueBlock block, @BlockIndex int position)
         {
-            return XxHash64.hash(block.getRawSlice(), block.getRawSliceOffset(position), block.getSliceLength(position));
+            if (VariableWidthValues.STRIDED && block instanceof StridedVariableWidthBlock strided) {
+                return strided.valueHash(position);
+            }
+            return XxHash64.hash(VariableWidthValues.getRawSlice(block), VariableWidthValues.getRawSliceOffset(block, position), VariableWidthValues.getSliceLength(block, position));
         }
 
         @ScalarOperator(XX_HASH_64)
@@ -409,35 +438,44 @@ public abstract class AbstractVariableWidthType
         }
 
         @ScalarOperator(COMPARISON_UNORDERED_LAST)
-        private static long comparisonOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+        private static long comparisonOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
         {
-            Slice leftRawSlice = leftBlock.getRawSlice();
-            int leftRawSliceOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = leftBlock.getSliceLength(leftPosition);
+            if (VariableWidthValues.STRIDED && leftBlock instanceof StridedVariableWidthBlock left && rightBlock instanceof StridedVariableWidthBlock right) {
+                return left.compareValue(leftPosition, right, rightPosition);
+            }
+            Slice leftRawSlice = VariableWidthValues.getRawSlice(leftBlock);
+            int leftRawSliceOffset = VariableWidthValues.getRawSliceOffset(leftBlock, leftPosition);
+            int leftLength = VariableWidthValues.getSliceLength(leftBlock, leftPosition);
 
-            Slice rightRawSlice = rightBlock.getRawSlice();
-            int rightRawSliceOffset = rightBlock.getRawSliceOffset(rightPosition);
-            int rightLength = rightBlock.getSliceLength(rightPosition);
+            Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
+            int rightRawSliceOffset = VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition);
+            int rightLength = VariableWidthValues.getSliceLength(rightBlock, rightPosition);
 
             return leftRawSlice.compareTo(leftRawSliceOffset, leftLength, rightRawSlice, rightRawSliceOffset, rightLength);
         }
 
         @ScalarOperator(COMPARISON_UNORDERED_LAST)
-        private static long comparisonOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, Slice right)
+        private static long comparisonOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, Slice right)
         {
-            Slice leftRawSlice = leftBlock.getRawSlice();
-            int leftRawSliceOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = leftBlock.getSliceLength(leftPosition);
+            if (VariableWidthValues.STRIDED && leftBlock instanceof StridedVariableWidthBlock left) {
+                return left.compareValue(leftPosition, right.byteArray(), right.byteArrayOffset(), right.length());
+            }
+            Slice leftRawSlice = VariableWidthValues.getRawSlice(leftBlock);
+            int leftRawSliceOffset = VariableWidthValues.getRawSliceOffset(leftBlock, leftPosition);
+            int leftLength = VariableWidthValues.getSliceLength(leftBlock, leftPosition);
 
             return leftRawSlice.compareTo(leftRawSliceOffset, leftLength, right, 0, right.length());
         }
 
         @ScalarOperator(COMPARISON_UNORDERED_LAST)
-        private static long comparisonOperator(Slice left, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+        private static long comparisonOperator(Slice left, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
         {
-            Slice rightRawSlice = rightBlock.getRawSlice();
-            int rightRawSliceOffset = rightBlock.getRawSliceOffset(rightPosition);
-            int rightLength = rightBlock.getSliceLength(rightPosition);
+            if (VariableWidthValues.STRIDED && rightBlock instanceof StridedVariableWidthBlock right) {
+                return -right.compareValue(rightPosition, left.byteArray(), left.byteArrayOffset(), left.length());
+            }
+            Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
+            int rightRawSliceOffset = VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition);
+            int rightLength = VariableWidthValues.getSliceLength(rightBlock, rightPosition);
 
             return left.compareTo(0, left.length(), rightRawSlice, rightRawSliceOffset, rightLength);
         }

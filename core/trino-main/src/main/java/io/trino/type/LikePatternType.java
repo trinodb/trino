@@ -17,8 +17,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeDescriptor;
 
@@ -51,9 +52,9 @@ public class LikePatternType
             return null;
         }
 
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        Slice slice = valueBlock.getSlice(valuePosition);
+        Slice slice = VariableWidthValues.getSlice(valueBlock, valuePosition);
 
         // layout is: <patternLength> <pattern> <hasEscape> <escape>?
         int length = slice.getInt(0);
@@ -76,9 +77,9 @@ public class LikePatternType
             return null;
         }
 
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        Slice slice = valueBlock.getSlice(valuePosition);
+        Slice slice = VariableWidthValues.getSlice(valueBlock, valuePosition);
 
         // layout is: <patternLength> <pattern> <hasEscape> <escape>?
         int length = slice.getInt(0);

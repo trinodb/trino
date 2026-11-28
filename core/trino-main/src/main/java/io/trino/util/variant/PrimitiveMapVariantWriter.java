@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.MapType;
 import io.trino.spi.variant.Metadata;
 import it.unimi.dsi.fastutil.ints.IntArrays;
@@ -127,7 +128,7 @@ public record PrimitiveMapVariantWriter(MapType type, PrimitiveVariantEncoder va
     static List<Slice> getMapKeys(SqlMap sqlMap)
     {
         Block keyBlock = sqlMap.getRawKeyBlock();
-        VariableWidthBlock underlyingBlock = (VariableWidthBlock) keyBlock.getUnderlyingValueBlock();
+        ValueBlock underlyingBlock = keyBlock.getUnderlyingValueBlock();
         int offset = sqlMap.getRawOffset();
         int size = sqlMap.getSize();
         ImmutableSet.Builder<Slice> keySet = ImmutableSet.builderWithExpectedSize(size);
@@ -136,7 +137,7 @@ public record PrimitiveMapVariantWriter(MapType type, PrimitiveVariantEncoder va
             if (underlyingBlock.isNull(underlyingPosition)) {
                 throw new IllegalArgumentException("Map key is null");
             }
-            keySet.add(underlyingBlock.getSlice(underlyingPosition));
+            keySet.add(VariableWidthValues.getSlice(underlyingBlock, underlyingPosition));
         }
         // ImmutableSet as list preserves insertion order
         List<Slice> keys = keySet.build().asList();

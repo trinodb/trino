@@ -18,8 +18,9 @@ import io.airlift.slice.Slices;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeDescriptor;
 
@@ -53,9 +54,9 @@ public class JsonPathType
             return null;
         }
 
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        String pattern = valueBlock.getSlice(valuePosition).toStringUtf8();
+        String pattern = VariableWidthValues.getSlice(valueBlock, valuePosition).toStringUtf8();
         return new JsonPath(pattern);
     }
 

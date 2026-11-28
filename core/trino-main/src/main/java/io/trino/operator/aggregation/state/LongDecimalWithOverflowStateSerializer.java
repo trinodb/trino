@@ -17,7 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
@@ -65,11 +66,10 @@ public class LongDecimalWithOverflowStateSerializer
         }
 
         index = block.getUnderlyingValuePosition(index);
-        block = block.getUnderlyingValueBlock();
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
-        Slice slice = variableWidthBlock.getRawSlice();
-        int sliceOffset = variableWidthBlock.getRawSliceOffset(index);
-        int sliceLength = variableWidthBlock.getSliceLength(index);
+        ValueBlock variableWidthBlock = block.getUnderlyingValueBlock();
+        Slice slice = VariableWidthValues.getRawSlice(variableWidthBlock);
+        int sliceOffset = VariableWidthValues.getRawSliceOffset(variableWidthBlock, index);
+        int sliceLength = VariableWidthValues.getSliceLength(variableWidthBlock, index);
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();

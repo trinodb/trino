@@ -17,7 +17,10 @@ import com.google.common.base.Joiner;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.StridedVariableWidthBlock;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -76,6 +79,9 @@ public final class PageValidations
     private static boolean isBlockValidForType(Block block, Type type)
     {
         ValueBlock underlyingValueBlock = block.getUnderlyingValueBlock();
+        if (VariableWidthValues.STRIDED && underlyingValueBlock instanceof StridedVariableWidthBlock) {
+            return type.getValueBlockType() == VariableWidthBlock.class;
+        }
         return type.getValueBlockType().isInstance(underlyingValueBlock);
     }
 

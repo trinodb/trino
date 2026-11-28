@@ -31,6 +31,7 @@ import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.ShortArrayBlockEncoding;
+import io.trino.spi.block.StridedVariableWidthBlockEncoding;
 import io.trino.spi.block.VariableWidthBlockEncoding;
 import io.trino.spi.block.VariantBlockEncoding;
 
@@ -61,6 +62,7 @@ public final class BlockEncodingManager
         // add the built-in BlockEncodings
         SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
         addBlockEncoding(new VariableWidthBlockEncoding());
+        addBlockEncoding(new StridedVariableWidthBlockEncoding());
         addBlockEncoding(new BitArrayBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.supports(COMPRESS_BYTE), simdSupport.supports(EXPAND_BYTE)));
         addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.supports(COMPRESS_SHORT), simdSupport.supports(EXPAND_SHORT)));

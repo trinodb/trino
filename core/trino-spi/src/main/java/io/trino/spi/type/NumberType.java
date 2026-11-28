@@ -18,8 +18,9 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.Unstable;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
@@ -158,9 +159,9 @@ public class NumberType
     @Override
     public Object getObject(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        Slice slice = valueBlock.getSlice(valuePosition);
+        Slice slice = VariableWidthValues.getSlice(valueBlock, valuePosition);
         return new TrinoNumber(slice);
     }
 
@@ -209,8 +210,8 @@ public class NumberType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        int length = variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
+        ValueBlock variableWidthBlock = block.getUnderlyingValueBlock();
+        int length = VariableWidthValues.getSliceLength(variableWidthBlock, block.getUnderlyingValuePosition(position));
         verify(length <= 0xFF, "Length out of range: %s", length);
         return length;
     }
@@ -261,24 +262,22 @@ public class NumberType
 
     @ScalarOperator(READ_VALUE)
     private static void writeFlatFromBlock(
-            @BlockPosition VariableWidthBlock block,
+            @BlockPosition ValueBlock block,
             @BlockIndex int position,
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
             @FlatVariableWidth byte[] variableSizeSlice,
             @FlatVariableOffset int variableSizeOffset)
     {
-        Slice rawSlice = block.getRawSlice();
-        int rawSliceOffset = block.getRawSliceOffset(position);
-        int length = block.getSliceLength(position);
+        int length = VariableWidthValues.getSliceLength(block, position);
 
         verify(length <= 0xFF, "Length out of range: %s", length);
         fixedSizeSlice[fixedSizeOffset] = (byte) length;
-        rawSlice.getBytes(rawSliceOffset, variableSizeSlice, variableSizeOffset, length);
+        VariableWidthValues.copyValue(block, position, variableSizeSlice, variableSizeOffset, length);
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
     {
         return identicalOperator(leftBlock, leftPosition, rightBlock, rightPosition) && !isNaN(leftBlock, leftPosition);
     }
@@ -304,7 +303,7 @@ public class NumberType
             @FlatFixedOffset int leftFixedSizeOffset,
             @FlatVariableWidth byte[] leftVariableSizeSlice,
             @FlatVariableOffset int leftVariableSizeOffset,
-            @BlockPosition VariableWidthBlock rightBlock,
+            @BlockPosition ValueBlock rightBlock,
             @BlockIndex int rightPosition)
     {
         return identicalOperator(leftFixedSizeSlice, leftFixedSizeOffset, leftVariableSizeSlice, leftVariableSizeOffset, rightBlock, rightPosition) &&
@@ -313,7 +312,7 @@ public class NumberType
 
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(
-            @BlockPosition VariableWidthBlock leftBlock,
+            @BlockPosition ValueBlock leftBlock,
             @BlockIndex int leftPosition,
             @FlatFixed byte[] rightFixedSizeSlice,
             @FlatFixedOffset int rightFixedSizeOffset,
@@ -324,14 +323,9 @@ public class NumberType
     }
 
     @ScalarOperator(IDENTICAL)
-    private static boolean identicalOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    private static boolean identicalOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
     {
-        return leftBlock.getRawSlice().equals(
-                leftBlock.getRawSliceOffset(leftPosition),
-                leftBlock.getSliceLength(leftPosition),
-                rightBlock.getRawSlice(),
-                rightBlock.getRawSliceOffset(rightPosition),
-                rightBlock.getSliceLength(rightPosition));
+        return VariableWidthValues.valueEquals(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
     @ScalarOperator(IDENTICAL)
@@ -362,12 +356,12 @@ public class NumberType
             @FlatFixedOffset int leftFixedSizeOffset,
             @FlatVariableWidth byte[] leftVariableSizeSlice,
             @FlatVariableOffset int leftVariableSizeOffset,
-            @BlockPosition VariableWidthBlock rightBlock,
+            @BlockPosition ValueBlock rightBlock,
             @BlockIndex int rightPosition)
     {
-        return rightBlock.getRawSlice().equals(
-                rightBlock.getRawSliceOffset(rightPosition),
-                rightBlock.getSliceLength(rightPosition),
+        return VariableWidthValues.valueEquals(
+                rightBlock,
+                rightPosition,
                 leftVariableSizeSlice,
                 leftVariableSizeOffset,
                 readFlatLength(leftFixedSizeSlice, leftFixedSizeOffset));
@@ -375,7 +369,7 @@ public class NumberType
 
     @ScalarOperator(IDENTICAL)
     private static boolean identicalOperator(
-            @BlockPosition VariableWidthBlock leftBlock,
+            @BlockPosition ValueBlock leftBlock,
             @BlockIndex int leftPosition,
             @FlatFixed byte[] rightFixedSizeSlice,
             @FlatFixedOffset int rightFixedSizeOffset,
@@ -385,10 +379,10 @@ public class NumberType
         return identicalOperator(rightFixedSizeSlice, rightFixedSizeOffset, rightVariableSizeSlice, rightVariableSizeOffset, leftBlock, leftPosition);
     }
 
-    private static boolean isNaN(VariableWidthBlock block, int position)
+    private static boolean isNaN(ValueBlock block, int position)
     {
-        Slice rawSlice = block.getRawSlice();
-        return isNaN(rawSlice.byteArray(), rawSlice.byteArrayOffset() + block.getRawSliceOffset(position), block.getSliceLength(position));
+        Slice rawSlice = VariableWidthValues.getRawSlice(block);
+        return isNaN(rawSlice.byteArray(), rawSlice.byteArrayOffset() + VariableWidthValues.getRawSliceOffset(block, position), VariableWidthValues.getSliceLength(block, position));
     }
 
     private static boolean isNaN(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
@@ -409,9 +403,9 @@ public class NumberType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition VariableWidthBlock block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition ValueBlock block, @BlockIndex int position)
     {
-        return XxHash64.hash(block.getRawSlice(), block.getRawSliceOffset(position), block.getSliceLength(position));
+        return VariableWidthValues.valueHash(block, position);
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -432,7 +426,7 @@ public class NumberType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareNaNLast(leftBlock, leftPosition, rightBlock, rightPosition);
     }
@@ -463,22 +457,22 @@ public class NumberType
             @FlatFixedOffset int leftFixedSizeOffset,
             @FlatVariableWidth byte[] leftVariableSizeSlice,
             @FlatVariableOffset int leftVariableSizeOffset,
-            @BlockPosition VariableWidthBlock rightBlock,
+            @BlockPosition ValueBlock rightBlock,
             @BlockIndex int rightPosition)
     {
-        Slice rightRawSlice = rightBlock.getRawSlice();
+        Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
         return compareNaNLast(
                 leftVariableSizeSlice,
                 leftVariableSizeOffset,
                 readFlatLength(leftFixedSizeSlice, leftFixedSizeOffset),
                 rightRawSlice.byteArray(),
-                rightRawSlice.byteArrayOffset() + rightBlock.getRawSliceOffset(rightPosition),
-                rightBlock.getSliceLength(rightPosition));
+                rightRawSlice.byteArrayOffset() + VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition),
+                VariableWidthValues.getSliceLength(rightBlock, rightPosition));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(
-            @BlockPosition VariableWidthBlock leftBlock,
+            @BlockPosition ValueBlock leftBlock,
             @BlockIndex int leftPosition,
             @FlatFixed byte[] rightFixedSizeSlice,
             @FlatFixedOffset int rightFixedSizeOffset,
@@ -501,17 +495,17 @@ public class NumberType
                 rightBytes.length());
     }
 
-    private static int compareNaNLast(VariableWidthBlock leftBlock, int leftPosition, VariableWidthBlock rightBlock, int rightPosition)
+    private static int compareNaNLast(ValueBlock leftBlock, int leftPosition, ValueBlock rightBlock, int rightPosition)
     {
-        Slice leftRawSlice = leftBlock.getRawSlice();
-        Slice rightRawSlice = rightBlock.getRawSlice();
+        Slice leftRawSlice = VariableWidthValues.getRawSlice(leftBlock);
+        Slice rightRawSlice = VariableWidthValues.getRawSlice(rightBlock);
         return compareNaNLast(
                 leftRawSlice.byteArray(),
-                leftRawSlice.byteArrayOffset() + leftBlock.getRawSliceOffset(leftPosition),
-                leftBlock.getSliceLength(leftPosition),
+                leftRawSlice.byteArrayOffset() + VariableWidthValues.getRawSliceOffset(leftBlock, leftPosition),
+                VariableWidthValues.getSliceLength(leftBlock, leftPosition),
                 rightRawSlice.byteArray(),
-                rightRawSlice.byteArrayOffset() + rightBlock.getRawSliceOffset(rightPosition),
-                rightBlock.getSliceLength(rightPosition));
+                rightRawSlice.byteArrayOffset() + VariableWidthValues.getRawSliceOffset(rightBlock, rightPosition),
+                VariableWidthValues.getSliceLength(rightBlock, rightPosition));
     }
 
     /// Compares encoded values in [TrinoNumber.AsBigDecimal#COMPARE_NAN_LAST] order.
@@ -639,7 +633,7 @@ public class NumberType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
     {
         return !isNaN(leftBlock, leftPosition) && !isNaN(rightBlock, rightPosition) && compareNaNLast(leftBlock, leftPosition, rightBlock, rightPosition) < 0;
     }
@@ -651,7 +645,7 @@ public class NumberType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition VariableWidthBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition VariableWidthBlock rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition ValueBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition ValueBlock rightBlock, @BlockIndex int rightPosition)
     {
         return !isNaN(leftBlock, leftPosition) && !isNaN(rightBlock, rightPosition) && compareNaNLast(leftBlock, leftPosition, rightBlock, rightPosition) <= 0;
     }

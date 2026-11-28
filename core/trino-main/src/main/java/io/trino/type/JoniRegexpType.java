@@ -16,8 +16,9 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeDescriptor;
 
@@ -47,9 +48,9 @@ public class JoniRegexpType
             return null;
         }
 
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition).toStringUtf8();
+        return VariableWidthValues.getSlice(valueBlock, valuePosition).toStringUtf8();
     }
 
     @Override
@@ -59,9 +60,9 @@ public class JoniRegexpType
             return null;
         }
 
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return joniRegexp(valueBlock.getSlice(valuePosition));
+        return joniRegexp(VariableWidthValues.getSlice(valueBlock, valuePosition));
     }
 
     @Override

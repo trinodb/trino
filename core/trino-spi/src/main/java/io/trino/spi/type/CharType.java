@@ -19,8 +19,9 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.VariableWidthValues;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Arrays;
@@ -234,9 +235,9 @@ public final class CharType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition);
+        return VariableWidthValues.getSlice(valueBlock, valuePosition);
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)

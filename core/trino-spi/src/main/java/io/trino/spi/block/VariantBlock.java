@@ -135,11 +135,11 @@ public final class VariantBlock
     /// To look up a position of this block, add [#getRawOffset()] to it.
     public Header.BasicType getBasicType(int rawPosition)
     {
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) values.getUnderlyingValueBlock();
+        ValueBlock variableWidthBlock = values.getUnderlyingValueBlock();
         int valuePosition = values.getUnderlyingValuePosition(rawPosition);
 
-        Slice rawSlice = variableWidthBlock.getRawSlice();
-        int rawSliceOffset = variableWidthBlock.getRawSliceOffset(valuePosition);
+        Slice rawSlice = VariableWidthValues.getRawSlice(variableWidthBlock);
+        int rawSliceOffset = VariableWidthValues.getRawSliceOffset(variableWidthBlock, valuePosition);
         return Header.getBasicType(rawSlice.getByte(rawSliceOffset));
     }
 
@@ -323,9 +323,9 @@ public final class VariantBlock
 
     private static Slice getSlice(Block block, int position)
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition);
+        return VariableWidthValues.getSlice(valueBlock, valuePosition);
     }
 
     @Override
