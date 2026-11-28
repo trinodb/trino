@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -80,7 +81,7 @@ class TestS3PresigningThroughLoader
                     .setRoleSessionDuration(new Duration(3, HOURS))
                     .setPresignedUriLifetimeValidationEnabled(true);
 
-            S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config, new S3FileSystemStats());
+            S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config, new S3FileSystemStats(), Optional.empty());
             try (S3Client client = loader.createClient();
                     var presigner = createS3PreSigner(new S3PresignerSettings(config), client)) {
                 var signed = presigner.presignGetObject(GetObjectPresignRequest.builder()

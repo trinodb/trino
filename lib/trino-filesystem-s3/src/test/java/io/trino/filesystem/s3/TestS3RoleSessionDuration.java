@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -90,7 +91,7 @@ class TestS3RoleSessionDuration
             }
             assertThat(config.isPresignedUriLifetimeValidationEnabled()).isFalse();
 
-            S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config, new S3FileSystemStats());
+            S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config, new S3FileSystemStats(), Optional.empty());
             try (S3Client client = loader.createClient()) {
                 // Session used by the S3 client
                 client.serviceClientConfiguration().credentialsProvider().resolveIdentity().join();
