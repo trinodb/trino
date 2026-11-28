@@ -48,6 +48,35 @@ final class TestVariableWidthBlockBuilder
     }
 
     @Test
+    public void testRetainedSizeBeforeFirstPayload()
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, 8, 256);
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE);
+
+        builder.writeEntry(EMPTY_SLICE);
+        long sizeWithoutPayload = BLOCK_BUILDER_INSTANCE_SIZE + sizeOf(builder.buildValueBlock().getRawOffsets());
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(sizeWithoutPayload);
+
+        builder.writeEntry(utf8Slice("abc"));
+        VariableWidthBlock block = builder.buildValueBlock();
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(sizeWithoutPayload + sizeOf(block.getRawSlice().byteArray()));
+        assertThat(toStrings(block)).containsExactly("", "abc");
+    }
+
+    @Test
+    public void testEmptyValueBlockOwnsItsOffsets()
+    {
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, 8, 256);
+        int[] offsets = builder.buildValueBlock().getRawOffsets();
+        assertThat(offsets).containsExactly(0);
+        assertThat(builder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + sizeOf(offsets));
+        assertThat(builder.buildValueBlock().getRawOffsets()).isSameAs(offsets);
+
+        VariableWidthBlockBuilder other = new VariableWidthBlockBuilder(null, 8, 256);
+        assertThat(other.buildValueBlock().getRawOffsets()).isNotSameAs(offsets);
+    }
+
+    @Test
     public void testInitialEntryCapacity()
     {
         assertInitialEntryCapacity(0, 1, 1);
