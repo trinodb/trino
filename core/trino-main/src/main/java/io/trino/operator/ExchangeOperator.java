@@ -25,6 +25,7 @@ import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
@@ -152,6 +153,7 @@ public class ExchangeOperator
     private final PagesSerdeFactory serdeFactory;
     private final NoMoreSplitsTracker noMoreSplitsTracker;
     private final int operatorInstanceId;
+    private final LocalMemoryContext deserializerMemoryContext;
 
     private PageDeserializer deserializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
@@ -170,6 +172,7 @@ public class ExchangeOperator
         this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
         this.operatorInstanceId = operatorInstanceId;
+        this.deserializerMemoryContext = operatorContext.newLocalUserMemoryContext(ExchangeOperator.class.getSimpleName());
 
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
@@ -257,7 +260,7 @@ public class ExchangeOperator
         if (deserializer == null) {
             Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), exchangeDataSource);
             deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
-            operatorContext.localUserMemoryContext().setBytes(deserializer.getRetainedSizeInBytes());
+            deserializerMemoryContext.setBytes(deserializer.getRetainedSizeInBytes());
         }
 
         Page deserializedPage = deserializer.deserialize(page);
@@ -271,6 +274,7 @@ public class ExchangeOperator
     public void close()
     {
         updateExchangeDataSourceMetrics();
+        deserializerMemoryContext.close();
         exchangeDataSource.close();
     }
 

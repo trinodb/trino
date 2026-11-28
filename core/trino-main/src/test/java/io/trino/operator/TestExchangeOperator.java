@@ -46,6 +46,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,7 +63,9 @@ import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.operator.TestingTaskBuffer.PAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -263,6 +266,32 @@ public class TestExchangeOperator
 
         // wait for finished
         waitForFinished(operator);
+    }
+
+    @Test
+    public void testMemoryReservationIncludesBufferedPages()
+            throws Exception
+    {
+        taskBuffers.invalidateAll();
+
+        SourceOperator operator = createExchangeOperator();
+
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.noMoreSplits();
+        taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
+        assertEventually(() -> assertThat(getExchangeClientStatus(operator).getBufferedPages()).isEqualTo(2));
+
+        assertThat(operator.getOutput()).isNotNull();
+        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes())
+                .isEqualTo(getExchangeClientStatus(operator).getBufferedBytes() + SERDE_FACTORY.createDeserializer(Optional.empty()).getRetainedSizeInBytes());
+
+        waitForPages(operator, 1);
+        waitForFinished(operator);
+    }
+
+    private static DirectExchangeClientStatus getExchangeClientStatus(Operator operator)
+    {
+        return (DirectExchangeClientStatus) requireNonNull(operator.getOperatorContext().getOperatorStats().getInfo(), "operator info is null");
     }
 
     private SourceOperator createExchangeOperator()
