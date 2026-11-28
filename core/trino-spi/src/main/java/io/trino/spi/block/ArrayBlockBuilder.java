@@ -29,6 +29,7 @@ import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.setBits;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +38,7 @@ public class ArrayBlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayBlockBuilder.class);
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
+    private static final int[] INITIAL_OFFSETS = {0};
 
     private int positionCount;
 
@@ -45,7 +47,7 @@ public class ArrayBlockBuilder
     private boolean initialized;
     private final int initialEntryCount;
 
-    private int[] offsets = new int[1];
+    private int[] offsets = INITIAL_OFFSETS;
     @Nullable
     private long[] valueIsValid;
     private boolean hasNullValue;
@@ -202,9 +204,9 @@ public class ArrayBlockBuilder
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
 
-        ensureCapacity(positionCount + length);
-
         ArrayBlock arrayBlock = (ArrayBlock) block;
+        checkFromIndexSize(offset, length, arrayBlock.getPositionCount());
+        ensureCapacity(positionCount + length);
 
         int rawOffsetBase = arrayBlock.getOffsetBase();
         int[] rawOffsets = arrayBlock.getRawOffsets();
@@ -328,7 +330,7 @@ public class ArrayBlockBuilder
 
     private void updateRetainedSize()
     {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid) + sizeOf(offsets);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsValid) + (offsets == INITIAL_OFFSETS ? 0 : sizeOf(offsets));
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -351,6 +353,11 @@ public class ArrayBlockBuilder
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
+        if (offsets == INITIAL_OFFSETS) {
+            // ArrayBlock exposes its raw offsets, so an empty block needs builder-owned storage too.
+            offsets = new int[1];
+            updateRetainedSize();
         }
         return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsValid : null, offsets, values.build());
     }
