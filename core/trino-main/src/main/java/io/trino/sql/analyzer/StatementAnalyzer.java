@@ -6003,6 +6003,9 @@ class StatementAnalyzer
             // process expandable query -- recursion step
             Scope stepScope = process(step, parentScope);
 
+            verifyDeterministicRecursion(anchor, Optional.empty());
+            verifyDeterministicRecursion(step, Optional.empty());
+
             // verify anchor and step have matching descriptors
             RelationType anchorType = aliasedAnchorScope.getRelationType().withOnlyVisibleFields();
             RelationType stepType = stepScope.getRelationType().withOnlyVisibleFields();
@@ -6216,6 +6219,27 @@ class StatementAnalyzer
             }
 
             return aliases.build();
+        }
+
+        /// Recursion is unrolled into copies of the base and step relations that are each evaluated independently.
+        private void verifyDeterministicRecursion(Node root, Optional<Node> location)
+        {
+            preOrder(root).forEach(node -> {
+                switch (node) {
+                    case FunctionCall functionCall when !analysis.getResolvedFunction(functionCall).map(ResolvedFunction::deterministic).orElse(true) -> throw semanticException(NOT_SUPPORTED, location.orElse(functionCall), "non-deterministic function in recursive query");
+                    case SampledRelation sampledRelation -> throw semanticException(NOT_SUPPORTED, location.orElse(sampledRelation), "TABLESAMPLE in recursive query");
+                    case Table table -> {
+                        Optional<Node> tableLocation = Optional.of(location.orElse(table));
+                        Optional.ofNullable(analysis.getNamedQuery(table))
+                                .ifPresent(query -> verifyDeterministicRecursion(query, tableLocation));
+                        analysis.getRowFilters(table)
+                                .forEach(filter -> verifyDeterministicRecursion(filter, tableLocation));
+                        analysis.getColumnMasks(table).values()
+                                .forEach(mask -> verifyDeterministicRecursion(mask, tableLocation));
+                    }
+                    default -> {}
+                }
+            });
         }
 
         private ResolvedFunction getResolvedFunction(FunctionCall functionCall)
