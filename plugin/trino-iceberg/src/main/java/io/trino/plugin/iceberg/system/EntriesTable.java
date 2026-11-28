@@ -329,6 +329,10 @@ public class EntriesTable
         }
         blockBuilder.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
             Type type = idToTypeMapping.get(key);
+            if (type == null) {
+                // Bounds of a column dropped from the current schema
+                return;
+            }
             INTEGER.writeLong(keyBuilder, key);
             VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(type, Conversions.fromByteBuffer(type, value)));
         }));

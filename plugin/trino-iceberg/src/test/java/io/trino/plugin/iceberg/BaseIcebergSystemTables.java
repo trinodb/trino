@@ -904,6 +904,20 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testEntriesTableAfterDropColumn()
+    {
+        try (TestTable table = newTrinoTable("test_entries_drop_column", "AS SELECT 1 id, 'a' dropped")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN dropped");
+
+            for (String metadataTable : List.of("$entries", "$all_entries")) {
+                MaterializedRow dataFile = (MaterializedRow) computeScalar("SELECT data_file FROM \"" + table.getName() + metadataTable + "\"");
+                assertThat(dataFile.getField(10)).isEqualTo(Map.of(1, "1")); // lower_bounds
+                assertThat(dataFile.getField(11)).isEqualTo(Map.of(1, "1")); // upper_bounds
+            }
+        }
+    }
+
+    @Test
     void testEntriesTable()
     {
         try (TestTable table = newTrinoTable("test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
