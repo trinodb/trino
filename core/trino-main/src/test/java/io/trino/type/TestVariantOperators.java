@@ -1047,6 +1047,39 @@ class TestVariantOperators
     }
 
     @Test
+    void testVariantToRowCast()
+    {
+        // Field names match the lowercase form of the variant field name, and unknown fields are ignored
+        Variant object = Variant.ofObject(Map.of(
+                utf8Slice("Name"), Variant.ofString("alice"),
+                utf8Slice("ÉTAT"), Variant.ofInt(7),
+                utf8Slice("extra"), Variant.ofBoolean(true)));
+        assertThat(assertions.expression("CAST(a AS ROW(name VARCHAR, \"état\" INTEGER, missing BIGINT))")
+                .binding("a", toVariantLiteral(object)))
+                .asInstanceOf(list(Object.class))
+                .containsExactly("alice", 7, null);
+
+        Variant array = Variant.ofArray(Arrays.asList(
+                Variant.ofObject(Map.of(utf8Slice("KEY"), Variant.ofString("a"), utf8Slice("value"), Variant.ofString("x"))),
+                Variant.ofObject(Map.of(utf8Slice("key"), Variant.ofString("b"))),
+                Variant.NULL_VALUE));
+        assertThat(assertions.expression("CAST(a AS ARRAY(ROW(key VARCHAR, value VARCHAR)))")
+                .binding("a", toVariantLiteral(array)))
+                .asInstanceOf(list(List.class))
+                .containsExactly(
+                        Arrays.asList("a", "x"),
+                        Arrays.asList("b", null),
+                        null);
+
+        assertCastFromVariantThrows(Variant.ofObject(Map.of(utf8Slice("Name"), Variant.ofString("a"), utf8Slice("NAME"), Variant.ofString("b"))), "ROW(name VARCHAR)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Duplicate field: name");
+        assertCastFromVariantThrows(Variant.ofObject(Map.of(utf8Slice("état"), Variant.ofString("a"), utf8Slice("ÉTAT"), Variant.ofString("b"))), "ROW(\"état\" VARCHAR)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Duplicate field: état");
+    }
+
+    @Test
     void testArrayToVariantCast()
     {
         List<Integer> intElements = Arrays.asList(1, 10, 20, 30, 40, 50, 60, 70);
