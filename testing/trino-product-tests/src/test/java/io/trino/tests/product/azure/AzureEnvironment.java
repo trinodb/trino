@@ -105,8 +105,9 @@ public class AzureEnvironment
 
         hadoop = new HadoopContainer()
                 .withNetwork(network)
-                .withNetworkAliases(HadoopContainer.HOST_NAME);
-        configureHadoop(hadoop, abfsContainer, abfsAccount, abfsAccessKey, schemaName);
+                .withNetworkAliases(HadoopContainer.HOST_NAME)
+                .withAzureConfig(abfsAccount, abfsAccessKey);
+        configureHadoop(hadoop, abfsContainer, abfsAccount, schemaName);
         hadoop.waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
                 .withStartupTimeout(HADOOP_STARTUP_TIMEOUT));
         hadoop.start();
@@ -307,51 +308,23 @@ public class AzureEnvironment
         }
     }
 
-    private void configureHadoop(HadoopContainer container, String abfsContainer, String account, String accessKey, String schema)
+    private void configureHadoop(HadoopContainer container, String abfsContainer, String account, String schema)
     {
-        String coreSiteOverrides = readConfigFile("core-site-overrides-template.xml")
-                .replace("%ABFS_ACCOUNT%", account)
-                .replace("%ABFS_ACCESS_KEY%", accessKey)
-                .replace("</configuration>",
-                        """
-
-                            <property>
-                                <name>fs.abfs.impl</name>
-                                <value>org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem</value>
-                            </property>
-                            <property>
-                                <name>fs.AbstractFileSystem.abfs.impl</name>
-                                <value>org.apache.hadoop.fs.azurebfs.Abfs</value>
-                            </property>
-
-                        </configuration>
-                        """);
         String applyScript =
                 """
                 #!/bin/bash
                 set -euxo pipefail
-                if ! command -v xsltproc >/dev/null 2>&1; then
-                    dnf install -y libxslt
-                fi
                 cp -f /opt/hadoop/share/hadoop/tools/lib/hadoop-azure-*.jar /opt/hadoop/share/hadoop/common/lib/
                 cp -f /opt/hadoop/share/hadoop/tools/lib/azure-*.jar /opt/hadoop/share/hadoop/common/lib/
                 cp -f /opt/hadoop/share/hadoop/tools/lib/wildfly-openssl-*.jar /opt/hadoop/share/hadoop/common/lib/
                 cp -f /opt/hadoop/share/hadoop/common/lib/hadoop-azure-*.jar /opt/hive/lib/
                 cp -f /opt/hadoop/share/hadoop/common/lib/azure-*.jar /opt/hive/lib/
                 cp -f /opt/hadoop/share/hadoop/common/lib/wildfly-openssl-*.jar /opt/hive/lib/
-                CORE_SITE_PATH="/opt/hadoop/etc/hadoop/core-site.xml"
-                if [ -f /etc/hadoop/conf/core-site.xml ]; then
-                    CORE_SITE_PATH="/etc/hadoop/conf/core-site.xml"
-                fi
-                apply-site-xml-override "${CORE_SITE_PATH}" "/docker/trino-product-tests/conf/environment/multinode-azure/core-site-overrides.xml"
                 """;
 
         container.withEnv("ABFS_CONTAINER", abfsContainer);
         container.withEnv("ABFS_ACCOUNT", account);
         container.withEnv("ABFS_SCHEMA", schema);
-        container.withCopyToContainer(
-                Transferable.of(coreSiteOverrides),
-                "/docker/trino-product-tests/conf/environment/multinode-azure/core-site-overrides.xml");
         container.withCopyToContainer(
                 Transferable.of(applyScript, 0777),
                 "/etc/hadoop-init.d/apply-azure-config.sh");
