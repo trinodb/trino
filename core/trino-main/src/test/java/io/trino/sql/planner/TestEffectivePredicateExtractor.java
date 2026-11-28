@@ -57,6 +57,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
@@ -100,6 +101,7 @@ import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -110,11 +112,13 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
@@ -1097,6 +1101,95 @@ public class TestEffectivePredicateExtractor
 
         // Currently, only pull predicates through the source plan
         assertThat(normalizeConjuncts(effectivePredicate)).isEqualTo(normalizeConjuncts(and(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10)), lessThan(new Reference(BIGINT, "a"), bigintLiteral(100)))));
+    }
+
+    @Test
+    public void testUnionWithNonComparableSymbol()
+    {
+        Symbol outputA = new Symbol(BIGINT, "output_a");
+        Symbol outputSketch = new Symbol(HYPER_LOG_LOG, "output_sketch");
+
+        Symbol inputA1 = new Symbol(BIGINT, "input_a1");
+        Symbol inputSketch1 = new Symbol(HYPER_LOG_LOG, "input_sketch1");
+
+        Symbol inputA2 = new Symbol(BIGINT, "input_a2");
+        Symbol inputSketch2 = new Symbol(HYPER_LOG_LOG, "input_sketch2");
+
+        PlanNode source1 = filter(
+                tableScanNode(ImmutableMap.of(
+                        inputA1, new TestingColumnHandle("a1"),
+                        inputSketch1, new TestingColumnHandle("sketch1"))),
+                and(
+                        greaterThan(new Reference(BIGINT, inputA1.name()), bigintLiteral(10)),
+                        isNull(new Reference(HYPER_LOG_LOG, inputSketch1.name()))));
+
+        PlanNode source2 = filter(
+                tableScanNode(ImmutableMap.of(
+                        inputA2, new TestingColumnHandle("a2"),
+                        inputSketch2, new TestingColumnHandle("sketch2"))),
+                and(
+                        greaterThan(new Reference(BIGINT, inputA2.name()), bigintLiteral(10)),
+                        isNull(new Reference(HYPER_LOG_LOG, inputSketch2.name()))));
+
+        ImmutableListMultimap<Symbol, Symbol> mapping = ImmutableListMultimap.<Symbol, Symbol>builder()
+                .put(outputA, inputA1)
+                .put(outputA, inputA2)
+                .put(outputSketch, inputSketch1)
+                .put(outputSketch, inputSketch2)
+                .build();
+
+        PlanNode union = new UnionNode(
+                newId(),
+                ImmutableList.of(source1, source2),
+                mapping,
+                ImmutableList.copyOf(mapping.keySet()));
+
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                union);
+
+        assertThat(normalizeConjuncts(effectivePredicate))
+                .isEqualTo(normalizeConjuncts(
+                        greaterThan(new Reference(BIGINT, outputA.name()), bigintLiteral(10))));
+    }
+
+    @Test
+    public void testExchangeWithNonComparableSymbol()
+    {
+        Symbol outputA = new Symbol(BIGINT, "output_a");
+        Symbol outputSketch = new Symbol(HYPER_LOG_LOG, "output_sketch");
+
+        Symbol inputA = new Symbol(BIGINT, "input_a");
+        Symbol inputSketch = new Symbol(HYPER_LOG_LOG, "input_sketch");
+
+        PlanNode source = filter(
+                tableScanNode(ImmutableMap.of(
+                        inputA, new TestingColumnHandle("a"),
+                        inputSketch, new TestingColumnHandle("sketch"))),
+                and(
+                        greaterThan(new Reference(BIGINT, inputA.name()), bigintLiteral(10)),
+                        isNull(new Reference(HYPER_LOG_LOG, inputSketch.name()))));
+
+        ExchangeNode exchange = new ExchangeNode(
+                newId(),
+                ExchangeNode.Type.REPARTITION,
+                REMOTE,
+                new PartitioningScheme(
+                        Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()),
+                        ImmutableList.of(outputA, outputSketch)),
+                ImmutableList.of(source),
+                ImmutableList.of(ImmutableList.of(inputA, inputSketch)),
+                Optional.empty());
+
+        Expression effectivePredicate = effectivePredicateExtractor.extract(
+                SESSION,
+                emptySymbolAllocator(),
+                exchange);
+
+        assertThat(normalizeConjuncts(effectivePredicate))
+                .isEqualTo(normalizeConjuncts(
+                        greaterThan(new Reference(BIGINT, outputA.name()), bigintLiteral(10))));
     }
 
     private static TableScanNode tableScanNode(Map<Symbol, ColumnHandle> scanAssignments)

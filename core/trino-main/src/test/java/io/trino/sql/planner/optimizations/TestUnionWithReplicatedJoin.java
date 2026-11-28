@@ -14,8 +14,10 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableMap;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 
 public class TestUnionWithReplicatedJoin
@@ -24,5 +26,24 @@ public class TestUnionWithReplicatedJoin
     public TestUnionWithReplicatedJoin()
     {
         super(ImmutableMap.of(JOIN_DISTRIBUTION_TYPE, BROADCAST.name()));
+    }
+
+    @Test
+    public void testUnionWithNonComparableOutputAndJoin()
+    {
+        plan(
+                """
+                SELECT a.sketch
+                FROM (
+                    SELECT 1 AS id, empty_approx_set() AS sketch WHERE random() >= 0
+                    UNION ALL
+                    SELECT 2 AS id, empty_approx_set() AS sketch WHERE random() >= 0
+                ) a
+                INNER JOIN (
+                    SELECT * FROM (VALUES 1, 2) AS v(id) WHERE random() >= 0
+                ) b ON a.id = b.id
+                """,
+                OPTIMIZED_AND_VALIDATED,
+                false);
     }
 }

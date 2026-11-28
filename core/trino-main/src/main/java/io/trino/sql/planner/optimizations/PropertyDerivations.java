@@ -103,6 +103,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -681,7 +682,22 @@ public final class PropertyDerivations
                 Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
                 ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
 
-                entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
+                if (entries == null) {
+                    // Keep the first source's constants until there is another source to intersect.
+                    entries = translated.getConstants().entrySet();
+                }
+                else {
+                    // Only comparable constants can safely participate in an intersection.
+                    Set<Entry<Symbol, NullableValue>> comparableEntries = entries.stream()
+                            .filter(entry -> entry.getValue().getType().isComparable())
+                            .collect(toImmutableSet());
+
+                    Set<Entry<Symbol, NullableValue>> comparableConstants = translated.getConstants().entrySet().stream()
+                            .filter(entry -> entry.getValue().getType().isComparable())
+                            .collect(toImmutableSet());
+
+                    entries = Sets.intersection(comparableEntries, comparableConstants);
+                }
             }
             checkState(entries != null);
 
