@@ -23,6 +23,8 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -34,6 +36,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -43,14 +48,19 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -62,11 +72,15 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -76,13 +90,22 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 
@@ -91,6 +114,12 @@ public final class DuckDbClient
 {
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("DECIMAL\\((?<precision>[0-9]+),(?<scale>[0-9]+)\\)");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final DateTimeFormatter TIMESTAMPTZ_FORMATTER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormatter.ISO_LOCAL_DATE)
+            .appendLiteral(' ')
+            .append(DateTimeFormatter.ISO_LOCAL_TIME)
+            .appendOffset("+HH:mm", "+00")
+            .toFormatter(Locale.ENGLISH);
 
     @Inject
     public DuckDbClient(
@@ -185,6 +214,41 @@ public final class DuckDbClient
         if (mapping.isPresent()) {
             return mapping;
         }
+
+        // DuckDB JDBC reports Types.OTHER for certain types without a standard JDBC type code (e.g., timestamp_ns)
+        if (typeHandle.jdbcType() == Types.OTHER) {
+            switch (typeHandle.jdbcTypeName().orElse("").toLowerCase(Locale.ENGLISH)) {
+                case "timestamp_s" -> {
+                    return Optional.of(timestampColumnMapping(createTimestampType(0)));
+                }
+                case "timestamp_ms" -> {
+                    return Optional.of(timestampColumnMapping(createTimestampType(3)));
+                }
+                case "timestamp_ns" -> {
+                    TimestampType timestampType = createTimestampType(9);
+                    return Optional.of(ColumnMapping.objectMapping(
+                            timestampType,
+                            longTimestampReadFunction(timestampType),
+                            longTimestampWriteFunction(timestampType, 9),
+                            FULL_PUSHDOWN));
+                }
+                case "timestamptz", "timestamp with time zone" -> {
+                    return Optional.of(ColumnMapping.objectMapping(
+                            createTimestampWithTimeZoneType(6),
+                            longTimestampWithTimeZoneReadFunction(),
+                            longTimestampWithTimeZoneWriteFunction(),
+                            FULL_PUSHDOWN));
+                }
+                case "timestamptz_ns" -> {
+                    return Optional.of(ColumnMapping.objectMapping(
+                            createTimestampWithTimeZoneType(9),
+                            longTimestampWithTimeZoneNanosReadFunction(),
+                            longTimestampWithTimeZoneNanosWriteFunction(),
+                            FULL_PUSHDOWN));
+                }
+            }
+        }
+
         return switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
             case Types.TINYINT -> Optional.of(tinyintColumnMapping());
@@ -210,6 +274,12 @@ public final class DuckDbClient
                     DATE,
                     (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
                     dateWriteFunction()));
+            case Types.TIMESTAMP -> Optional.of(timestampColumnMapping(createTimestampType(6)));
+            case Types.TIMESTAMP_WITH_TIMEZONE -> Optional.of(ColumnMapping.objectMapping(
+                    createTimestampWithTimeZoneType(6),
+                    longTimestampWithTimeZoneReadFunction(),
+                    longTimestampWithTimeZoneWriteFunction(),
+                    FULL_PUSHDOWN));
             default -> {
                 if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
                     yield mapToUnboundedVarchar(typeHandle);
@@ -261,6 +331,23 @@ public final class DuckDbClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
+        if (type instanceof TimestampType timestampType) {
+            return switch (timestampType.getPrecision()) {
+                case 0 -> WriteMapping.longMapping("timestamp_s", timestampWriteFunction(timestampType));
+                case 3 -> WriteMapping.longMapping("timestamp_ms", timestampWriteFunction(timestampType));
+                case 6 -> WriteMapping.longMapping("timestamp", timestampWriteFunction(timestampType));
+                case 9 -> WriteMapping.objectMapping("timestamp_ns", longTimestampWriteFunction(timestampType, 9));
+                default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+            };
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            return switch (timestampWithTimeZoneType.getPrecision()) {
+                case 0, 3 -> WriteMapping.longMapping("timestamptz", shortTimestampWithTimeZoneWriteFunction());
+                case 6 -> WriteMapping.objectMapping("timestamptz", longTimestampWithTimeZoneWriteFunction());
+                case 9 -> WriteMapping.objectMapping("timestamptz_ns", longTimestampWithTimeZoneNanosWriteFunction());
+                default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+            };
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
@@ -281,5 +368,65 @@ public final class DuckDbClient
                 statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
             }
         };
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    // DuckDB does not store zone information in "timestamp with time zone" data type
+                    long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                    long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId()));
+                });
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    // DuckDB does not store zone information in "timestamp with time zone" data type
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            UTC_KEY);
+                });
+    }
+
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long millisUtc = unpackMillisUtc(value);
+            statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), UTC_KEY.getZoneId()));
+        };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneNanosReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    // DuckDB JDBC does not support getObject(..., OffsetDateTime.class) for TIMESTAMPTZ_NS
+                    OffsetDateTime offsetDateTime = OffsetDateTime.parse(resultSet.getString(columnIndex), TIMESTAMPTZ_FORMATTER);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            UTC_KEY);
+                });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneNanosWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    // DuckDB JDBC truncates OffsetDateTime to microsecond precision, so pass ISO string to preserve nanoseconds
+                    long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                    long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    statement.setString(index, OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId()).toString());
+                });
     }
 }

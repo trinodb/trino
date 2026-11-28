@@ -111,6 +111,24 @@ this table:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP_S`
+  - `TIMESTAMP(0)`
+  -
+* - `TIMESTAMP_MS`
+  - `TIMESTAMP(3)`
+  -
+* - `TIMESTAMP`
+  - `TIMESTAMP(6)`
+  -
+* - `TIMESTAMP_NS`
+  - `TIMESTAMP(9)`
+  -
+* - `TIMESTAMP WITH TIME ZONE` (`TIMESTAMPTZ`)
+  - `TIMESTAMP(6) WITH TIME ZONE`
+  - Time zone is not preserved and values are returned in UTC.
+* - `TIMESTAMPTZ_NS`
+  - `TIMESTAMP(9) WITH TIME ZONE`
+  - Time zone is not preserved and values are returned in UTC. Values are transferred as strings due to DuckDB JDBC driver limitations.
 :::
 
 No other types are supported.
@@ -160,6 +178,30 @@ this table:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP(0)`
+  - `TIMESTAMP_S`
+  -
+* - `TIMESTAMP(3)`
+  - `TIMESTAMP_MS`
+  -
+* - `TIMESTAMP(6)`
+  - `TIMESTAMP`
+  -
+* - `TIMESTAMP(9)`
+  - `TIMESTAMP_NS`
+  -
+* - `TIMESTAMP(0) WITH TIME ZONE`
+  - `TIMESTAMPTZ`
+  -
+* - `TIMESTAMP(3) WITH TIME ZONE`
+  - `TIMESTAMPTZ`
+  -
+* - `TIMESTAMP(6) WITH TIME ZONE`
+  - `TIMESTAMPTZ`
+  -
+* - `TIMESTAMP(9) WITH TIME ZONE`
+  - `TIMESTAMPTZ_NS`
+  - Values are transferred as strings to preserve nanosecond precision.
 :::
 
 No other types are supported.
