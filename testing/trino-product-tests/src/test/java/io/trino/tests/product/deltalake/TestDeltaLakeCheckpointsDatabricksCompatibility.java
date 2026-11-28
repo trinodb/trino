@@ -53,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
+@TestGroup.DeltaLakeDatabricksCheckpointsAndClones
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeCheckpointsDatabricksCompatibility
 {

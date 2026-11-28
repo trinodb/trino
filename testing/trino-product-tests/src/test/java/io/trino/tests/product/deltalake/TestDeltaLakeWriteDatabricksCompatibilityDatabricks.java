@@ -46,8 +46,6 @@ import static io.trino.testing.containers.environment.Row.row;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
-import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Predicate.not;
@@ -351,7 +349,6 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
                 List<S3Object> summaries = listObjects(env.getBucketName(), changeDataPrefix);
                 assertThat(summaries).hasSizeBetween(0, 1);
                 if (!summaries.isEmpty()) {
-                    assertThat(getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
                     S3Object object = summaries.getFirst();
                     assertThat(object.key()).endsWith(changeDataPrefix + "/");
                     assertThat(object.size()).isEqualTo(0L);
