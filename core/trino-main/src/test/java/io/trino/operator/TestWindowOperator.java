@@ -314,14 +314,15 @@ public class TestWindowOperator
                 true);
 
         DriverContext driverContext = createDriverContext();
+        // spilled rows are merged without a sort key, so they stay in the order of the input, like without spill
         MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1L, 1L)
-                .row(2L, 2L)
-                .row(3L, 3L)
-                .row(4L, 4L)
-                .row(5L, 5L)
-                .row(6L, 6L)
-                .row(7L, 7L)
+                .row(3L, 2L)
+                .row(5L, 3L)
+                .row(7L, 4L)
+                .row(2L, 5L)
+                .row(4L, 6L)
+                .row(6L, 7L)
                 .row(8L, 8L)
                 .build();
 

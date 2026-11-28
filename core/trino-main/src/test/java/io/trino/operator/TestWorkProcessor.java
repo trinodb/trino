@@ -21,7 +21,6 @@ import io.trino.operator.WorkProcessorAssertion.Transform;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -82,118 +81,6 @@ public class TestWorkProcessor
         assertThatThrownBy(iterator::hasNext)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Cannot iterate over blocking WorkProcessor");
-    }
-
-    @Test
-    @Timeout(10)
-    public void testMergeSorted()
-    {
-        List<ProcessState<Integer>> firstStream = ImmutableList.of(
-                ProcessState.ofResult(1),
-                ProcessState.ofResult(3),
-                ProcessState.yielded(),
-                ProcessState.ofResult(5),
-                ProcessState.finished());
-
-        SettableFuture<Void> secondFuture = SettableFuture.create();
-        List<ProcessState<Integer>> secondStream = ImmutableList.of(
-                ProcessState.ofResult(2),
-                ProcessState.ofResult(4),
-                ProcessState.blocked(secondFuture),
-                ProcessState.finished());
-
-        WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
-                ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
-                Comparator.comparingInt(firstInteger -> firstInteger));
-
-        // first stream result 1
-        assertResult(mergedStream, 1);
-
-        // second stream result 2
-        assertResult(mergedStream, 2);
-
-        // first stream result 3
-        assertResult(mergedStream, 3);
-
-        // first stream yield
-        assertYields(mergedStream);
-
-        // second stream result 4
-        assertResult(mergedStream, 4);
-
-        // second stream blocked
-        assertBlocks(mergedStream);
-
-        // second stream unblock
-        assertUnblocks(mergedStream, secondFuture);
-
-        // first stream result 5
-        assertResult(mergedStream, 5);
-
-        // both streams finished
-        assertFinishes(mergedStream);
-    }
-
-    @Test
-    @Timeout(10)
-    public void testMergeSortedEmptyStreams()
-    {
-        SettableFuture<Void> firstFuture = SettableFuture.create();
-        List<ProcessState<Integer>> firstStream = ImmutableList.of(
-                ProcessState.blocked(firstFuture),
-                ProcessState.yielded(),
-                ProcessState.finished());
-
-        SettableFuture<Void> secondFuture = SettableFuture.create();
-        List<ProcessState<Integer>> secondStream = ImmutableList.of(
-                ProcessState.blocked(secondFuture),
-                ProcessState.finished());
-
-        WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
-                ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
-                Comparator.comparingInt(firstInteger -> firstInteger));
-
-        assertThat(mergedStream.isBlocked()).isFalse();
-        assertThat(mergedStream.isFinished()).isFalse();
-
-        // first stream blocked
-        assertBlocks(mergedStream);
-
-        // first stream unblock
-        assertUnblocks(mergedStream, firstFuture);
-
-        // first stream yield
-        assertYields(mergedStream);
-
-        // second stream blocked
-        assertBlocks(mergedStream);
-
-        // first stream unblock
-        assertUnblocks(mergedStream, secondFuture);
-
-        // both streams finished
-        assertFinishes(mergedStream);
-    }
-
-    @Test
-    @Timeout(10)
-    public void testMergeSortedEmptyStreamsWithFinishedOnly()
-    {
-        List<ProcessState<Integer>> firstStream = ImmutableList.of(
-                ProcessState.finished());
-
-        List<ProcessState<Integer>> secondStream = ImmutableList.of(
-                ProcessState.finished());
-
-        WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
-                ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
-                Comparator.comparingInt(firstInteger -> firstInteger));
-
-        // before
-        assertThat(mergedStream.isBlocked()).isFalse();
-        assertThat(mergedStream.isFinished()).isFalse();
-
-        assertFinishes(mergedStream);
     }
 
     @Test

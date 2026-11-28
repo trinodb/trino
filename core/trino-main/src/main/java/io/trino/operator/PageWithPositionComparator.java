@@ -18,4 +18,14 @@ import io.trino.spi.Page;
 public interface PageWithPositionComparator
 {
     int compareTo(Page left, int leftPosition, Page right, int rightPosition);
+
+    /**
+     * Returns a value that orders rows consistently with {@link #compareTo}: when the prefixes of two rows differ,
+     * the row with the smaller prefix comes first. Rows with equal prefixes have to be compared with {@link #compareTo}.
+     * A comparator that cannot derive such a value returns the same prefix for every row.
+     */
+    default long sortKeyPrefix(Page page, int position)
+    {
+        return 0;
+    }
 }

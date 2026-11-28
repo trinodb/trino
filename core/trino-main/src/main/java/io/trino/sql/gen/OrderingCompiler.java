@@ -24,6 +24,7 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.log.Logger;
@@ -35,6 +36,7 @@ import io.trino.operator.PagesIndexComparator;
 import io.trino.operator.PagesIndexOrdering;
 import io.trino.operator.SimplePageWithPositionComparator;
 import io.trino.operator.SimplePagesIndexComparator;
+import io.trino.operator.SortKeyPrefix;
 import io.trino.operator.SyntheticAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -49,6 +51,7 @@ import org.weakref.jmx.Nested;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -57,12 +60,14 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -289,8 +294,40 @@ public class OrderingCompiler
         classDefinition.declareDefaultConstructor(a(PUBLIC));
 
         generateMergeSortCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
+        if (!sortChannels.isEmpty()) {
+            generateSortKeyPrefix(classDefinition, callSiteBinder, sortTypes.getFirst(), sortChannels.getFirst(), sortOrders.getFirst());
+        }
 
         return defineHiddenClass(classDefinition, PageWithPositionComparator.class, callSiteBinder.getClassData());
+    }
+
+    private static void generateSortKeyPrefix(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Type sortType, int sortChannel, SortOrder sortOrder)
+    {
+        Optional<SortKeyPrefix.Source> prefixSource = SortKeyPrefix.prefixSource(sortType);
+        if (prefixSource.isEmpty()) {
+            // the default implementation returns the same prefix for every row
+            return;
+        }
+
+        Parameter page = arg("page", Page.class);
+        Parameter position = arg("position", int.class);
+        MethodDefinition sortKeyPrefixMethod = classDefinition.declareMethod(a(PUBLIC), "sortKeyPrefix", type(long.class), page, position);
+        Variable block = sortKeyPrefixMethod.getScope().declareVariable(Block.class, "block");
+
+        BytecodeExpression prefix = switch (prefixSource.get()) {
+            case LONG -> constantType(callSiteBinder, sortType).invoke("getLong", long.class, block, position);
+            case BYTES -> invokeStatic(SortKeyPrefix.class, "bytesPrefix", long.class, block, position);
+        };
+        if (!sortOrder.isAscending()) {
+            prefix = invokeStatic(SortKeyPrefix.class, "descending", long.class, prefix);
+        }
+
+        sortKeyPrefixMethod.getBody()
+                .append(block.set(page.invoke("getBlock", Block.class, constantInt(sortChannel))))
+                .append(new IfStatement()
+                        .condition(block.invoke("isNull", boolean.class, position))
+                        .ifTrue(constantLong(SortKeyPrefix.nullPrefix(sortOrder)).ret()))
+                .append(prefix.ret());
     }
 
     private void generateMergeSortCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)

@@ -24,6 +24,7 @@ import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -40,6 +41,10 @@ public class SimplePageWithPositionComparator
 
     private final int[] sortChannels;
     private final MethodHandle[] orderingOperators;
+    // empty when a sort key prefix cannot be derived from the first sort channel
+    private final Optional<SortKeyPrefix.Source> prefixSource;
+    private final Optional<Type> prefixType;
+    private final Optional<SortOrder> prefixSortOrder;
 
     public SimplePageWithPositionComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, TypeOperators typeOperators)
     {
@@ -55,6 +60,31 @@ public class SimplePageWithPositionComparator
             SortOrder sortOrder = sortOrders.get(index);
             orderingOperators[index] = typeOperators.getOrderingOperator(type, sortOrder, INVOCATION_CONVENTION);
         }
+        this.prefixType = sortTypes.stream().findFirst();
+        this.prefixSortOrder = sortOrders.stream().findFirst();
+        this.prefixSource = prefixType.flatMap(SortKeyPrefix::prefixSource);
+    }
+
+    @Override
+    public long sortKeyPrefix(Page page, int position)
+    {
+        if (prefixSource.isEmpty()) {
+            return 0;
+        }
+
+        SortOrder sortOrder = prefixSortOrder.orElseThrow();
+        Block block = page.getBlock(sortChannels[0]);
+        if (block.isNull(position)) {
+            return SortKeyPrefix.nullPrefix(sortOrder);
+        }
+        long prefix = switch (prefixSource.get()) {
+            case LONG -> prefixType.orElseThrow().getLong(block, position);
+            case BYTES -> SortKeyPrefix.bytesPrefix(block, position);
+        };
+        if (sortOrder.isAscending()) {
+            return prefix;
+        }
+        return SortKeyPrefix.descending(prefix);
     }
 
     @Override

@@ -20,18 +20,14 @@ import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import jakarta.annotation.Nullable;
 
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
-import java.util.PriorityQueue;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public final class WorkProcessorUtils
@@ -104,50 +100,6 @@ public final class WorkProcessorUtils
             }
 
             return ProcessState.ofResult(iterator.next());
-        });
-    }
-
-    static <T> WorkProcessor<T> mergeSorted(Iterable<WorkProcessor<T>> processorIterable, Comparator<T> comparator)
-    {
-        requireNonNull(comparator, "comparator is null");
-        Iterator<WorkProcessor<T>> processorIterator = processorIterable.iterator();
-        checkArgument(processorIterator.hasNext(), "There must be at least one base processor");
-        PriorityQueue<ElementAndProcessor<T>> queue = new PriorityQueue<>(2, comparing(ElementAndProcessor::getElement, comparator));
-
-        return create(new WorkProcessor.Process<>()
-        {
-            WorkProcessor<T> processor = requireNonNull(processorIterator.next());
-
-            @Override
-            public ProcessState<T> process()
-            {
-                while (true) {
-                    if (processor.process()) {
-                        if (!processor.isFinished()) {
-                            queue.add(new ElementAndProcessor<>(processor.getResult(), processor));
-                        }
-                    }
-                    else if (processor.isBlocked()) {
-                        return ProcessState.blocked(processor.getBlockedFuture());
-                    }
-                    else {
-                        return ProcessState.yielded();
-                    }
-
-                    if (processorIterator.hasNext()) {
-                        processor = requireNonNull(processorIterator.next());
-                        continue;
-                    }
-
-                    if (queue.isEmpty()) {
-                        return ProcessState.finished();
-                    }
-
-                    ElementAndProcessor<T> elementAndProcessor = queue.poll();
-                    processor = elementAndProcessor.getProcessor();
-                    return ProcessState.ofResult(elementAndProcessor.getElement());
-                }
-            }
         });
     }
 
@@ -457,29 +409,6 @@ public final class WorkProcessorUtils
         {
             checkState(state.getType() == ProcessState.Type.RESULT, "process() must return true and must not be finished");
             return state.getResult();
-        }
-    }
-
-    private static class ElementAndProcessor<T>
-    {
-        @Nullable
-        final T element;
-        final WorkProcessor<T> processor;
-
-        ElementAndProcessor(T element, WorkProcessor<T> processor)
-        {
-            this.element = element;
-            this.processor = requireNonNull(processor, "processor is null");
-        }
-
-        T getElement()
-        {
-            return element;
-        }
-
-        WorkProcessor<T> getProcessor()
-        {
-            return processor;
         }
     }
 }
