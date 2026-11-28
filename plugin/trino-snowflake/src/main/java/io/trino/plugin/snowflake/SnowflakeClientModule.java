@@ -72,6 +72,8 @@ public class SnowflakeClientModule
         snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
         snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
+        snowflakeConfig.getPrivateKey().ifPresent(privateKey -> properties.setProperty("private_key_base64", privateKey));
+        snowflakeConfig.getPrivateKeyPassphrase().ifPresent(passphrase -> properties.setProperty("private_key_pwd", passphrase));
 
         setOutputProperties(properties);
 
