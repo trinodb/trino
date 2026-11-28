@@ -1572,6 +1572,7 @@ public class DeltaLakeMetadata
                     }
                     protocolEntry = protocolEntryForTable(ProtocolEntry.builder(tableHandle.getProtocolEntry()), containsTimestampType, tableMetadata.getProperties());
                     statisticsAccess.deleteExtendedStatistics(session, schemaTableName, location, tableCredentials);
+                    tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(location));
                 }
                 else {
                     setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
@@ -1612,6 +1613,7 @@ public class DeltaLakeMetadata
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
+        tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(location));
         transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
         if (replaceExistingTable) {
             metastore.replaceTable(table, principalPrivileges);
@@ -2009,6 +2011,7 @@ public class DeltaLakeMetadata
 
             // As a precaution, clear the caches
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
+            tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(location));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
             if (handle.readVersion().isPresent()) {
                 metastore.replaceTable(table, principalPrivileges);
@@ -2304,6 +2307,7 @@ public class DeltaLakeMetadata
                         existingStatistics.getAnalyzedColumns()
                                 .map(analyzedColumns -> analyzedColumns.stream().filter(column -> !column.equalsIgnoreCase(dropColumnName)).collect(toImmutableSet())));
                 statisticsAccess.updateExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), tableCredentials, statistics);
+                tableStatisticsProvider.invalidateCache(table.getSchemaTableName(), Optional.of(table.getLocation()));
             });
         }
         catch (Exception e) {
@@ -3537,6 +3541,7 @@ public class DeltaLakeMetadata
         }
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(handle.schemaTableName(), Optional.of(handle.location()));
+        tableStatisticsProvider.invalidateCache(handle.schemaTableName(), Optional.of(handle.location()));
         transactionLogAccess.invalidateCache(handle.schemaTableName(), Optional.of(handle.location()));
     }
 
@@ -4414,6 +4419,7 @@ public class DeltaLakeMetadata
 
         try {
             statisticsAccess.updateExtendedStatistics(session, schemaTableName, location, tableCredentials, mergedExtendedStatistics);
+            tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(location));
         }
         catch (Exception e) {
             if (ignoreFailure) {

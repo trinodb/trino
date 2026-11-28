@@ -61,6 +61,8 @@ public class DeltaLakeConfig
 
     private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
+    private Duration tableStatisticsCacheTtl = new Duration(0, SECONDS);
+    private DataSize tableStatisticsCacheMaxRetainedSize = DataSize.of(64, MEGABYTE);
     private DataSize transactionLogMaxCachedFileSize = DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
     private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
@@ -122,6 +124,32 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMetadataCacheMaxRetainedSize(DataSize metadataCacheMaxRetainedSize)
     {
         this.metadataCacheMaxRetainedSize = metadataCacheMaxRetainedSize;
+        return this;
+    }
+
+    public Duration getTableStatisticsCacheTtl()
+    {
+        return tableStatisticsCacheTtl;
+    }
+
+    @Config("delta.table-statistics.cache-ttl")
+    @ConfigDescription("Caching duration for table statistics computed from the transaction log. 0s disables the cache")
+    public DeltaLakeConfig setTableStatisticsCacheTtl(Duration tableStatisticsCacheTtl)
+    {
+        this.tableStatisticsCacheTtl = tableStatisticsCacheTtl;
+        return this;
+    }
+
+    public DataSize getTableStatisticsCacheMaxRetainedSize()
+    {
+        return tableStatisticsCacheMaxRetainedSize;
+    }
+
+    @Config("delta.table-statistics.cache-max-retained-size")
+    @ConfigDescription("Maximum retained size of table statistics stored in cache")
+    public DeltaLakeConfig setTableStatisticsCacheMaxRetainedSize(DataSize tableStatisticsCacheMaxRetainedSize)
+    {
+        this.tableStatisticsCacheMaxRetainedSize = tableStatisticsCacheMaxRetainedSize;
         return this;
     }
 

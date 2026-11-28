@@ -21,6 +21,7 @@ import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -61,13 +62,19 @@ public class UnregisterTableProcedure
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statisticsAccess;
+    private final CachingTableStatisticsProvider tableStatisticsProvider;
 
     @Inject
-    public UnregisterTableProcedure(DeltaLakeMetadataFactory metadataFactory, TransactionLogAccess transactionLogAccess, CachingExtendedStatisticsAccess statisticsAccess)
+    public UnregisterTableProcedure(
+            DeltaLakeMetadataFactory metadataFactory,
+            TransactionLogAccess transactionLogAccess,
+            CachingExtendedStatisticsAccess statisticsAccess,
+            CachingTableStatisticsProvider tableStatisticsProvider)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
     }
 
     @Override
@@ -106,6 +113,7 @@ public class UnregisterTableProcedure
             metadata.getMetastore().dropTable(schemaTableName, tableHandle.location(), false);
             // As a precaution, clear the caches
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
+            tableStatisticsProvider.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
         }
     }
