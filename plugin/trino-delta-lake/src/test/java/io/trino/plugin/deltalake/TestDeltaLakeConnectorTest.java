@@ -5969,6 +5969,13 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterAlterColumn()
     {
+        // Run exclusively, as a concurrent listing query from another test may enqueue a stale version that replaces a newer one.
+        // The stale value is not used by Trino, but this test reads the metastore directly.
+        executeExclusively(this::testMetastoreAfterAlterColumnUnsafe);
+    }
+
+    private void testMetastoreAfterAlterColumnUnsafe()
+    {
         // Use 'name' column mapping mode to allow renaming columns
         try (TestTable table = newTrinoTable("test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
             Map<String, String> initialParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
@@ -6097,6 +6104,13 @@ public class TestDeltaLakeConnectorTest
 
     @Test
     public void testMetastoreAfterDataManipulation()
+    {
+        // Run exclusively, as a concurrent listing query from another test may enqueue a stale version that replaces a newer one.
+        // The stale value is not used by Trino, but this test reads the metastore directly.
+        executeExclusively(this::testMetastoreAfterDataManipulationUnsafe);
+    }
+
+    private void testMetastoreAfterDataManipulationUnsafe()
     {
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
