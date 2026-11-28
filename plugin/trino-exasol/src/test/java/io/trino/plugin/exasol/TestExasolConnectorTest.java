@@ -39,6 +39,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 @Isolated
 final class TestExasolConnectorTest
@@ -416,5 +417,11 @@ final class TestExasolConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return exasolServer::execute;
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return abort("Exasol has no column collations");
     }
 }

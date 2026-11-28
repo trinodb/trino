@@ -1066,4 +1066,32 @@ public abstract class BaseSqlServerConnectorTest
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
     }
+
+    @Test
+    @Override
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: SQL Server treats [ in LIKE patterns as a wildcard
+        assertThatThrownBy(super::testDeleteWithCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(2))
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']");
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), namePrefix, "(k integer, v varchar(10) COLLATE Latin1_General_CS_AS)");
+    }
 }

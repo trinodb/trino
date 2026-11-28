@@ -19,6 +19,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -301,5 +302,45 @@ final class TestDuckDbConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return duckDb::execute;
+    }
+
+    @Test
+    @Override
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: the connector pushes filters and DISTINCT down for columns with a case-insensitive collation such as NOCASE
+        assertThatThrownBy(super::testCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(9))
+                .hasMessageContaining("[Incorrect results for v = 'a']")
+                .hasMessageContaining("[Incorrect results for v <> 'a']")
+                .hasMessageContaining("[Incorrect results for v IN ('a', 'b')]")
+                .hasMessageContaining("[Incorrect results for v NOT IN ('a', '')]")
+                .hasMessageContaining("[Incorrect results for v < 'b']")
+                .hasMessageContaining("[Incorrect results for v < 'a ']")
+                .hasMessageContaining("[Incorrect results for v BETWEEN 'a' AND 'b']")
+                .hasMessageContaining("[Incorrect results for SELECT DISTINCT v FROM %s]")
+                .hasMessageContaining("[Incorrect results for SELECT count(DISTINCT v) FROM %s]");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: the connector pushes filters down for columns with a case-insensitive collation such as NOCASE
+        assertThatThrownBy(super::testDeleteWithCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(7))
+                .hasMessageContaining("[Incorrect results for v = 'a']")
+                .hasMessageContaining("[Incorrect results for v <> 'a']")
+                .hasMessageContaining("[Incorrect results for v IN ('a', 'b')]")
+                .hasMessageContaining("[Incorrect results for v NOT IN ('a', '')]")
+                .hasMessageContaining("[Incorrect results for v < 'b']")
+                .hasMessageContaining("[Incorrect results for v < 'a ']")
+                .hasMessageContaining("[Incorrect results for v BETWEEN 'a' AND 'b']");
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), TPCH_SCHEMA + "." + namePrefix, "(k integer, v varchar(10) COLLATE NOCASE)");
     }
 }

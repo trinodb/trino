@@ -34,6 +34,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.assertj.core.error.AssertJMultipleFailuresError;
 import org.bson.Document;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
@@ -54,6 +55,8 @@ import java.util.Set;
 
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
+import static com.mongodb.client.model.CollationStrength.SECONDARY;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -2039,5 +2042,48 @@ public class TestMongoConnectorTest
         assertThat(results.getMaterializedRows().get(0).getFieldCount())
                 .isEqualTo(1);
         assertThat(results.getMaterializedRows().get(0).getField(0)).isNotNull();
+    }
+
+    @Test
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        assertSelectPushdownCorrectness(
+                () -> createCollatedVarcharTable("test_collated_varchar_pushdown_correctness"),
+                "varchar(10)",
+                varcharPushdownValues(),
+                varcharPushdownPredicates());
+    }
+
+    @Test
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: DELETE uses the collection's case-insensitive collation, but reads use the binary one, so = 'a' also deletes 'A'
+        assertThatThrownBy(() -> assertDeletePushdownCorrectness(
+                () -> createCollatedVarcharTable("test_delete_collated_varchar_pushdown_correctness"),
+                varcharPushdownValues(),
+                varcharPushdownPredicates()))
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(7))
+                .hasMessageContaining("[Incorrect results for v = 'a']")
+                .hasMessageContaining("[Incorrect results for v <> 'a']")
+                .hasMessageContaining("[Incorrect results for v IN ('a', 'b')]")
+                .hasMessageContaining("[Incorrect results for v NOT IN ('a', '')]")
+                .hasMessageContaining("[Incorrect results for v < 'b']")
+                .hasMessageContaining("[Incorrect results for v < 'a ']")
+                .hasMessageContaining("[Incorrect results for v BETWEEN 'a' AND 'b']");
+    }
+
+    private TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        TestTable table = newTrinoTable(namePrefix, "(k integer, v varchar(10))");
+        try {
+            MongoDatabase database = client.getDatabase(getSession().getSchema().orElseThrow());
+            database.getCollection(table.getName()).drop();
+            database.createCollection(table.getName(), new CreateCollectionOptions().collation(Collation.builder().locale("en_US").collationStrength(SECONDARY).build()));
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, table);
+            throw e;
+        }
+        return table;
     }
 }

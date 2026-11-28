@@ -119,6 +119,12 @@ public class TestPostgreSqlConnectorTest
         onRemoteDatabase().execute("CREATE EXTENSION IF NOT EXISTS file_fdw");
     }
 
+    @BeforeAll
+    public void createCaseInsensitiveCollation()
+    {
+        onRemoteDatabase().execute("CREATE COLLATION IF NOT EXISTS case_insensitive (provider = icu, locale = 'und-u-ks-level2', deterministic = false)");
+    }
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -1594,5 +1600,53 @@ public class TestPostgreSqlConnectorTest
         String tableName = testTable.getName();
         onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
         return testTable;
+    }
+
+    @Test
+    @Override
+    public void testCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: the connector pushes = and IN down for columns with a nondeterministic collation, and LIKE fails on them
+        assertThatThrownBy(super::testCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(12))
+                .hasMessageContaining("[Incorrect results for v = 'a']")
+                .hasMessageContaining("[Incorrect results for v IN ('a', 'b')]")
+                .hasMessageContaining("[Incorrect results for v LIKE 'a%']")
+                .hasMessageContaining("[Incorrect results for v NOT LIKE 'a%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\\\%' ESCAPE '\\']")
+                .hasMessageContaining("[Incorrect results for v LIKE 'x!_%' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%!%%' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithCollatedVarcharPushdownCorrectness()
+    {
+        // TODO Correctness issue: the connector pushes = and IN down for columns with a nondeterministic collation, and LIKE fails on them
+        assertThatThrownBy(super::testDeleteWithCollatedVarcharPushdownCorrectness)
+                .isInstanceOfSatisfying(AssertJMultipleFailuresError.class, error -> assertThat(error.getFailures()).hasSize(12))
+                .hasMessageContaining("[Incorrect results for v = 'a']")
+                .hasMessageContaining("[Incorrect results for v IN ('a', 'b')]")
+                .hasMessageContaining("[Incorrect results for v LIKE 'a%']")
+                .hasMessageContaining("[Incorrect results for v NOT LIKE 'a%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\_%']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]']")
+                .hasMessageContaining("[Incorrect results for v LIKE '_[a]' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%\\\\%' ESCAPE '\\']")
+                .hasMessageContaining("[Incorrect results for v LIKE 'x!_%' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%!%%' ESCAPE '!']")
+                .hasMessageContaining("[Incorrect results for v LIKE '%a\\%b%']");
+    }
+
+    @Override
+    protected TestTable createCollatedVarcharTable(String namePrefix)
+    {
+        return new TestTable(onRemoteDatabase(), "tpch." + namePrefix, "(k integer PRIMARY KEY, v varchar(10) COLLATE case_insensitive)");
     }
 }
