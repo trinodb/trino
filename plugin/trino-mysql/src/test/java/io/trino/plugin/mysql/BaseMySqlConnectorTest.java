@@ -35,12 +35,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -794,6 +796,28 @@ public abstract class BaseMySqlConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Test
+    public void testTopNPushdownAfterJoinAndAggregation()
+    {
+        try (TestTable events = new TestTable(onRemoteDatabase(), "tpch.topn_events", "(id bigint, amount bigint)", ImmutableList.of("1, 10", "1, 50", "2, 100", "3, 30", "3, 20"));
+                TestTable profiles = new TestTable(onRemoteDatabase(), "tpch.topn_profiles", "(id bigint)", ImmutableList.of("1", "2", "3"))) {
+            assertThat(query(joinPushdownEnabled(getSession()),
+                    """
+                    SELECT e.id, sum(e.amount) AS total
+                    FROM %s e JOIN %s p ON e.id = p.id
+                    GROUP BY e.id
+                    HAVING count(*) > 1
+                    ORDER BY total DESC
+                    LIMIT 1
+                    """.formatted(events.getName(), profiles.getName())))
+                    .hasPlan(anyTree(tableScan(
+                            handle -> handle instanceof JdbcTableHandle table && table.getSortOrder().isPresent() && table.getLimit().equals(OptionalLong.of(1)),
+                            TupleDomain.all(),
+                            ImmutableMap.of())))
+                    .matches("VALUES (BIGINT '1', BIGINT '60')");
+        }
     }
 
     @Test

@@ -893,21 +893,35 @@ public class PlanOptimizers
                         // to avoid temporarily having an invalid plan
                         new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
-        builder.add(new IterativeOptimizer(
-                "PushJoinIntoTableScan",
+        // Join pushdown must run after ReorderJoins and DetermineJoinDistributionType so it does not prevent optimal join planning.
+        IterativeOptimizer pushIntoTableScanWithJoins = new IterativeOptimizer(
+                "PushIntoTableScanWithJoins",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(pushIntoTableScanRulesExceptJoins)
-                        // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
-                        // otherwise too early pushdown could prevent optimal plan from being selected.
                         .add(new PushJoinIntoTableScan(plannerContext))
-                        // DetermineTableScanNodePartitioning is needed to ensure all table handles have proper partitioning determined
-                        // Must run before AddExchanges
-                        .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
-                        .build()));
+                        .build());
+        builder.add(pushIntoTableScanWithJoins);
+
+        // Projection pushdown over a newly pushed join can introduce aliases that hide the scan from other pushdown rules.
+        builder.add(new UnaliasSymbolReferences());
+        builder.add(pushIntoTableScanWithJoins.withName("PushIntoTableScanAfterJoinUnalias"));
+
+        // Aggregation pushdown can introduce new aliases that hide the scan from filter and Top-N pushdown.
+        builder.add(new UnaliasSymbolReferences());
+        builder.add(pushIntoTableScanWithJoins.withName("PushIntoTableScanAfterAggregationUnalias"));
+
+        // Pushdown can create new scans that need partitioning before AddExchanges.
+        builder.add(new IterativeOptimizer(
+                "DetermineTableScanNodePartitioning",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))));
 
         if (!forceSingleNode) {
             builder.add(
@@ -918,9 +932,6 @@ public class PlanOptimizers
                             statsCalculator,
                             costCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            // unalias symbols before adding exchanges to use same partitioning symbols in joins, aggregations and other
-            // operators that require node partitioning
-            builder.add(new UnaliasSymbolReferences());
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, statsCalculator, taskCountEstimator, nodePartitioningManager)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator, taskCountEstimator)));
