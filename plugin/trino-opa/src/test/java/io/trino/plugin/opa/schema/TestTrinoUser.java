@@ -49,6 +49,7 @@ final class TestTrinoUser
         assertThat(MAP_CODEC.fromJson(USER_CODEC.toJson(TrinoUser.createUser(identity, ImmutableSet.of("allowed")))))
                 .isEqualTo(Map.of(
                         "user", "source-user",
+                        "principal", "source-user",
                         "groups", List.of("some-group"),
                         "extraCredentials", Map.of("allowed", "value")));
     }
@@ -59,6 +60,6 @@ final class TestTrinoUser
         Identity identity = Identity.forUser("source-user").withGroups(ImmutableSet.of()).build();
 
         assertThat(MAP_CODEC.fromJson(USER_CODEC.toJson(TrinoUser.createUser(identity, ImmutableSet.of()))))
-                .isEqualTo(Map.of("user", "source-user", "groups", List.of()));
+                .isEqualTo(Map.of("user", "source-user", "principal", "source-user", "groups", List.of()));
     }
 }
