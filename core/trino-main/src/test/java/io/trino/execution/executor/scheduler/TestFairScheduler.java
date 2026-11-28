@@ -20,7 +20,10 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -127,10 +130,11 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testSubmitAfterClose()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testSubmitAfterClose(boolean virtualThreadsEnabled)
     {
-        FairScheduler scheduler = FairScheduler.newInstance(1);
+        FairScheduler scheduler = FairScheduler.newInstance(1, Ticker.systemTicker(), virtualThreadsEnabled);
         Group group = scheduler.createGroup("G");
         scheduler.close();
 
@@ -139,11 +143,12 @@ public class TestFairScheduler
                 .hasMessage("Already closed");
     }
 
-    @Test
-    public void testBasic()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testBasic(boolean virtualThreadsEnabled)
             throws ExecutionException, InterruptedException
     {
-        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, Ticker.systemTicker(), virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G1");
 
             AtomicBoolean ran = new AtomicBoolean();
@@ -156,10 +161,11 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testRunnerFailureFailsFuture()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testRunnerFailureFailsFuture(boolean virtualThreadsEnabled)
     {
-        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, Ticker.systemTicker(), virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G1");
 
             ListenableFuture<Void> done = scheduler.submit(group, 1, _ -> {
@@ -172,13 +178,14 @@ public class TestFairScheduler
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @Timeout(5)
-    public void testYield()
+    public void testYield(boolean virtualThreadsEnabled)
             throws ExecutionException, InterruptedException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G");
 
             CountDownLatch task1Started = new CountDownLatch(1);
@@ -207,13 +214,14 @@ public class TestFairScheduler
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @Timeout(10)
-    public void testYieldingTaskCompetesForItsSlot()
+    public void testYieldingTaskCompetesForItsSlot(boolean virtualThreadsEnabled)
             throws ExecutionException, InterruptedException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group heavyGroup = scheduler.createGroup("heavy");
             Group lightGroup = scheduler.createGroup("light");
             List<String> events = synchronizedList(new ArrayList<>());
@@ -255,13 +263,14 @@ public class TestFairScheduler
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @Timeout(10)
-    public void testCancelledYieldHandsOverSlot()
+    public void testCancelledYieldHandsOverSlot(boolean virtualThreadsEnabled)
             throws ExecutionException, InterruptedException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group waitingGroup = scheduler.createGroup("waiting");
             Group cancelledGroup = scheduler.createGroup("cancelled");
 
@@ -293,11 +302,12 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testBlocking()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testBlocking(boolean virtualThreadsEnabled)
             throws InterruptedException, ExecutionException
     {
-        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, Ticker.systemTicker(), virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G");
 
             CountDownLatch task1Started = new CountDownLatch(1);
@@ -346,12 +356,13 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testCancelWhileYielding()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testCancelWhileYielding(boolean virtualThreadsEnabled)
             throws InterruptedException, ExecutionException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G");
 
             CountDownLatch task1Started = new CountDownLatch(1);
@@ -386,12 +397,13 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testCancelWhileBlocking()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testCancelWhileBlocking(boolean virtualThreadsEnabled)
             throws InterruptedException, ExecutionException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G");
 
             CountDownLatch task1Started = new CountDownLatch(1);
@@ -414,12 +426,13 @@ public class TestFairScheduler
         }
     }
 
-    @Test
-    public void testCleanupAfterFinish()
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testCleanupAfterFinish(boolean virtualThreadsEnabled)
             throws InterruptedException, ExecutionException
     {
         TestingTicker ticker = new TestingTicker();
-        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker, virtualThreadsEnabled)) {
             Group group = scheduler.createGroup("G");
 
             AtomicInteger counter = new AtomicInteger();
@@ -430,6 +443,39 @@ public class TestFairScheduler
             task1.get();
             assertThat(counter.get()).isEqualTo(1);
             assertThat(scheduler.getTasks(group)).isEmpty();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testVirtualThreadTasksLeaveCarrierFree()
+            throws InterruptedException
+    {
+        int carriers = FairScheduler.virtualThreadCarriers();
+        try (FairScheduler scheduler = FairScheduler.newInstance(2 * carriers, Ticker.systemTicker(), true)) {
+            Group group = scheduler.createGroup("G");
+
+            AtomicBoolean stop = new AtomicBoolean();
+            CountDownLatch started = new CountDownLatch(carriers - 1);
+            try {
+                for (int id = 0; id < 2 * carriers; id++) {
+                    scheduler.submit(group, id, _ -> {
+                        started.countDown();
+                        while (!stop.get()) {
+                            Thread.onSpinWait();
+                        }
+                    });
+                }
+                started.await();
+
+                Thread probe = Thread.ofVirtual().start(() -> {});
+                assertThat(probe.join(Duration.ofSeconds(10)))
+                        .describedAs("Virtual thread ran while tasks spin")
+                        .isTrue();
+            }
+            finally {
+                stop.set(true);
+            }
         }
     }
 
